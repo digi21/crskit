@@ -12,7 +12,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO digi21/crskit
     REF "v${VERSION}"
-    SHA512 0
+    SHA512 88acacdfc346f1ef8a425e17d2eac59a02fc62d273b1b4bda7f2b2788c4056e2a9a11109ced97684bde5fb5860a7b34a00d7ddc1f34f572215c73b8c1cdc626b
     HEAD_REF main
 )
 
