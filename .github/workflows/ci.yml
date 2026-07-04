@@ -45,6 +45,11 @@ jobs:
 
       - name: Test
         if: ${{ steps.epsg.outputs.db != '' }}
+        env:
+          # A few tests need NTv2/geoid grid files (ICSM Australia, NRCan Canada, IGN Spain) that are
+          # licence-restricted and cannot be redistributed, so they are excluded here. They run locally
+          # where the grids are installed; the TestGridFile suite skips itself when a grid is absent.
+          GTEST_FILTER: "-Test5207Part1.*:Test5207Part2.*:GridFile.CompoundAlicanteHeightToWgs84UsesRednapGeoid"
         run: ctest --test-dir build --output-on-failure
 
   windows:
@@ -82,4 +87,9 @@ jobs:
 
       - name: Test
         if: ${{ steps.epsg.outputs.db != '' }}
+        env:
+          # A few tests need NTv2/geoid grid files (ICSM Australia, NRCan Canada, IGN Spain) that are
+          # licence-restricted and cannot be redistributed, so they are excluded here. They run locally
+          # where the grids are installed; the TestGridFile suite skips itself when a grid is absent.
+          GTEST_FILTER: "-Test5207Part1.*:Test5207Part2.*:GridFile.CompoundAlicanteHeightToWgs84UsesRednapGeoid"
         run: ctest --test-dir build --output-on-failure
