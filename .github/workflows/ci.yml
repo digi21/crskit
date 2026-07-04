@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# The library builds self-contained (SQLite is vendored in Prueba/, GoogleTest is fetched by CMake),
+# so a build only needs the compiler + CMake + Ninja. Running the tests additionally needs the EPSG
+# SQLite database, which is not versioned: set the repository variable EPSG_SQLITE_URL to a URL that
+# serves epsg-fiel.sqlite (e.g. a GitHub Release asset) and the full suite runs; otherwise the job
+# still builds everything and reports that the tests were skipped.
+jobs:
+  linux:
+    name: Linux (GCC 14)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: sudo apt-get update && sudo apt-get install -y g++-14 gcc-14 cmake ninja-build
+
+      - name: Fetch EPSG database
+        id: epsg
+        env:
+          EPSG_SQLITE_URL: ${{ vars.EPSG_SQLITE_URL }}
+        run: |
+          if [ -n "$EPSG_SQLITE_URL" ]; then
+            curl -fsSL "$EPSG_SQLITE_URL" -o "$PWD/epsg.sqlite"
+            echo "db=$PWD/epsg.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "No EPSG_SQLITE_URL set; the suite will be built but not run."
+          fi
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_CXX_COMPILER=g++-14 -DCMAKE_C_COMPILER=gcc-14
+          -DDIGI21_EPSG_SQLITE="${{ steps.epsg.outputs.db }}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        if: ${{ steps.epsg.outputs.db != '' }}
+        run: ctest --test-dir build --output-on-failure
+
+  windows:
+    name: Windows (MSVC)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Fetch EPSG database
+        id: epsg
+        shell: bash
+        env:
+          EPSG_SQLITE_URL: ${{ vars.EPSG_SQLITE_URL }}
+        run: |
+          if [ -n "$EPSG_SQLITE_URL" ]; then
+            curl -fsSL "$EPSG_SQLITE_URL" -o "$PWD/epsg.sqlite"
+            echo "db=$PWD/epsg.sqlite" >> "$GITHUB_OUTPUT"
+          else
+            echo "No EPSG_SQLITE_URL set; the suite will be built but not run."
+          fi
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DDIGI21_EPSG_SQLITE="${{ steps.epsg.outputs.db }}"
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Test
+        if: ${{ steps.epsg.outputs.db != '' }}
+        run: ctest --test-dir build --output-on-failure

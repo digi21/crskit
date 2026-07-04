@@ -1,0 +1,7 @@
+{
+  "name": "digi21-opengis",
+  "version-string": "0.0.0",
+  "dependencies": [
+    "gtest"
+  ]
+}

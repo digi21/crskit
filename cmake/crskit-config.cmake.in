@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+# crskit is a self-contained C++ library. Its EPSG SqliteProvider header (<SqliteProvider.h>) includes
+# <sqlite3.h> and calls into sqlite3, so consumers that use it also need sqlite3; the vcpkg port declares
+# that dependency, which puts sqlite3's headers and import library alongside crskit's in the same tree.
+include("${CMAKE_CURRENT_LIST_DIR}/crskit-targets.cmake")
+
+check_required_components(crskit)

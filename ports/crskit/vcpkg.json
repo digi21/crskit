@@ -1,0 +1,13 @@
+{
+  "name": "crskit",
+  "version": "0.1.0",
+  "description": "CRS toolkit: coordinate reference systems, WKT (1 and 2) parsing/emission and coordinate transformations, following the OGC Coordinate Transformation Services model.",
+  "homepage": "https://github.com/digi21/crskit",
+  "license": "Apache-2.0",
+  "supports": "windows | linux",
+  "dependencies": [
+    { "name": "vcpkg-cmake", "host": true },
+    { "name": "vcpkg-cmake-config", "host": true },
+    "sqlite3"
+  ]
+}
