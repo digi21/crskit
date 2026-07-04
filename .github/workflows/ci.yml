@@ -62,8 +62,11 @@ jobs:
           EPSG_SQLITE_URL: ${{ vars.EPSG_SQLITE_URL }}
         run: |
           if [ -n "$EPSG_SQLITE_URL" ]; then
-            curl -fsSL "$EPSG_SQLITE_URL" -o "$PWD/epsg.sqlite"
-            echo "db=$PWD/epsg.sqlite" >> "$GITHUB_OUTPUT"
+            # pwd -W gives a native Windows path (D:/a/...), which SQLite/CMake can open (bash's
+            # $PWD would be /d/a/..., which sqlite3_open cannot resolve).
+            dir=$(pwd -W)
+            curl -fsSL "$EPSG_SQLITE_URL" -o "$dir/epsg.sqlite"
+            echo "db=$dir/epsg.sqlite" >> "$GITHUB_OUTPUT"
           else
             echo "No EPSG_SQLITE_URL set; the suite will be built but not run."
           fi
