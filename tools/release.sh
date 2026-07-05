@@ -29,16 +29,10 @@ else echo "error: vcpkg not found (set VCPKG_ROOT)"; exit 1; fi
 
 echo ">> Releasing crskit $VERSION"
 
-# 1. Bump the port version and commit.
-python3 - "$VERSION" <<'PY'
-import json, sys
-p = "ports/crskit/vcpkg.json"
-d = json.load(open(p, encoding="utf-8"))
-d["version"] = sys.argv[1]
-d.pop("port-version", None)
-json.dump(d, open(p, "w", encoding="utf-8"), indent=2, ensure_ascii=False)
-open(p, "a", encoding="utf-8").write("\n")
-PY
+# 1. Bump the port version and commit. Set "version" and drop any "port-version" (a real version bump
+#    resets it); format-manifest then normalises the file. Uses sed so no Python is needed.
+sed -i -E 's/("version"[[:space:]]*:[[:space:]]*)"[^"]*"/\1"'"$VERSION"'"/' ports/crskit/vcpkg.json
+sed -i -E '/"port-version"[[:space:]]*:/d' ports/crskit/vcpkg.json
 "$VCPKG" format-manifest ports/crskit/vcpkg.json
 git add ports/crskit/vcpkg.json
 git commit -m "vcpkg: bump crskit to $VERSION"
