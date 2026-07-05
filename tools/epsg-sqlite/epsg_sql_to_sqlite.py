@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Genera un SQLite FIEL al EPSG Dataset a partir de los scripts SQL (sabor MySQL)
-que publica EPSG en https://epsg.org/download-dataset.html.
+"""Build a SQLite database FAITHFUL to the EPSG Dataset from the SQL scripts (MySQL flavour)
+that EPSG publishes at https://epsg.org/download-dataset.html.
 
-Multiplataforma y sin dependencias externas (solo la stdlib de Python): no necesita
-MS Access, ODBC ni mdbtools.
+Cross-platform and dependency-free (Python standard library only): needs no MS Access, ODBC
+or mdbtools.
 
-El SQLite resultante conserva el esquema oficial de EPSG (tablas `epsg_*`, nombres de
-columna, booleanos 1/0, valores de OBJECT_TABLE_NAME `epsg_*`, etc.); NO se renombra ni
-se remapea nada. El esquema se deriva del propio `MySQL_Table_Script.sql` (conversion de
-dialecto MySQL->SQLite), por lo que se adapta solo a cambios entre versiones de EPSG.
-La libreria (Epsg::SQliteProvider) consulta directamente este esquema oficial.
+The resulting SQLite keeps EPSG's official schema (`epsg_*` tables, column names, 1/0 booleans,
+`epsg_*` OBJECT_TABLE_NAME values, etc.); nothing is renamed or remapped. The schema is derived
+from `MySQL_Table_Script.sql` itself (MySQL->SQLite dialect conversion), so it adapts on its own
+to changes between EPSG versions. CrsKit's SqliteProvider queries this official schema directly.
 
-Uso:
+Usage:
     python epsg_sql_to_sqlite.py D:/epsg/MySQL_Data_Script.sql -o D:/epsg/epsg.sqlite
-    # (busca MySQL_Table_Script.sql junto al de datos; o indicalo con --table-script)
+    # (looks for MySQL_Table_Script.sql next to the data script; or pass --table-script)
 """
 
 import argparse
@@ -24,16 +23,16 @@ import sys
 
 
 # ---------------------------------------------------------------------------
-# 1) Conversion del DDL de EPSG (MySQL) -> CREATE TABLE de SQLite.
+# 1) Convert EPSG's DDL (MySQL) -> SQLite CREATE TABLE.
 # ---------------------------------------------------------------------------
 def _sqlite_type(mysql_type: str) -> tuple:
-    """Devuelve (tipo_sqlite, es_texto) para un tipo de columna MySQL de EPSG."""
+    """Return (sqlite_type, is_text) for an EPSG MySQL column type."""
     t = mysql_type.upper()
     if t.startswith(("INTEGER", "SMALLINT", "BIGINT", "INT")):
         return "INTEGER", False
     if t.startswith(("FLOAT", "DOUBLE", "REAL", "DECIMAL", "NUMERIC")):
         return "REAL", False
-    # VARCHAR, CHAR, TEXT, DATE, TIMESTAMP, ... -> TEXT (con COLLATE NOCASE).
+    # VARCHAR, CHAR, TEXT, DATE, TIMESTAMP, ... -> TEXT (with COLLATE NOCASE).
     return "TEXT", True
 
 
@@ -42,7 +41,7 @@ _PK_RE = re.compile(r"PRIMARY\s+KEY\s*\(([^)]*)\)", re.IGNORECASE)
 
 
 def _split_top_level(s: str):
-    """Trocea por comas de nivel 0 respetando parentesis y cadenas."""
+    """Split on depth-0 commas, respecting parentheses and strings."""
     parts, depth, i, n, start = [], 0, 0, len(s), 0
     while i < n:
         c = s[i]
@@ -71,7 +70,7 @@ def _split_top_level(s: str):
 
 
 def convert_ddl(text: str) -> str:
-    """Convierte el MySQL_Table_Script.sql de EPSG en CREATE TABLE validos para SQLite."""
+    """Convert EPSG's MySQL_Table_Script.sql into CREATE TABLE statements valid for SQLite."""
     out = []
     for stmt in iter_statements(text):
         m = _CREATE_RE.match(stmt.strip())
@@ -88,7 +87,7 @@ def convert_ddl(text: str) -> str:
                 mk = _PK_RE.search(item)
                 if mk:
                     pk = [c.strip().strip('`"') for c in mk.group(1).split(",")]
-                continue  # se ignoran UNIQUE/FK a nivel de tabla
+                continue  # table-level UNIQUE/FK are ignored
             toks = item.split()
             name = toks[0].strip('`"')
             mysql_type = toks[1] if len(toks) > 1 else "VARCHAR"
@@ -103,7 +102,7 @@ def convert_ddl(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 2) Carga de datos: parsea cada INSERT y lo inserta con binding parametrizado.
+# 2) Load the data: parse each INSERT and insert it with parameterised binding.
 # ---------------------------------------------------------------------------
 _MYSQL_ESCAPES_PY = {"'": "'", "\\": "\\", '"': '"', "n": "\n", "r": "\r",
                      "t": "\t", "b": "\b", "0": "\x00", "Z": "\x1a"}
@@ -123,8 +122,8 @@ def _unescape_mysql(body: str) -> str:
 
 
 def iter_statements(text: str):
-    """Itera sentencias SQL completas (';' a nivel 0), respetando cadenas, backticks y
-    comentarios -- / # / bloque."""
+    """Yield complete SQL statements (depth-0 ';'), respecting strings, backticks and
+    comments (-- / # / block)."""
     i, n, start = 0, len(text), 0
     while i < n:
         c = text[i]
@@ -240,7 +239,7 @@ def build(data_path, table_script_path, out_path):
         parsed = parse_insert(stmt)
         if parsed is None:
             if len(errors) < 50:
-                errors.append(f"INSERT no parseable: {stmt[:120]}")
+                errors.append(f"unparseable INSERT: {stmt[:120]}")
             continue
         table, cols, rows = parsed
         if table not in known:
@@ -260,13 +259,13 @@ def build(data_path, table_script_path, out_path):
     con.commit()
 
     total = sum(counts.values())
-    print(f"SQLite FIEL generado: {total} filas en {len(counts)} tablas "
-          f"(no-INSERT ignorados: {skipped}).")
+    print(f"Faithful SQLite written: {total} rows in {len(counts)} tables "
+          f"(non-INSERT statements skipped: {skipped}).")
     if unknown:
-        print("AVISO: INSERT a tablas no presentes en el DDL: "
+        print("WARNING: INSERTs into tables absent from the DDL: "
               + ", ".join(f"{k} (x{v})" for k, v in sorted(unknown.items())), file=sys.stderr)
     if errors:
-        print(f"AVISO: {len([e for e in errors if e])} INSERT con error:", file=sys.stderr)
+        print(f"WARNING: {len([e for e in errors if e])} INSERTs failed:", file=sys.stderr)
         for e in [x for x in errors if x][:10]:
             print("   " + e, file=sys.stderr)
     con.close()
@@ -276,17 +275,17 @@ def build(data_path, table_script_path, out_path):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("data", help="Script de datos de EPSG (MySQL_Data_Script.sql).")
-    p.add_argument("-o", "--output", default="epsg.sqlite", help="SQLite de salida.")
-    p.add_argument("--table-script", help="DDL de EPSG (MySQL_Table_Script.sql). "
-                   "Por defecto se busca junto al script de datos.")
+    p.add_argument("data", help="EPSG data script (MySQL_Data_Script.sql).")
+    p.add_argument("-o", "--output", default="epsg.sqlite", help="Output SQLite file.")
+    p.add_argument("--table-script", help="EPSG DDL (MySQL_Table_Script.sql). "
+                   "Defaults to the one next to the data script.")
     a = p.parse_args(argv)
 
     ts = a.table_script
     if not ts:
         cand = os.path.join(os.path.dirname(os.path.abspath(a.data)), "MySQL_Table_Script.sql")
         if not os.path.exists(cand):
-            p.error("No encuentro MySQL_Table_Script.sql junto al de datos; usa --table-script.")
+            p.error("MySQL_Table_Script.sql not found next to the data script; use --table-script.")
         ts = cand
 
     build(a.data, ts, a.output)
