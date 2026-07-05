@@ -7,6 +7,7 @@
 <p align="center">A modern C++23 geodesy library for coordinate reference systems, WKT and coordinate transformations.</p>
 
 <p align="center">
+  <a href="https://github.com/digi21/crskit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/digi21/crskit/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="C++23" src="https://img.shields.io/badge/C%2B%2B-23-00599C">
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-informational">
   <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue">
