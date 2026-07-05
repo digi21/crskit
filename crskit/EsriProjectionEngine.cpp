@@ -188,7 +188,7 @@ auto EsriProjectionEngine::LoadVerticalSystems() -> void
 				throw std::runtime_error("File could not be opened");
 			std::string text;
 
-			// Saltamos la primera line
+			// Skip the first line
 			if (!std::getline(file, text))
 				return;
 

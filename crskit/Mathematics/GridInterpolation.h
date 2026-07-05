@@ -23,7 +23,7 @@ namespace CrsKit::Math::Transformations
 		int _verticalCellCount;
 		std::vector<T> _corrections;	// row-major: _verticalCellCount * _horizontalCellCount
 
-		// Acceso 2D a la grid plana.
+		// 2D access into the flat grid.
 		auto correction(int row, int column) -> T&
 		{
 			return _corrections[static_cast<size_t>(row) * _horizontalCellCount + column];

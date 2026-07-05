@@ -336,7 +336,7 @@ namespace CrsKit
 	{
 		std::filesystem::path prjFilePath = std::filesystem::path(filePath).replace_extension(".prj");
 
-		// Creamos el file .prj
+		// Create the .prj file
 		// If it cannot be created, we throw an exception
 		std::ofstream os{std::filesystem::path(prjFilePath)};
 		if (!os.is_open())
