@@ -1,17 +1,13 @@
-<p align="center">
-  <img src="branding/crskit-logo-256.png" alt="CrsKit" width="120" height="120">
-</p>
+<img src="branding/crskit-logo-256.png" alt="CrsKit" width="110" align="right">
 
-<h1 align="center">CrsKit</h1>
+# CrsKit
 
-<p align="center">A modern C++23 geodesy library for coordinate reference systems, WKT and coordinate transformations.</p>
+A modern C++23 geodesy library for coordinate reference systems, WKT and coordinate transformations.
 
-<p align="center">
-  <a href="https://github.com/digi21/crskit/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/digi21/crskit/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="C++23" src="https://img.shields.io/badge/C%2B%2B-23-00599C">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-informational">
-  <img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue">
-</p>
+[![CI](https://github.com/digi21/crskit/actions/workflows/ci.yml/badge.svg)](https://github.com/digi21/crskit/actions/workflows/ci.yml)
+![C++23](https://img.shields.io/badge/C%2B%2B-23-00599C)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-informational)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 ---
 
