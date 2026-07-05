@@ -1,0 +1,7 @@
+[
+  {
+    "match": "egm2008",
+    "name": "EGM2008 geoid grid (NGA)",
+    "url": "https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84"
+  }
+]
