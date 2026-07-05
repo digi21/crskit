@@ -1,66 +1,62 @@
-# Conversor EPSG → SQLite (fiel)
+# EPSG → SQLite converter
 
-Genera un **SQLite fiel al EPSG Dataset oficial** a partir de los **scripts SQL (sabor MySQL)**
-que publica EPSG. El esquema resultante es el de EPSG (tablas `epsg_*`, nombres de columna,
-booleanos `1`/`0`, valores nativos), sin renombrar ni remapear nada.
+Builds a SQLite database **faithful to the official EPSG Dataset** from the **SQL scripts (MySQL
+flavour)** that EPSG publishes. The resulting schema is EPSG's own (`epsg_*` tables, original column
+names, `1`/`0` booleans, native values) — nothing is renamed or remapped.
 
-Motivación: EPSG publica el dataset en **MS Access** y en **scripts SQL** (MySQL/PostgreSQL/Oracle),
-pero **no** en SQLite. Para mantener el proyecto multiplataforma se genera el SQLite a partir de los
-scripts SQL, sin depender de MS Access, ODBC ni `mdbtools`. La librería
-(`Digi21::OpenGis::Epsg::SQliteProvider`) consulta directamente este esquema oficial.
+CrsKit's `SqliteProvider` queries this official schema directly.
 
-## Requisitos
+> **Don't need to build it?** A prebuilt copy is attached to the
+> [`epsg-data`](https://github.com/digi21/crskit/releases/tag/epsg-data) release
+> (`epsg-vX.Y.sqlite`, named after the EPSG dataset version). Build it yourself only when you want a
+> newer EPSG version than the one published there.
 
-- Python 3 (solo biblioteca estándar). Funciona en Windows/Linux/macOS.
+## Why this tool
 
-## De dónde sacar el script SQL de EPSG
+EPSG distributes the dataset as **MS Access** and as **SQL scripts** (MySQL/PostgreSQL/Oracle), but
+**not** as SQLite. To keep the project cross-platform, the SQLite is generated from the SQL scripts,
+with no dependency on MS Access, ODBC or `mdbtools`.
 
-1. Descarga el dataset en formato **SQL (MySQL)** desde
-   <https://epsg.org/download-dataset.html> (requiere registro gratuito). El ZIP trae:
-   - `MySQL_Table_Script.sql` — DDL (se usa para derivar el esquema del SQLite).
-   - `MySQL_Data_Script.sql` — los `INSERT` (los datos).
-   - `MySQL_FKey_Script.sql` — claves ajenas (no se usa).
+## Requirements
 
-## Uso
+- Python 3 (standard library only). Works on Windows, Linux and macOS.
+
+## Getting the EPSG SQL scripts
+
+Download the dataset in **SQL (MySQL)** format from <https://epsg.org/download-dataset.html> (free
+registration required). The ZIP contains:
+
+- `MySQL_Table_Script.sql` — DDL (used to derive the SQLite schema).
+- `MySQL_Data_Script.sql` — the `INSERT`s (the data).
+- `MySQL_FKey_Script.sql` — foreign keys (not used).
+
+## Usage
 
 ```sh
-python epsg_sql_to_sqlite.py D:/epsg/MySQL_Data_Script.sql -o D:/epsg/epsg.sqlite
-# busca MySQL_Table_Script.sql junto al de datos; o indícalo con --table-script RUTA
+python epsg_sql_to_sqlite.py path/to/MySQL_Data_Script.sql -o epsg.sqlite
+# The table script is looked up next to the data script; override it with --table-script PATH.
 ```
 
-Copia el `epsg.sqlite` resultante a la ubicación que use la aplicación
-(`C:/ProgramData/Digi3D.NET/OpenGis/…`, o la indicada por la variable de entorno
-`DIGI21_EPSG_SQLITE`).
+Then point the tests (or your application) at the result with the `DIGI21_EPSG_SQLITE` environment
+variable, or pass `-DDIGI21_EPSG_SQLITE=/path/to/epsg.sqlite` to CMake.
 
-## Qué hace
+**Tip:** name the file after its EPSG version (e.g. `epsg-v12.057.sqlite`) — the version lives in the
+`epsg_versionhistory` table, so the exact dataset is reproducible.
 
-1. **Esquema**: convierte el DDL de `MySQL_Table_Script.sql` a `CREATE TABLE` de SQLite
-   (tipos MySQL→SQLite; `COLLATE NOCASE` en columnas de texto para conservar las comparaciones
-   insensibles a mayúsculas que hacen las consultas; conserva las `PRIMARY KEY`). Al derivarse del
-   propio DDL, **se adapta solo** a columnas/tablas nuevas entre versiones de EPSG.
-2. **Datos**: parsea cada `INSERT` de `MySQL_Data_Script.sql` y lo inserta con *binding*
-   parametrizado, manejando el escapado MySQL (`\'`, `\\`…), `Null`, y `VALUES(` con o sin espacio.
-   No se altera ningún valor (booleanos `1`/`0`, `OBJECT_TABLE_NAME` con valores `epsg_*`, etc.).
+## What it does
 
-> Fidelidad: el SQLite es equivalente al EPSG oficial; lo único que se añade es `COLLATE NOCASE`
-> en el esquema (una collation, no cambia los datos) y se omiten las claves ajenas.
+1. **Schema**: converts the DDL in `MySQL_Table_Script.sql` to SQLite `CREATE TABLE` (MySQL→SQLite
+   types; `COLLATE NOCASE` on text columns to preserve the case-insensitive comparisons the queries
+   rely on; keeps the `PRIMARY KEY`s). Because it is derived from the DDL, it **adapts automatically**
+   to new columns/tables between EPSG versions.
+2. **Data**: parses each `INSERT` in `MySQL_Data_Script.sql` and inserts it with parameterised binding,
+   handling MySQL escaping (`\'`, `\\`, …), `Null`, and `VALUES(` with or without a space. No value is
+   altered (`1`/`0` booleans, `OBJECT_TABLE_NAME` values `epsg_*`, etc.).
 
-## La librería consulta el esquema oficial
+The only additions over the official dataset are `COLLATE NOCASE` in the schema (a collation — it does
+not change the data) and the omission of the foreign keys.
 
-`SQliteProvider` consulta directamente las tablas `epsg_*` y las convenciones de EPSG
-(`SHOW_OPERATION=1`, `OBJECT_TABLE_NAME='epsg_…'`, columna `coord_axis_order`…). `GetData()`
-normaliza a MAYÚSCULAS el nombre de columna que reporta SQLite (que respeta el case del esquema),
-porque el resto del provider lee las claves en MAYÚSCULAS.
+## Validation
 
-(`AccessProvider`, que lee el `.mdb` con el esquema de Access, mantiene sus propias consultas.)
-
-## Validación
-
-- **Funcional con EPSG real (v12.x)**: generado el SQLite desde `MySQL_Data_Script.sql`
-  (87 461 filas, 28 tablas) y ejecutada la batería GIGS con `DIGI21_EPSG_SQLITE` apuntando a él:
-  **146/146 tests verdes** (todas las variantes `Epsg`/`WktEpsg` y las transformaciones por código
-  de operación).
-
-## Archivos
-
-- `epsg_sql_to_sqlite.py` — el conversor (deriva esquema del DDL + carga datos con *binding*).
+Generated from a real EPSG `MySQL_Data_Script.sql` and exercised by the full GIGS test suite (all the
+`Epsg` / `WktEpsg` variants and the by-operation-code transformations) — green.

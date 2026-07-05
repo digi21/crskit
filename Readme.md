@@ -71,13 +71,21 @@ with `cmake -G "Visual Studio 17 2022" -B build`.
 ### Running the tests
 
 The tests read the EPSG SQLite database, which is not shipped with the source (it is the IOGP EPSG
-Geodetic Parameter Dataset). Point `DIGI21_EPSG_SQLITE` at a copy of it and run:
+Geodetic Parameter Dataset). Get it either way:
+
+- **Download** a prebuilt copy from the [`epsg-data`](https://github.com/digi21/crskit/releases/tag/epsg-data)
+  release — `epsg-vX.Y.sqlite`, named after the EPSG dataset version.
+- **Build** it yourself from the EPSG SQL scripts with [`tools/epsg-sqlite`](tools/epsg-sqlite/) (see its
+  README) — useful for a newer EPSG version than the one published there.
+
+Then point `DIGI21_EPSG_SQLITE` at it and run:
 
 ```bash
 DIGI21_EPSG_SQLITE=/path/to/epsg.sqlite ctest --test-dir build --output-on-failure
 ```
 
-The `tools/epsg-sqlite` utility builds the database from the EPSG dataset SQL scripts.
+A few tests need NTv2/geoid grid files that cannot be redistributed (see *Data and attribution*); they
+skip or are excluded when the grids are absent.
 
 ## Data and attribution
 
