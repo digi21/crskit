@@ -7,6 +7,7 @@
   {
     "match": "rednap",
     "name": "EGM08-REDNAP Spanish geoid (IGN)",
-    "url": "https://datos-geodesia.ign.es/geoide/"
+    "url": "https://datos-geodesia.ign.es/geoide/",
+    "fileBase": "https://datos-geodesia.ign.es/geoide/ascii/"
   }
 ]
