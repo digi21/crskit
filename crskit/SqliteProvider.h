@@ -559,6 +559,7 @@ namespace CrsKit::Epsg
 					TypeOrDefaultValue<std::string>(data.at("INFORMATION_SOURCE"))));
 			}
 
+			EnrichWithAreaAndGrids(operations);
 			return operations;
 		}
 
@@ -593,6 +594,7 @@ namespace CrsKit::Epsg
 					TypeOrDefaultValue<std::string>(data.at("INFORMATION_SOURCE"))));
 			}
 
+			EnrichWithAreaAndGrids(operations);
 			return operations;
 		}
 
@@ -614,6 +616,39 @@ namespace CrsKit::Epsg
 		auto GetAreaName(int areaOfUseCode) -> std::string override
 		{
 			return ExecuteScalar<std::string>(std::format("SELECT EXTENT_NAME FROM epsg_extent WHERE EXTENT_CODE={}", areaOfUseCode));
+		}
+
+		// The grid file(s) an operation references (EPSG PARAM_VALUE_FILE_REF): a geoid model, an NTv2
+		// datum-shift grid, etc. Empty for operations that need no file. Used to tell the caller which
+		// file to obtain (e.g. an EGM2008 geoid grid) before the transform can be built.
+		auto GetCoordinateOperationGridFiles(int operationCode) -> std::vector<std::string>
+		{
+			std::vector<std::string> files;
+			auto const sql = std::format(
+				"SELECT PARAM_VALUE_FILE_REF FROM epsg_coordoperationparamvalue "
+				"WHERE COORD_OP_CODE={} AND PARAM_VALUE_FILE_REF IS NOT NULL AND PARAM_VALUE_FILE_REF!=''",
+				operationCode);
+			Stmt const stmt{ _db.get(), sql };
+			while (stmt.Step())
+			{
+				auto const data = stmt.GetData();
+				auto const& ref = data.at("PARAM_VALUE_FILE_REF");
+				if (std::holds_alternative<std::string>(ref) && !std::get<std::string>(ref).empty())
+					files.push_back(std::get<std::string>(ref));
+			}
+			return files;
+		}
+
+		// Fill in each candidate operation's area of use and required grid file(s) from its code, so the
+		// caller can present both (choose by geography, and know which file to obtain).
+		void EnrichWithAreaAndGrids(std::vector<CoordinateTransformations::CoordinateOperation>& operations)
+		{
+			for (auto& op : operations)
+			{
+				try { op.AreaOfUse = GetAreaName(GetCoordinateOperationAreaOfUse(op.Code)); }
+				catch (...) { /* operation without a usage extent: leave area empty */ }
+				op.GridFiles = GetCoordinateOperationGridFiles(op.Code);
+			}
 		}
 
 		auto GetCoordinateOperationInformationSource(int operationCode) -> std::string override

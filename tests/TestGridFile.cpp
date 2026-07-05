@@ -244,3 +244,29 @@ TEST(GridFile, UnknownGeoidGridNameIsUnsupported)
 	}
 	catch (UnsupportedFormatException const&) { /* as expected */ }
 }
+
+// Candidate operations now carry their EPSG area of use and the grid file(s) they require, so a caller
+// (e.g. a transformation picker) can show both. The "WGS 84 to EGM2008 height" operations (EGM2008
+// height = EPSG 3855) must report a non-empty area and the EGM2008 geoid grid as their required file.
+TEST(GridFile, CandidateOperationsCarryAreaOfUseAndGridFile)
+{
+	auto const provider = GetCurrentEnvironment()->Provider;
+	ASSERT_NE(provider, nullptr);
+
+	auto const operations = provider->GeographicToVerticalOperationCodes(3855);
+	ASSERT_FALSE(operations.empty());
+
+	bool anyArea{ false };
+	bool foundEgm2008Grid{ false };
+	for (auto const& op : operations)
+	{
+		if (!op.AreaOfUse.empty())
+			anyArea = true;
+		for (auto const& file : op.GridFiles)
+			if (file.find("egm2008") != std::string::npos)
+				foundEgm2008Grid = true;
+	}
+
+	EXPECT_TRUE(anyArea) << "no candidate reported an area of use";
+	EXPECT_TRUE(foundEgm2008Grid) << "no candidate reported an EGM2008 grid file";
+}
