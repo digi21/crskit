@@ -67,6 +67,9 @@ namespace CrsKit::Epsg
 		[[nodiscard]] virtual auto GetCoordinateOperationDescription(int operationCode) -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateOperationAreaOfUse(int coordinateOperationCode) -> int = 0;
 		[[nodiscard]] virtual auto GetAreaName(int areaOfUseCode) -> std::string = 0;
+		// EPSG Geodetic Parameter Dataset version of the underlying database (e.g. "12.057"); "" if the
+		// provider cannot determine it. Non-pure so alternative providers need not implement it.
+		[[nodiscard]] virtual auto GetEpsgVersion() -> std::string { return {}; }
 		[[nodiscard]] virtual auto GetCoordinateOperationInformationSource(int operationCode) -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateOperationSourceCrs(int coordinateOperationCode) -> int = 0;
 		[[nodiscard]] virtual auto GetCoordinateOperationTargetCrs(int coordinateOperationCode) -> int = 0;

@@ -97,4 +97,9 @@ namespace CrsKit
 	{
 		return currentEnvironment()->Utilities;
 	}
+
+	std::string GetEpsgVersion()
+	{
+		return currentEnvironment()->Provider->GetEpsgVersion();
+	}
 }

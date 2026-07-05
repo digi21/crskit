@@ -618,6 +618,12 @@ namespace CrsKit::Epsg
 			return ExecuteScalar<std::string>(std::format("SELECT EXTENT_NAME FROM epsg_extent WHERE EXTENT_CODE={}", areaOfUseCode));
 		}
 
+		auto GetEpsgVersion() -> std::string override
+		{
+			try { return ExecuteScalar<std::string>("SELECT version_number FROM epsg_versionhistory ORDER BY version_date DESC LIMIT 1"); }
+			catch (...) { return {}; }
+		}
+
 		// The grid file(s) an operation references (EPSG PARAM_VALUE_FILE_REF): a geoid model, an NTv2
 		// datum-shift grid, etc. Empty for operations that need no file. Used to tell the caller which
 		// file to obtain (e.g. an EGM2008 geoid grid) before the transform can be built.

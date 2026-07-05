@@ -270,3 +270,11 @@ TEST(GridFile, CandidateOperationsCarryAreaOfUseAndGridFile)
 	EXPECT_TRUE(anyArea) << "no candidate reported an area of use";
 	EXPECT_TRUE(foundEgm2008Grid) << "no candidate reported an EGM2008 grid file";
 }
+
+// The EPSG dataset version is read straight from the database's version history (e.g. "12.057").
+TEST(EpsgCatalogue, GetEpsgVersionReturnsAVersion)
+{
+	auto const version = GetEpsgVersion();
+	EXPECT_FALSE(version.empty()) << "no EPSG dataset version reported";
+	EXPECT_NE(version.find('.'), std::string::npos) << "unexpected version format: " << version;
+}

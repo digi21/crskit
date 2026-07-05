@@ -154,6 +154,9 @@ namespace CrsKit
 	_modeCrsKit std::shared_ptr<CoordinateTransformations::ICoordinateTransformationFactory> GetCoordinateTransformationFactory();
 
 	_modeCrsKit std::shared_ptr<IUtilities> GetUtilities();
+
+	// The EPSG Geodetic Parameter Dataset version of the active database (e.g. "12.057"), "" if unknown.
+	_modeCrsKit std::string GetEpsgVersion();
 }
 
 #ifdef _MSC_VER
