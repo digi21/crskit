@@ -81,10 +81,17 @@ The `tools/epsg-sqlite` utility builds the database from the EPSG dataset SQL sc
 
 ## Data and attribution
 
-CrsKit is the **software**; coordinate reference data are supplied by the user. This product uses the
-**EPSG Geodetic Parameter Dataset**, owned by IOGP, under the EPSG Dataset Terms of Use. Grid files
-(geoid models, NTv2, …) are obtained by the user from their official sources, subject to each grid's
-own licence.
+CrsKit is the **software**; the coordinate reference *data* are supplied separately.
+
+This product uses the **EPSG Geodetic Parameter Dataset** (<https://epsg.org>), owned by the
+International Association of Oil & Gas Producers (IOGP) and used under the EPSG Terms of Use
+(<https://epsg.org/terms-of-use.html>). The EPSG Dataset is provided "as is"; IOGP disclaims all
+warranties as to its accuracy and does not endorse CrsKit. The `tools/epsg-sqlite` utility builds the
+SQLite database from the EPSG dataset SQL scripts; an unmodified build is published, for the test
+suite, in the [`epsg-data`](https://github.com/digi21/crskit/releases/tag/epsg-data) release.
+
+**Grid files** (geoid models, NTv2 datum-shift grids, …) are *not* redistributed here — they are
+obtained by the user from their official sources (national mapping agencies), each under its own licence.
 
 ## License
 
