@@ -86,18 +86,18 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			return res;
 		}
 
-		// Grid geometry from the raw byte size: the file is rows*cols little-endian floats with
-		// cols = 2*(rows-1), so rows*cols*4 == size. Solve for rows; std::nullopt if size is not a grid.
+		// Grid geometry from the byte size. The file is a FORTRAN unformatted sequential file: each of
+		// the `rows` records holds `cols` little-endian floats bracketed by a 4-byte record-length
+		// marker at each end, i.e. cols+2 floats per row (this is what the reader skips over). With
+		// cols = 2*(rows-1) this gives size == rows*(cols+2)*4 == rows*(2*rows)*4 == 8*rows². Solve for
+		// rows; std::nullopt if size is not such a grid.
 		auto egm2008GeometryFromSize(std::uintmax_t size) -> std::optional<std::pair<int, int>>
 		{
-			if (size == 0 || size % 4 != 0) return std::nullopt;
-			auto const n = size / 4;                       // rows * cols
-			auto const disc = 1 + 2 * n;                   // rows = (1 + sqrt(1 + 2n)) / 2
-			auto const s = static_cast<std::uintmax_t>(std::llround(std::sqrt(static_cast<double>(disc))));
-			if (s * s != disc || (1 + s) % 2 != 0) return std::nullopt;
-			auto const rows = (1 + s) / 2;
+			if (size == 0 || size % 8 != 0) return std::nullopt;
+			auto const rowsSquared = size / 8;             // size == 8 * rows²
+			auto const rows = static_cast<std::uintmax_t>(std::llround(std::sqrt(static_cast<double>(rowsSquared))));
+			if (rows < 2 || rows * rows != rowsSquared) return std::nullopt;
 			auto const cols = 2 * (rows - 1);
-			if (rows < 2 || rows * cols != n) return std::nullopt;
 			return std::pair{ static_cast<int>(rows), static_cast<int>(cols) };
 		}
 

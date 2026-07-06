@@ -27,6 +27,17 @@ namespace
 		os.write(bytes, sizeof(T));
 	}
 
+	// Write `value` little-endian to the stream (the EGM2008 "_SE" grids are little-endian).
+	template <typename T>
+	void writeLittleEndian(std::ostream& os, T value)
+	{
+		char bytes[sizeof(T)];
+		std::memcpy(bytes, &value, sizeof(T));
+		if constexpr (std::endian::native == std::endian::big)
+			std::reverse(std::begin(bytes), std::end(bytes));
+		os.write(bytes, sizeof(T));
+	}
+
 	// Point the ambient data directory at a folder for the duration of a test, then restore it.
 	struct DataDirectoryGuard
 	{
@@ -118,6 +129,49 @@ TEST(GridFile, Egm2008GlobalGridNamesAreRecognized)
 		catch (GridFileNotFoundException const&) { /* recognised, grid not installed: fine */ }
 		catch (UnsupportedFormatException const&) { FAIL() << "EGM2008 name not recognised: " << name; }
 	}
+}
+
+// A synthetic EGM2008 global grid must be read and applied. The file is a FORTRAN unformatted
+// sequential binary: each of the `rows` records is `cols` little-endian floats bracketed by a 4-byte
+// record-length marker at each end (cols+2 floats per row, which the reader skips), so the byte size
+// is rows*(cols+2)*4 == 8*rows². Regression guard: the size gate once assumed rows*cols*4 (no markers)
+// while the reader skipped them, so a real NGA grid was rejected before it could ever be read.
+TEST(GridFile, Egm2008SyntheticGridIsReadAndApplied)
+{
+	namespace fs = std::filesystem;
+	auto const dir = fs::temp_directory_path() / "crskit_egm2008_test";
+	fs::create_directories(dir);
+	// rows=101, cols=2*(rows-1)=200 -> 8*rows² = 81608 bytes. Large enough for the reader's 100-wide
+	// tile cache. Constant undulation 50 m, so any interpolation yields exactly 50.
+	auto const name = std::string{ "Und_min1x1_egm2008_isw=82_WGS84_TideFree" };
+	auto const file = dir / name;
+	{
+		std::ofstream os{ file, std::ios::binary };
+		for (int r = 0; r < 101; ++r)
+		{
+			writeLittleEndian<float>(os, 0.0f);                        // leading FORTRAN record marker (skipped)
+			for (int c = 0; c < 200; ++c) writeLittleEndian<float>(os, 50.0f);
+			writeLittleEndian<float>(os, 0.0f);                        // trailing FORTRAN record marker (skipped)
+		}
+	}
+	ASSERT_EQ(81608u, fs::file_size(file));
+
+	auto dirStr = dir.string();
+	dirStr += '/';
+	DataDirectoryGuard guard{ dirStr };
+
+	auto const mt = GetMathTransformFactory()->CreateFromWkt(std::format(
+		R"WKT(PARAM_MT["Geographic3DToGravityRelatedHeightEGM2008",PARAMETER["geoid_model_file","{}"]])WKT", name));
+	ASSERT_NE(nullptr, mt);
+
+	// Input {longitude, latitude, ellipsoidal height}; N = 50 everywhere, so H = h - N = 100 - 50 = 50.
+	auto const out = mt->Transform(std::vector<double>{ 0.0, 0.0, 100.0 });
+	ASSERT_EQ(1u, out.size());
+	EXPECT_NEAR(50.0, out[0], 1e-3);
+
+	std::error_code ec;
+	fs::remove(file, ec);
+	fs::remove(dir, ec);
 }
 
 // A synthetic ".gtx" geoid grid must be read (big-endian header + data, stored south-to-north) and
