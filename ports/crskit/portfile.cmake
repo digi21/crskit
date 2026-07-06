@@ -4,7 +4,7 @@
 # (this repo's ports/ + versions/). When hacking on the library itself, build it directly with CMake
 # instead — this port is for CONSUMERS.
 #
-# To publish a new version: tag it (vX.Y.Z) and push, update REF/SHA512 609e724f753153740da542cd06641a754bd8c8fa0e11f41f4b319a1c85b9f1f29428fee9428d96a5d2b5bbd5b250f4f4abe4787bd0cf100981cb25d5bf17ba7elow (vcpkg prints the expected
+# To publish a new version: tag it (vX.Y.Z) and push, update the SHA512 below (vcpkg prints the expected
 # SHA512 on the first, mismatching build), then run:
 #   vcpkg x-add-version crskit --x-builtin-ports-root=ports --x-builtin-registry-versions-dir=versions
 
@@ -12,7 +12,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO digi21/crskit
     REF "v${VERSION}"
-    SHA512 609e724f753153740da542cd06641a754bd8c8fa0e11f41f4b319a1c85b9f1f29428fee9428d96a5d2b5bbd5b250f4f4abe4787bd0cf100981cb25d5bf17ba7e
+    SHA512 72cc44d2b788dfdeb28ebd2a1da4814838f4c9b45a76be710e6fa93af5b2e77e01e8433bbc68415eff83e95503a1f322d4b0ce389fd24720bc27e63cb3f73823
     HEAD_REF main
 )
 
