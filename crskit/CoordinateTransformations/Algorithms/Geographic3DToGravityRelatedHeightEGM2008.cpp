@@ -58,9 +58,9 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		}
 
 		// ---- EGM2008 global geoid grid ----
-		// Named "Und_min<res>x<res>_egm2008_isw=82_WGS84_TideFree", with an optional "_SE" variant and
-		// an optional ".gz" download suffix (the EPSG catalogue omits it). Extract <res> (arc-minutes)
-		// from such a name; std::nullopt if it is not one.
+		// Named "Und_min<res>x<res>_egm2008_isw=82_WGS84_TideFree", with an optional ".gz" download
+		// suffix (the EPSG catalogue may or may not include it). Extract <res> (arc-minutes) from such
+		// a name; std::nullopt if it is not one.
 		auto egm2008ResolutionFromName(std::string const& fileName) -> std::optional<double>
 		{
 			constexpr char prefix[]{ "Und_min" };
@@ -70,7 +70,6 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 
 			auto core = fileName;
 			if (endsWithNoCase(core, ".gz")) core.erase(core.size() - 3);
-			if (endsWithNoCase(core, "_SE")) core.erase(core.size() - 3);
 
 			if (core.size() < prefixLen + suffixLen) return std::nullopt;
 			if (0 != compareNoCase(core.substr(0, prefixLen).c_str(), prefix) || !endsWithNoCase(core, suffix))
@@ -109,23 +108,23 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			return { static_cast<int>(std::lround(10800.0 / res)) + 1, static_cast<int>(std::lround(21600.0 / res)) };
 		}
 
-		// The canonical uncompressed file the reader opens: name without ".gz", with "_SE" ensured.
+		// The canonical uncompressed file the reader opens: the (EPSG) name without its ".gz" download
+		// suffix. Matches the name the EPSG catalogue advertises, so a consumer that fetches the grid
+		// stores it under exactly this name.
 		auto egm2008CanonicalName(std::string const& fileName) -> std::string
 		{
 			auto core = fileName;
 			if (endsWithNoCase(core, ".gz")) core.erase(core.size() - 3);
-			if (!endsWithNoCase(core, "_SE")) core += "_SE";
 			return core;
 		}
 
-		// Candidate on-disk names to LOCATE the grid from its (EPSG) name.
+		// Candidate on-disk names to LOCATE the grid from its (EPSG) name: the name as given and, if it
+		// carried a ".gz" download suffix, the uncompressed name without it.
 		auto egm2008CandidateNames(std::string const& fileName) -> std::vector<std::string>
 		{
 			std::vector<std::string> names{ fileName };
-			auto stem = fileName;
-			if (endsWithNoCase(stem, ".gz")) stem.erase(stem.size() - 3);
-			for (auto const& n : { stem, egm2008CanonicalName(fileName) })
-				if (std::find(names.begin(), names.end(), n) == names.end()) names.push_back(n);
+			auto const canonical = egm2008CanonicalName(fileName);
+			if (std::find(names.begin(), names.end(), canonical) == names.end()) names.push_back(canonical);
 			return names;
 		}
 

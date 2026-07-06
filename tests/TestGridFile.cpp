@@ -97,18 +97,15 @@ TEST(GridFile, CompoundAlicanteHeightToWgs84UsesRednapGeoid)
 	EXPECT_GT(out[2], 30.0);  EXPECT_LT(out[2], 70.0);   // ellipsoidal height ~ geoid undulation
 }
 
-// The EGM2008 global geoid grids are named in the EPSG catalogue WITHOUT the ".gz" download suffix
-// (e.g. "Und_min1x1_egm2008_isw=82_WGS84_TideFree"), and come in several arc-minute resolutions and
-// a "_SE" variant. The loader must recognise all of these, deriving the grid size from the
-// resolution in the name. "Recognised" here means it does NOT reject the name as an unsupported
-// format: it either builds (grid installed) or reports the grid missing (GridFileNotFoundException).
-// Before the fix, only the exact ".gz" names were accepted, so a catalogue-provided name (no ".gz")
-// fell through to UnsupportedFormatException and the operation could never be built.
+// The EGM2008 global geoid grids are named in the EPSG catalogue with or without the ".gz" download
+// suffix (e.g. "Und_min1x1_egm2008_isw=82_WGS84_TideFree"), and come in several arc-minute
+// resolutions. The loader must recognise all of these, deriving the grid size from the resolution in
+// the name. "Recognised" here means it does NOT reject the name as an unsupported format: it either
+// builds (grid installed) or reports the grid missing (GridFileNotFoundException).
 TEST(GridFile, Egm2008GlobalGridNamesAreRecognized)
 {
 	for (auto const* const name : { "Und_min1x1_egm2008_isw=82_WGS84_TideFree",
 	                                "Und_min1x1_egm2008_isw=82_WGS84_TideFree.gz",
-	                                "Und_min1x1_egm2008_isw=82_WGS84_TideFree_SE",
 	                                "Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree" })
 	{
 		auto const wkt = std::format(
