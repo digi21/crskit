@@ -1,0 +1,76 @@
+name: Wheels
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Builds the Python binding for CPython 3.10-3.13 on Windows and Linux with cibuildwheel. As in the
+# C++ CI, running the tests needs the EPSG SQLite database, which is not versioned: set the repository
+# variable EPSG_SQLITE_URL to a URL serving it and the pytest suite runs inside each wheel's
+# environment; without it the tests skip themselves (the fixture checks for the file) and the job
+# still proves that every wheel builds and imports.
+jobs:
+  wheels:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch EPSG database
+        shell: bash
+        env:
+          EPSG_SQLITE_URL: ${{ vars.EPSG_SQLITE_URL }}
+        run: |
+          if [ -n "$EPSG_SQLITE_URL" ]; then
+            curl -fsSL "$EPSG_SQLITE_URL" -o epsg.sqlite
+          else
+            echo "No EPSG_SQLITE_URL set; the wheels will be built and imported, but the tests will skip."
+          fi
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21
+        env:
+          CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_SKIP: "*-musllinux*"
+
+          # The library is C++23, so the default manylinux2014 image (GCC 10) cannot build it.
+          # manylinux_2_28 ships GCC 14 on the PATH, which is the compiler the project targets.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_ENVIRONMENT_LINUX: DIGI21_EPSG_SQLITE=/project/epsg.sqlite
+
+          # delvewheel, which cibuildwheel runs by default on Windows, needs three corrections here:
+          #   --no-mangle-all  it renames every DLL it vendors (crskit.dll -> crskit-<hash>.dll), which
+          #                    would defeat the point of linking the shared library: inside an application
+          #                    that embeds Python and already has crskit.dll loaded (the script window of
+          #                    Digi3D.NET or MDTopX), the loader binds the module to that copy BY NAME, so
+          #                    the script shares the library's state instead of running a second copy.
+          #   --exclude        crskit.dll already travels inside the package; without this delvewheel goes
+          #                    looking for it on the system and fails.
+          #   --add-path       the C++ runtime it vendors (msvcp140.dll) must be the one the binaries were
+          #                    built against or newer. Taking whatever comes first on PATH is a trap: any
+          #                    stale copy shipped by an unrelated program (a JDK, say) is loaded ahead of
+          #                    the real one and the module dies with an access violation on import.
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair --exclude crskit.dll --no-mangle-all --add-path C:\Windows\System32
+            -w {dest_dir} {wheel}
+
+          CIBW_ENVIRONMENT_WINDOWS: DIGI21_EPSG_SQLITE=$GITHUB_WORKSPACE/epsg.sqlite
+
+          CIBW_TEST_REQUIRES: pytest numpy
+          CIBW_TEST_COMMAND: pytest {project}/python/tests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
