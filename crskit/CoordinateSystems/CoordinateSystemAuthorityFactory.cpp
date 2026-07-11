@@ -49,7 +49,13 @@ namespace CrsKit::Epsg
 			return CreateVerticalCoordinateSystem(code);
 		if (0 == compareNoCase(coordinateSystemType.c_str(), "geocentric"))
 			return CreateGeocentricCoordinateSystem(code);
-		throw runtime_error(std::format("The coordinate system indicated: {} is neither projected nor 2D geographic.", code) );
+
+		// An empty kind means the catalogue holds no CRS with that code at all; any other kind is one
+		// this factory cannot build (compound, engineering...). Two different failures, two exceptions.
+		if (coordinateSystemType.empty())
+			throw AuthorityCodeNotFoundException(std::format("Could not locate the coordinate system with code: {}", code));
+
+		throw UnsupportedFormatException(std::format("The coordinate system {} is of kind '{}', which cannot be created from its code alone.", code, coordinateSystemType));
 	}
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int code) const -> std::shared_ptr<ProjectedCoordinateSystem>
@@ -485,7 +491,10 @@ namespace CrsKit::Epsg
 		if (0 == compareNoCase(coordinateSystemType.c_str(), "geographic 3D"))
 			return CreateGeographicCoordinateSystem(code);
 
-		throw runtime_error(std::format("The coordinate system indicated: {} is neither projected nor 2D geographic.", code));
+		if (coordinateSystemType.empty())
+			throw AuthorityCodeNotFoundException(std::format("Could not locate the coordinate system with code: {}", code));
+
+		throw UnsupportedFormatException(std::format("The coordinate system {} is of kind '{}', which is not a horizontal system.", code, coordinateSystemType));
 	}
 
 	auto CoordinateSystemAuthorityFactory::EnumerateCoordinateSystems(std::string const& kind) const -> std::unordered_map<int, std::string>
