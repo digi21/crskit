@@ -5,6 +5,7 @@ the C++ (GoogleTest) suite does.
 """
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -37,6 +38,14 @@ def utm30n():
 
 def test_the_library_reports_itself_initialized():
     assert crskit.is_initialized()
+
+
+def test_the_package_ships_its_type_information():
+    # PEP 561: without these two inside the installed package, editors and mypy see the compiled
+    # module as an untyped black box.
+    package = Path(crskit.__file__).parent
+    assert (package / "py.typed").exists()
+    assert (package / "_crskit.pyi").exists()
 
 
 def test_epsg_version_is_reported():
