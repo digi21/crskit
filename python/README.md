@@ -224,11 +224,14 @@ if not crskit.is_initialized():
     crskit.init()
 ```
 
-## Examples
+## Learning it
 
-Runnable scripts live in [`examples/`](examples/) — a quick start, WKT round trips, a million points
-with NumPy, choosing among candidate operations, and orthometric heights. They are part of the test
-suite, so they cannot rot.
+- **[TUTORIAL.md](TUTORIAL.md)** — the long way in, from "what is a CRS" to geoids and point clouds.
+  Written for someone who knows Python and no geodesy; every output in it was produced by running the
+  code.
+- **[`examples/`](examples/)** — runnable scripts: a quick start, WKT round trips, a million points
+  with NumPy, choosing among candidate operations, and orthometric heights. The test suite runs them,
+  so they cannot rot.
 
 ## Typing
 

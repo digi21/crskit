@@ -2,6 +2,9 @@
 
 Runnable scripts, each one self-contained. They are part of the test suite, so they cannot rot.
 
+If you are starting out, read the [tutorial](../TUTORIAL.md) first: it explains the ideas these
+examples put to work.
+
 ```bash
 pip install crskit[epsg] numpy
 python 01_quickstart.py

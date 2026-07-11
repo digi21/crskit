@@ -69,8 +69,9 @@ crskit.transformation(etrs89, utm30n).transform([40.416775, -3.703790])
 ```
 
 It transforms whole NumPy arrays in a single call, emits WKT 1 and WKT 2, compares systems by their
-mathematical definition, and ships type stubs. See [`python/README.md`](python/README.md) for the
-full tour, and [`python/`](python/) for the sources.
+mathematical definition, and ships type stubs. There is a [tutorial](python/TUTORIAL.md) that starts
+from what a coordinate reference system even is, a [reference](python/README.md), and
+[runnable examples](python/examples/).
 
 ## Building from source
 
