@@ -54,6 +54,24 @@ find_package(crskit CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE crskit::crskit)
 ```
 
+## Using CrsKit from Python
+
+CrsKit has a Python binding (pybind11), published as a wheel:
+
+```python
+import crskit
+
+crskit.init("epsg.sqlite")
+etrs89 = crskit.crs_from_epsg(4258)      # geographic 2D (latitude, longitude)
+utm30n = crskit.crs_from_epsg(25830)     # ETRS89 / UTM zone 30N
+
+crskit.transformation(etrs89, utm30n).transform([40.416775, -3.703790])
+```
+
+It transforms whole NumPy arrays in a single call, emits WKT 1 and WKT 2, compares systems by their
+mathematical definition, and ships type stubs. See [`python/README.md`](python/README.md) for the
+full tour, and [`python/`](python/) for the sources.
+
 ## Building from source
 
 ```bash
