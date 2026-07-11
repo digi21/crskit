@@ -7,7 +7,9 @@
     "fileBase": "https://digi21.blob.core.windows.net/geodetic-grids/",
     "files": {
       "Und_min1x1_egm2008_isw=82_WGS84_TideFree": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min1x1_egm2008_isw=82_WGS84_TideFree",
-      "Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree"
+      "Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree",
+      "Und_min1x1_egm2008_isw=82_WGS84_TideFree.gz": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min1x1_egm2008_isw=82_WGS84_TideFree",
+      "Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree.gz": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree"
     }
   },
   {
