@@ -174,6 +174,73 @@ TEST(GridFile, Egm2008SyntheticGridIsReadAndApplied)
 	fs::remove(dir, ec);
 }
 
+// Transforming a geographic 3D CRS to a vertical one (a geoid model) must honour the axis order the
+// CRS declares. The geoid interpolates its grid at (longitude, latitude), but EPSG 4979 declares its
+// axes as (Lat, Lon, h), so the coordinates have to be swapped on the way in. They were not: the EPSG
+// shortcut in the factory handed back the geoid operation raw, sampling the geoid at the transposed
+// point -- over Madrid that is an undulation of -32 m instead of +52 m, an 84 m error in the height.
+//
+// The grid here varies with longitude and is flat in latitude, so a transposed sample gives a
+// different answer and the test can tell. The expected height comes from the algorithm itself, fed
+// explicitly in (longitude, latitude) order: what is asserted is that the CRS-level transformation
+// agrees with it when fed in the order the CRS declares.
+TEST(GridFile, Geographic3DToVerticalHonoursTheDeclaredAxisOrder)
+{
+	namespace fs = std::filesystem;
+	auto const dir = fs::temp_directory_path() / "crskit_geoid_axis_test";
+	fs::create_directories(dir);
+
+	// EPSG operation 3859 ("WGS 84 to EGM2008 height (2)") names this grid; the reader takes the
+	// geometry from the file size (rows=101, cols=200), not from the name.
+	auto const name = std::string{ "Und_min1x1_egm2008_isw=82_WGS84_TideFree" };
+	auto const file = dir / name;
+	{
+		std::ofstream os{ file, std::ios::binary };
+		for (int r = 0; r < 101; ++r)
+		{
+			writeLittleEndian<float>(os, 0.0f);
+			for (int c = 0; c < 200; ++c)
+				writeLittleEndian<float>(os, static_cast<float>(c));  // undulation varies along longitude only
+			writeLittleEndian<float>(os, 0.0f);
+		}
+	}
+	ASSERT_EQ(81608u, fs::file_size(file));
+
+	auto directory = dir.string();
+	directory += '/';
+	DataDirectoryGuard const guard{ directory };
+
+	constexpr auto latitude = 40.416775;   // Madrid
+	constexpr auto longitude = -3.703790;
+	constexpr auto ellipsoidal = 700.0;
+
+	auto const geoid = GetMathTransformFactory()->CreateFromWkt(std::format(
+		R"WKT(PARAM_MT["Geographic3DToGravityRelatedHeightEGM2008",PARAMETER["geoid_model_file","{}"]])WKT", name));
+	ASSERT_NE(nullptr, geoid);
+
+	auto const expected = geoid->Transform({ longitude, latitude, ellipsoidal }).at(0);
+	auto const transposed = geoid->Transform({ latitude, longitude, ellipsoidal }).at(0);
+	ASSERT_GT(std::fabs(expected - transposed), 1.0) << "the grid must not be flat in longitude, or the test proves nothing";
+
+	CoordinateTransformationOptions options;
+	options.selectOperation = [](std::string const&, std::string const&, std::vector<CoordinateOperation> const&) { return 3859; };
+
+	auto const source = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4979);  // (Lat, Lon, h)
+	auto const target = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(3855);  // EGM2008 height
+	auto const transformation = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target, options);
+
+	// A 3D point comes back 3D: the horizontal coordinates carried through, the height converted.
+	auto const result = transformation->GetMathTransform()->Transform({ latitude, longitude, ellipsoidal });
+	ASSERT_EQ(3u, result.size());
+	EXPECT_NEAR(latitude, result[0], 1e-9);
+	EXPECT_NEAR(longitude, result[1], 1e-9);
+	EXPECT_NEAR(expected, result[2], 1e-6);
+
+	std::error_code ec;
+	fs::remove(file, ec);
+	fs::remove(dir, ec);
+}
+
 // A synthetic ".gtx" geoid grid must be read (big-endian header + data, stored south-to-north) and
 // bilinearly interpolated, then applied by the (gtx) geoid method to convert ellipsoidal to
 // orthometric height. Exercises the whole gtx path: method registration, content/name recognition,

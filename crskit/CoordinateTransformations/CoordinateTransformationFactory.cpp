@@ -362,6 +362,22 @@ namespace CrsKit::CoordinateTransformations
 			}
 		}
 
+		// Geographic 3D -> vertical (a geoid model) is routed here BEFORE the EPSG shortcut below,
+		// because the authority factory hands back the geoid operation raw: it interpolates the grid at
+		// (longitude, latitude), but a geographic CRS may well declare its axes the other way round --
+		// EPSG 4979 is (Lat, Lon, h) -- and nothing in that path swaps them. Feeding it a point as the
+		// CRS declares it silently sampled the geoid at the transposed location (over Madrid, an
+		// undulation of -32 m instead of +52 m: an 84 m error in the height). CreateFromVerticalCoordinateSystems
+		// normalizes the axes and the angular unit first, and carries the horizontal coordinates through,
+		// so a 3D point comes back as a 3D point with its height converted.
+		if (3 == sourceCS->GetDimension() && 1 == targetCS->GetDimension())
+		{
+			auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
+			auto const vertical = dynamic_pointer_cast<VerticalCoordinateSystem>(targetCS);
+			if (geographic && vertical)
+				return CreateFromVerticalCoordinateSystems(geographic, vertical, options);
+		}
+
 		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG")
 			return GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(sourceCS, targetCS, options);
 
