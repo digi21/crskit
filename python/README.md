@@ -86,6 +86,50 @@ True
 0
 ```
 
+## Choosing between coordinate operations
+
+Between two datums there is rarely a single transformation. EPSG defines **twelve** from ED50 to
+ETRS89, differing in accuracy, in the area they are valid in, and in whether they need a grid file.
+Choosing for you would mean silently deciding how wrong your coordinates are, so an ambiguous pair
+raises `TransformationNotFoundError` unless you say which one to use:
+
+```python
+def for_mainland_spain(source_name, target_name, operations):
+    for operation in operations:
+        print(f"EPSG:{operation.code}  {operation.accuracy} m  {operation.area_of_use}")
+    spain = [o for o in operations if "Spain - mainland" in o.area_of_use and not o.grid_files]
+    return min(spain, key=lambda o: o.accuracy)
+
+transformation = crskit.transformation(ed50, etrs89, select_operation=for_mainland_spain)
+```
+
+```
+EPSG:15932   0.2 m  Spain - mainland and Balearic Islands onshore   needs SPED2ETV2.gsb
+EPSG:1588    1.0 m  Norway - offshore north of 65°N; Svalbard
+EPSG:1628    1.0 m  Gibraltar
+EPSG:1632    1.5 m  Spain - mainland except northwest
+EPSG:1650    2.0 m  France
+EPSG:5040    5.0 m  Portugal - mainland - onshore
+...
+```
+
+Each candidate tells you its `code`, `accuracy` in metres, `area_of_use`, `grid_files` and
+`information_source` — enough to choose by geography and not only by the smallest number.
+
+## Heights above sea level
+
+A GNSS receiver gives an *ellipsoidal* height, which is not the altitude anyone means. Turning it
+into an orthometric height takes a geoid model. Pair a horizontal system with a vertical one and
+transform in 3D:
+
+```python
+etrs89_3d = crskit.crs_from_epsg(4937)              # latitude, longitude, ellipsoidal height
+utm_over_sea_level = crskit.compound_crs(25830, 5782)   # UTM 30N + Alicante height
+
+crskit.transformation(etrs89_3d, utm_over_sea_level).transform([40.416775, -3.703790, 700.0])
+# [440291.284, 4474254.600, 648.888]   <- 51.112 m of geoid undulation over Madrid
+```
+
 ## When a transformation needs a grid
 
 Datum shifts and orthometric heights often need a grid file (a geoid model, an NTv2 grid) that
@@ -141,6 +185,12 @@ and settings are the ones the application set up, and there is nothing left to i
 if not crskit.is_initialized():
     crskit.init()
 ```
+
+## Examples
+
+Runnable scripts live in [`examples/`](examples/) — a quick start, WKT round trips, a million points
+with NumPy, choosing among candidate operations, and orthometric heights. They are part of the test
+suite, so they cannot rot.
 
 ## Typing
 

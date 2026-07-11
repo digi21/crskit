@@ -26,6 +26,7 @@ if sys.platform == "win32":
 
 from ._crskit import (
     AuthorityCodeNotFoundError,
+    CoordinateOperation,
     CoordinateOutsideDomainError,
     Crs,
     CrsError,
@@ -33,9 +34,11 @@ from ._crskit import (
     GridFileNotFoundError,
     Transformation,
     TransformationNotFoundError,
+    UnknownCrsPolicy,
     UnsupportedFormatError,
     WktParseError,
     WktVersion,
+    compound_crs,
     crs_from_epsg,
     crs_from_wkt,
     epsg_version,
@@ -77,6 +80,7 @@ def init(
 
 __all__ = [
     "AuthorityCodeNotFoundError",
+    "CoordinateOperation",
     "CoordinateOutsideDomainError",
     "Crs",
     "CrsError",
@@ -84,9 +88,11 @@ __all__ = [
     "GridFileNotFoundError",
     "Transformation",
     "TransformationNotFoundError",
+    "UnknownCrsPolicy",
     "UnsupportedFormatError",
     "WktParseError",
     "WktVersion",
+    "compound_crs",
     "crs_from_epsg",
     "crs_from_wkt",
     "epsg_version",

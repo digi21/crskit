@@ -6,13 +6,15 @@ generator cannot see through the C++ signatures: it types anything that returns 
 """
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, ClassVar, SupportsFloat, SupportsIndex, SupportsInt
 
 import numpy
 import numpy.typing
 
 __all__: list[str]
+
+SelectOperation = Callable[[str, str, list["CoordinateOperation"]], "CoordinateOperation | int"]
 
 class CrsError(RuntimeError):
     """Base of every error the library raises."""
@@ -59,6 +61,51 @@ class WktVersion:
     def name(self) -> str: ...
     @property
     def value(self) -> int: ...
+
+class UnknownCrsPolicy:
+    """What to do when exactly one of the two systems is local or unknown."""
+
+    REJECT: ClassVar[UnknownCrsPolicy]
+    IDENTITY: ClassVar[UnknownCrsPolicy]
+
+    __members__: ClassVar[dict[str, UnknownCrsPolicy]]
+
+    def __init__(self, value: SupportsInt | SupportsIndex) -> None: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __hash__(self) -> int: ...
+    def __index__(self) -> int: ...
+    def __int__(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def value(self) -> int: ...
+
+class CoordinateOperation:
+    """An EPSG coordinate operation: one of the ways to get from one system to another."""
+
+    @property
+    def code(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def accuracy(self) -> float | None:
+        """The accuracy in metres, or None when EPSG does not state one."""
+
+    @property
+    def area_of_use(self) -> str:
+        """The geographic extent the operation is valid in."""
+
+    @property
+    def grid_files(self) -> list[str]:
+        """The grid file(s) the operation needs, empty when it needs none."""
+
+    @property
+    def scope(self) -> str | None: ...
+    @property
+    def remarks(self) -> str | None: ...
+    @property
+    def information_source(self) -> str | None: ...
+    def __repr__(self) -> str: ...
 
 class Crs:
     """A coordinate reference system. Build one with crs_from_epsg() or crs_from_wkt()."""
@@ -143,5 +190,18 @@ def crs_from_epsg(code: SupportsInt | SupportsIndex) -> Crs:
 def crs_from_wkt(wkt: str) -> Crs:
     """The coordinate reference system described by this Well-Known Text (WKT 1 or WKT 2)."""
 
-def transformation(source: Crs, target: Crs) -> Transformation:
-    """The transformation from one coordinate reference system to another."""
+def compound_crs(horizontal: SupportsInt | SupportsIndex, vertical: SupportsInt | SupportsIndex) -> Crs:
+    """A compound CRS from the EPSG codes of a horizontal and a vertical system."""
+
+def transformation(
+    source: Crs,
+    target: Crs,
+    *,
+    select_operation: SelectOperation | None = None,
+    unknown_crs_policy: UnknownCrsPolicy = ...,
+) -> Transformation:
+    """The transformation from one coordinate reference system to another.
+
+    When EPSG defines several operations between the two systems, select_operation chooses; without
+    it, an ambiguous pair raises TransformationNotFoundError.
+    """

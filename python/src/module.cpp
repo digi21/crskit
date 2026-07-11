@@ -24,6 +24,7 @@
 namespace py = pybind11;
 
 using CrsKit::CoordinateSystems::CoordinateSystem;
+using CrsKit::CoordinateTransformations::CoordinateOperation;
 using CrsKit::CoordinateTransformations::ICoordinateTransformation;
 using CrsKit::CoordinateTransformations::IMathTransform;
 
@@ -255,6 +256,53 @@ PYBIND11_MODULE(_crskit, m)
 			});
 
 	// ---------------------------------------------------------------------------------------
+	// Choosing between candidate coordinate operations
+	// ---------------------------------------------------------------------------------------
+	py::class_<CoordinateOperation>(m, "CoordinateOperation",
+		"An EPSG coordinate operation: one of the ways to get from one system to another. When several\n"
+		"apply, transformation() hands them to the select_operation callback so the caller can choose.")
+		.def_property_readonly("code", [](CoordinateOperation const& self) { return self.Code; })
+		.def_property_readonly("name", [](CoordinateOperation const& self) { return self.Name; })
+		.def_property_readonly("accuracy",
+			[](CoordinateOperation const& self) -> py::object
+			{
+				return self.Accuracy ? py::cast(*self.Accuracy) : py::none();
+			},
+			"The operation's accuracy in metres, or None when EPSG does not state one.")
+		.def_property_readonly("area_of_use", [](CoordinateOperation const& self) { return self.AreaOfUse; },
+			"The geographic extent the operation is valid in: choose by geography, not only by accuracy.")
+		.def_property_readonly("grid_files", [](CoordinateOperation const& self) { return self.GridFiles; },
+			"The grid file(s) the operation needs, empty when it needs none.")
+		.def_property_readonly("scope",
+			[](CoordinateOperation const& self) -> py::object
+			{
+				return self.Scope ? py::cast(*self.Scope) : py::none();
+			})
+		.def_property_readonly("remarks",
+			[](CoordinateOperation const& self) -> py::object
+			{
+				return self.Remarks ? py::cast(*self.Remarks) : py::none();
+			})
+		.def_property_readonly("information_source",
+			[](CoordinateOperation const& self) -> py::object
+			{
+				return self.InformationSource ? py::cast(*self.InformationSource) : py::none();
+			})
+		.def("__repr__",
+			[](CoordinateOperation const& self)
+			{
+				return std::format("<CoordinateOperation EPSG:{} \"{}\" ({})>",
+					self.Code,
+					self.Name,
+					self.Accuracy ? std::format("{} m", *self.Accuracy) : std::string{ "accuracy unstated" });
+			});
+
+	py::enum_<CrsKit::UnknownCrsPolicy>(m, "UnknownCrsPolicy",
+		"What to do when exactly one of the two systems is local or unknown.")
+		.value("REJECT", CrsKit::UnknownCrsPolicy::Reject, "Refuse to transform between a known and an unknown system. The default, and the safe answer.")
+		.value("IDENTITY", CrsKit::UnknownCrsPolicy::Identity, "Place the coordinates as they are, assuming the same frame and units.");
+
+	// ---------------------------------------------------------------------------------------
 	// Module-level API
 	// ---------------------------------------------------------------------------------------
 	m.def("init",
@@ -310,15 +358,55 @@ PYBIND11_MODULE(_crskit, m)
 		py::arg("wkt"),
 		"The coordinate reference system described by this Well-Known Text (WKT 1 or WKT 2).");
 
-	m.def("transformation",
-		[](std::shared_ptr<CoordinateSystem> const& source, std::shared_ptr<CoordinateSystem> const& target)
+	m.def("compound_crs",
+		[](int horizontal, int vertical) -> std::shared_ptr<CoordinateSystem>
 		{
 			RequireInitialized();
+			py::gil_scoped_release const release;
+			return CrsKit::GetCoordinateSystemAuthorityFactory()->CreateCompoundCoordinateSystem(horizontal, vertical);
+		},
+		py::arg("horizontal"), py::arg("vertical"),
+		"A compound CRS from the EPSG codes of a horizontal and a vertical system -- the way to work with\n"
+		"orthometric heights, e.g. compound_crs(25830, 5782) for UTM 30N with heights above mean sea level.\n"
+		"EPSG has no code for every combination, so a compound system is named by its two parts.");
+
+	m.def("transformation",
+		[](std::shared_ptr<CoordinateSystem> const& source,
+			std::shared_ptr<CoordinateSystem> const& target,
+			py::object const& select_operation,
+			CrsKit::UnknownCrsPolicy unknown_crs_policy)
+		{
+			RequireInitialized();
+
+			// Declared out here on purpose: it owns the Python callback, and it must be destroyed with the
+			// GIL held -- that is, after the gil_scoped_release below has gone out of scope.
+			CrsKit::CoordinateTransformationOptions options;
+			options.unknownCrsPolicy = unknown_crs_policy;
+
+			if (!select_operation.is_none())
+			{
+				options.selectOperation = [select_operation](
+					std::string const& sourceName,
+					std::string const& targetName,
+					std::vector<CoordinateOperation> const& operations) -> int
+				{
+					// Called from deep inside the C++, which is running without the GIL (see below).
+					py::gil_scoped_acquire const acquire;
+
+					auto const chosen = select_operation(sourceName, targetName, operations);
+
+					// The callback may return the operation it picked, or just its EPSG code.
+					if (py::isinstance<CoordinateOperation>(chosen))
+						return chosen.cast<CoordinateOperation>().Code;
+
+					return chosen.cast<int>();
+				};
+			}
 
 			std::shared_ptr<ICoordinateTransformation> transformation;
 			{
 				py::gil_scoped_release const release;
-				transformation = CrsKit::GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target);
+				transformation = CrsKit::GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target, options);
 			}
 
 			if (!transformation)
@@ -326,6 +414,13 @@ PYBIND11_MODULE(_crskit, m)
 
 			return transformation;
 		},
-		py::arg("source"), py::arg("target"),
-		"The transformation from one coordinate reference system to another.");
+		py::arg("source"), py::arg("target"), py::kw_only(),
+		py::arg("select_operation") = py::none(),
+		py::arg("unknown_crs_policy") = CrsKit::UnknownCrsPolicy::Reject,
+		"The transformation from one coordinate reference system to another.\n\n"
+		"EPSG often defines several operations between the same two systems, differing in accuracy and in\n"
+		"the area they are valid in; there is no single right answer, so the library refuses to guess.\n"
+		"Pass select_operation to choose: a callable taking (source_name, target_name, operations) and\n"
+		"returning one of the CoordinateOperation objects (or its EPSG code). Without it, an ambiguous\n"
+		"pair raises TransformationNotFoundError.");
 }
