@@ -3,6 +3,7 @@
     "match": "egm2008",
     "name": "EGM2008 geoid grid (NGA)",
     "url": "https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84",
+    "attribution": "National Geospatial-Intelligence Agency (NGA)",
     "fileBase": "https://digi21.blob.core.windows.net/geodetic-grids/",
     "files": {
       "Und_min1x1_egm2008_isw=82_WGS84_TideFree": "https://digi21.blob.core.windows.net/geodetic-grids/Und_min1x1_egm2008_isw=82_WGS84_TideFree",
@@ -13,6 +14,11 @@
     "match": "rednap",
     "name": "EGM08-REDNAP Spanish geoid (IGN)",
     "url": "https://datos-geodesia.ign.es/geoide/",
-    "fileBase": "https://datos-geodesia.ign.es/geoide/ascii/"
+    "attribution": "© Instituto Geográfico Nacional de España, CC BY 4.0",
+    "fileBase": "https://digi21.blob.core.windows.net/geodetic-grids/",
+    "files": {
+      "EGM08_REDNAP.txt": "https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP.txt",
+      "EGM08_REDNAP_Canarias.txt": "https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP_Canarias.txt"
+    }
   }
 ]

@@ -163,11 +163,15 @@ which is the name in the link:
 These are mirrors of the NGA files, in the little-endian layout the reader expects; the originals are
 at [earth-info.nga.mil](https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84).
 
-**Spain** — the EGM08-REDNAP geoid and the ED50↔ETRS89 NTv2 grids come from the *Instituto
-Geográfico Nacional*: the geoid from [datos-geodesia.ign.es/geoide](https://datos-geodesia.ign.es/geoide/)
-(`EGM08_REDNAP.txt`) and the grids from the [CNIG download centre](https://centrodedescargas.cnig.es/CentroDescargas/redes-geodesicas)
-(`PENR2009.gsb` for the peninsula, `BALR2009.gsb` for the Balearics). © Instituto Geográfico Nacional
-de España, under a CC BY 4.0-compatible licence.
+**Spain** — the EGM08-REDNAP geoid, which is the model EPSG uses for heights over Alicante datum:
+
+- [`EGM08_REDNAP.txt`](https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP.txt) (4 MB) — peninsula and Balearics.
+- [`EGM08_REDNAP_Canarias.txt`](https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP_Canarias.txt) (0.4 MB) — the Canary Islands.
+
+The ED50↔ETRS89 NTv2 grids (`PENR2009.gsb`, `BALR2009.gsb`) come from the
+[CNIG download centre](https://centrodedescargas.cnig.es/CentroDescargas/redes-geodesicas). All of
+these are © *Instituto Geográfico Nacional de España*, mirrored under its CC BY 4.0-compatible
+licence; the originals live at [datos-geodesia.ign.es](https://datos-geodesia.ign.es/geoide/).
 
 `data/grid-sources.json` in the repository maps a grid name to where it can be obtained, so an
 application can offer to fetch it when `GridFileNotFoundError` is raised.
