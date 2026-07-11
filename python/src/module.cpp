@@ -33,9 +33,14 @@ namespace
 	// leaked (a static py::object would be destroyed after the interpreter is gone).
 	PyObject* gGridFileNotFoundError{};
 
+	auto IsInitialized() -> bool
+	{
+		return nullptr != CrsKit::GetCurrentEnvironment()->Provider;
+	}
+
 	auto RequireInitialized() -> void
 	{
-		if (!CrsKit::GetCurrentEnvironment()->Provider)
+		if (!IsInitialized())
 			throw CrsKit::OpenGisException{ "crskit is not initialised: call crskit.init(epsg_database) first." };
 	}
 
@@ -267,9 +272,15 @@ PYBIND11_MODULE(_crskit, m)
 			CrsKit::GetDefaultContext()->dataDirectory = (directory / "").string();
 		},
 		py::arg("epsg_database"), py::arg("data_directory") = py::none(),
-		"Initialises the library against an EPSG SQLite database. Must be called before anything else.\n"
+		"Initialises the library against an EPSG SQLite database. Must be called before anything else,\n"
+		"unless the application embedding the interpreter has already initialised CrsKit itself (see\n"
+		"is_initialized()), in which case calling this replaces its EPSG database with the given one.\n"
 		"data_directory is where grid files (geoids, NTv2, NADCON) are looked up; it defaults to the\n"
 		"folder holding the database.");
+
+	m.def("is_initialized", &IsInitialized,
+		"Whether the library already has an EPSG database. True without calling init() when the host\n"
+		"application (Digi3D.NET, MDTopX) initialised the very same CrsKit library this module links.");
 
 	m.def("epsg_version",
 		[]

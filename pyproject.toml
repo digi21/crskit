@@ -33,8 +33,9 @@ Repository = "https://github.com/digi21/crskit"
 minimum-version = "0.10"
 build-dir = "build/{wheel_tag}"
 wheel.packages = ["python/crskit"]
-# Only the extension module: the shared library and the GoogleTest suite play no part in the wheel.
-build.targets = ["_crskit"]
+# The module and the shared library it links: both ship inside the package. The GoogleTest suite
+# plays no part in the wheel, and neither do the CMake package/export files (DIGI21_INSTALL=OFF).
+build.targets = ["_crskit", "crskit"]
 cmake.version = ">=3.21"
 cmake.define = { DIGI21_BUILD_PYTHON = "ON", DIGI21_BUILD_TESTS = "OFF", DIGI21_INSTALL = "OFF" }
 

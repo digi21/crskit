@@ -35,6 +35,10 @@ def utm30n():
     return crskit.crs_from_epsg(25830)
 
 
+def test_the_library_reports_itself_initialized():
+    assert crskit.is_initialized()
+
+
 def test_epsg_version_is_reported():
     assert crskit.epsg_version()
 
