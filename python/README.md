@@ -6,18 +6,18 @@ implementation of the OGC *Coordinate Transformation Services* model, conformanc
 IOGP **GIGS** series.
 
 ```bash
-pip install crskit
+pip install crskit[epsg]
 ```
 
 ## Getting started
 
-CrsKit is the *software*; the EPSG *data* are a separate download (see [The EPSG database](#the-epsg-database)
-below). Point `init()` at it once, and you are ready:
+The `[epsg]` extra brings the EPSG catalogue with it, so `init()` needs no path — it finds the
+database on its own:
 
 ```python
 import crskit
 
-crskit.init("epsg.sqlite")
+crskit.init()
 
 etrs89 = crskit.crs_from_epsg(4258)     # ETRS89, geographic 2D (latitude, longitude)
 utm30n = crskit.crs_from_epsg(25830)    # ETRS89 / UTM zone 30N (easting, northing)
@@ -112,21 +112,34 @@ discriminate when you care.
 
 ## The EPSG database
 
-CrsKit does not bundle the EPSG Geodetic Parameter Dataset: it is IOGP's data, distributed under its
-own [terms of use](https://epsg.org/terms-of-use.html). Get a prebuilt SQLite copy from the
-[`epsg-data`](https://github.com/digi21/crskit/releases/tag/epsg-data) release, or build one from the
-official EPSG SQL scripts with [`tools/epsg-sqlite`](https://github.com/digi21/crskit/tree/main/tools/epsg-sqlite).
-Then hand it to `init()`.
+The catalogue lives in its own package, [`crskit-epsg`](https://pypi.org/project/crskit-epsg/),
+which the `[epsg]` extra installs. It is versioned after the dataset, not after the library, so a
+newer EPSG release is `pip install -U crskit-epsg` — no new version of CrsKit needed.
 
-## Inside Digi3D.NET and MDTopX
+`init()` looks for the database in this order: the path you pass, the `DIGI21_EPSG_SQLITE`
+environment variable, and then the `crskit-epsg` package. Any SQLite built from the official EPSG
+SQL scripts works — for instance one you build yourself with
+[`tools/epsg-sqlite`](https://github.com/digi21/crskit/tree/main/tools/epsg-sqlite) for a version
+newer than the packaged one:
 
-In the Python window of an application that embeds CrsKit, the module binds to the `crskit.dll` the
-application already has loaded, and shares its state: the EPSG catalogue and the settings are the
-ones the application set up, so there is nothing to initialise.
+```python
+crskit.init("/path/to/epsg.sqlite", data_directory="/path/to/grids")
+```
+
+The data are the EPSG Geodetic Parameter Dataset (<https://epsg.org>), **owned by IOGP** and used
+under its [Terms of Use](https://epsg.org/terms-of-use.html), which ship inside `crskit-epsg`. IOGP
+provides them "as is" and does not endorse CrsKit.
+
+## Inside an application that embeds Python
+
+The module links the CrsKit shared library rather than compiling it in. So when a host application
+that already uses CrsKit runs a script through an embedded interpreter, the loader binds the module
+to the library the application has *already* loaded, and both share its state: the EPSG catalogue
+and settings are the ones the application set up, and there is nothing left to initialise.
 
 ```python
 if not crskit.is_initialized():
-    crskit.init("epsg.sqlite")
+    crskit.init()
 ```
 
 ## Typing

@@ -51,10 +51,10 @@ jobs:
 
           # delvewheel, which cibuildwheel runs by default on Windows, needs three corrections here:
           #   --no-mangle-all  it renames every DLL it vendors (crskit.dll -> crskit-<hash>.dll), which
-          #                    would defeat the point of linking the shared library: inside an application
-          #                    that embeds Python and already has crskit.dll loaded (the script window of
-          #                    Digi3D.NET or MDTopX), the loader binds the module to that copy BY NAME, so
-          #                    the script shares the library's state instead of running a second copy.
+          #                    would defeat the point of linking the shared library: in a host application
+          #                    that embeds Python and already has crskit.dll loaded, the loader binds the
+          #                    module to that copy BY NAME, so the script shares the library's state
+          #                    instead of running against a second copy.
           #   --exclude        crskit.dll already travels inside the package; without this delvewheel goes
           #                    looking for it on the system and fails.
           #   --add-path       the C++ runtime it vendors (msvcp140.dll) must be the one the binaries were

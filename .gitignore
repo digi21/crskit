@@ -35,6 +35,13 @@ CMakeFiles/
 /dist/
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+
+# crskit-epsg: the EPSG database and the version derived from it are not versioned here (IOGP's
+# data, under its own terms). fetch.py puts them in place before the wheel is built.
+/python-epsg/crskit_epsg/epsg.sqlite
+/python-epsg/crskit_epsg/_version.py
+/python-epsg/build/
 
 # Visual Studio 2015 cache/options directory
 .vs/

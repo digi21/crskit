@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crskit-epsg"
+# The EPSG dataset version, written by fetch.py from the database itself (12.057 -> 12.57).
+dynamic = ["version"]
+description = "The EPSG Geodetic Parameter Dataset (IOGP), as a SQLite database, for CrsKit"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "José Ángel Martínez Torres", email = "joseangelmt@outlook.com" }]
+keywords = ["EPSG", "IOGP", "CRS", "geodesy", "GIS"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+[project.urls]
+Homepage = "https://github.com/digi21/crskit"
+
+[tool.setuptools.dynamic]
+version = { attr = "crskit_epsg.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["crskit_epsg"]
+
+[tool.setuptools.package-data]
+crskit_epsg = ["epsg.sqlite", "EPSG-TERMS-OF-USE.md"]

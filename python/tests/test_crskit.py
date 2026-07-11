@@ -1,7 +1,7 @@
 """Tests for the Python binding.
 
-The EPSG database is not shipped with the package: point DIGI21_EPSG_SQLITE at one, exactly as
-the C++ (GoogleTest) suite does.
+The EPSG database comes from DIGI21_EPSG_SQLITE, exactly as in the C++ (GoogleTest) suite, or from
+the crskit-epsg package when it is installed. Without either, the suite skips itself.
 """
 
 import os
@@ -11,9 +11,20 @@ import pytest
 
 import crskit
 
-EPSG_DATABASE = os.environ.get(
-    "DIGI21_EPSG_SQLITE", r"C:\ProgramData\Digi3D.NET\OpenGis\epsg-fiel.sqlite"
-)
+
+def _epsg_database() -> str | None:
+    if database := os.environ.get("DIGI21_EPSG_SQLITE"):
+        return database
+
+    try:
+        import crskit_epsg
+    except ImportError:
+        return None
+
+    return str(crskit_epsg.database_path())
+
+
+EPSG_DATABASE = _epsg_database()
 
 # EPSG 4258 (ETRS89, geographic 2D, latitude/longitude) and 25830 (ETRS89 / UTM zone 30N).
 MADRID_LAT_LON = [40.416775, -3.703790]
@@ -21,8 +32,8 @@ MADRID_LAT_LON = [40.416775, -3.703790]
 
 @pytest.fixture(scope="session", autouse=True)
 def initialise():
-    if not os.path.exists(EPSG_DATABASE):
-        pytest.skip(f"EPSG database not found: {EPSG_DATABASE}")
+    if EPSG_DATABASE is None or not os.path.exists(EPSG_DATABASE):
+        pytest.skip("no EPSG database: set DIGI21_EPSG_SQLITE or install crskit-epsg")
     crskit.init(EPSG_DATABASE)
 
 
@@ -50,6 +61,27 @@ def test_the_package_ships_its_type_information():
 
 def test_epsg_version_is_reported():
     assert crskit.epsg_version()
+
+
+def test_init_without_arguments_finds_the_data_package(monkeypatch):
+    crskit_epsg = pytest.importorskip("crskit_epsg")
+    monkeypatch.delenv("DIGI21_EPSG_SQLITE", raising=False)
+
+    crskit.init()
+
+    assert crskit.epsg_version() == crskit_epsg.EPSG_VERSION
+
+    crskit.init(EPSG_DATABASE)  # leave the suite on the database it was given
+
+
+def test_init_without_a_database_anywhere_says_what_to_do(monkeypatch):
+    monkeypatch.delenv("DIGI21_EPSG_SQLITE", raising=False)
+    monkeypatch.setitem(__import__("sys").modules, "crskit_epsg", None)
+
+    with pytest.raises(crskit.CrsError, match="crskit\\[epsg\\]"):
+        crskit.init()
+
+    crskit.init(EPSG_DATABASE)
 
 
 def test_crs_from_epsg_exposes_its_identity(utm30n):

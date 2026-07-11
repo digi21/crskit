@@ -273,14 +273,14 @@ PYBIND11_MODULE(_crskit, m)
 		},
 		py::arg("epsg_database"), py::arg("data_directory") = py::none(),
 		"Initialises the library against an EPSG SQLite database. Must be called before anything else,\n"
-		"unless the application embedding the interpreter has already initialised CrsKit itself (see\n"
+		"unless a host application embedding the interpreter has already initialised CrsKit itself (see\n"
 		"is_initialized()), in which case calling this replaces its EPSG database with the given one.\n"
 		"data_directory is where grid files (geoids, NTv2, NADCON) are looked up; it defaults to the\n"
 		"folder holding the database.");
 
 	m.def("is_initialized", &IsInitialized,
-		"Whether the library already has an EPSG database. True without calling init() when the host\n"
-		"application (Digi3D.NET, MDTopX) initialised the very same CrsKit library this module links.");
+		"Whether the library already has an EPSG database. True without calling init() when a host\n"
+		"application initialised the very same CrsKit library this module links against.");
 
 	m.def("epsg_version",
 		[]

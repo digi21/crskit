@@ -1,11 +1,10 @@
 # Python binding (pybind11).
 #
 # The module links the crskit SHARED library instead of compiling its sources in. That matters for
-# the embedded interpreters: in the script window of Digi3D.NET or MDTopX the host application has
-# already loaded crskit.dll, and the loader resolves a DLL by name, so the module binds to that very
-# copy. Library state (the Environment: EPSG provider, factories, default CrsContext) is then shared
-# with the host -- a script sees the CRS the application initialised, instead of running against a
-# second, private copy of the library.
+# embedded interpreters: a host application that already uses CrsKit has crskit.dll loaded, and the
+# loader resolves a DLL by name, so the module binds to that very copy. Library state (the
+# Environment: EPSG provider, factories, default CrsContext) is then shared with the host -- a script
+# sees the CRS the application initialised, instead of running against a second, private copy.
 #
 # The wheel therefore ships two binaries in the package: _crskit.pyd/.so and crskit.dll/libcrskit.so.
 #

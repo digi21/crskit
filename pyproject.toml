@@ -22,9 +22,12 @@ classifiers = [
     "Topic :: Scientific/Engineering :: GIS",
 ]
 
-# NumPy is only needed by Transformation.transform_points(); transform() works with plain
-# sequences, so the module itself imports without it.
+# crskit-epsg carries the EPSG catalogue (IOGP's data, under its own terms), which init() then finds
+# on its own. Kept an extra rather than a hard dependency until it is published to PyPI.
+# NumPy is only needed by Transformation.transform_points(); transform() works with plain sequences,
+# so the module itself imports without it.
 [project.optional-dependencies]
+epsg = ["crskit-epsg"]
 numpy = ["numpy>=1.23"]
 
 [project.urls]
