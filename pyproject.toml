@@ -1,0 +1,42 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.13"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "crskit"
+version = "0.4.0"
+description = "Coordinate reference systems and coordinate transformations (OGC Coordinate Transformation Services, EPSG, WKT 1 and WKT 2)"
+readme = "Readme.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "José Ángel Martínez Torres", email = "joseangelmt@outlook.com" }]
+keywords = ["EPSG", "CRS", "WKT", "coordinate", "transformation", "projection", "geodesy", "GIS"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+# NumPy is only needed by Transformation.transform_points(); transform() works with plain
+# sequences, so the module itself imports without it.
+[project.optional-dependencies]
+numpy = ["numpy>=1.23"]
+
+[project.urls]
+Homepage = "https://github.com/digi21/crskit"
+Repository = "https://github.com/digi21/crskit"
+
+[tool.scikit-build]
+minimum-version = "0.10"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["python/crskit"]
+# Only the extension module: the shared library and the GoogleTest suite play no part in the wheel.
+build.targets = ["_crskit"]
+cmake.version = ">=3.21"
+cmake.define = { DIGI21_BUILD_PYTHON = "ON", DIGI21_BUILD_TESTS = "OFF", DIGI21_INSTALL = "OFF" }
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]

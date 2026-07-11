@@ -73,6 +73,16 @@ if(DIGI21_INSTALL)
 endif()
 
 # ---------------------------------------------------------------------------
+# Python binding (pybind11). Off by default: the wheel build (scikit-build-core, see
+# pyproject.toml) turns it on, and so can a plain CMake build with -DDIGI21_BUILD_PYTHON=ON.
+# ---------------------------------------------------------------------------
+option(DIGI21_BUILD_PYTHON "Build the Python binding (pybind11)" OFF)
+
+if(DIGI21_BUILD_PYTHON)
+    add_subdirectory(python)
+endif()
+
+# ---------------------------------------------------------------------------
 # Tests (GoogleTest)
 # ---------------------------------------------------------------------------
 option(DIGI21_BUILD_TESTS "Build the tests (GoogleTest)" ON)

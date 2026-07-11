@@ -25,10 +25,16 @@ bld/
 # CMake out-of-source build directories (Linux / cross-platform / sanitizers)
 /build/
 /build-linux/
+/build-win/
 /build-asan/
 /out/
 CMakeCache.txt
 CMakeFiles/
+
+# Python binding: wheel/sdist output and test caches
+/dist/
+*.egg-info/
+.pytest_cache/
 
 # Visual Studio 2015 cache/options directory
 .vs/
