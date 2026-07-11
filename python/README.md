@@ -149,6 +149,29 @@ except crskit.GridFileNotFoundError as error:
 Put the grids in the data directory (`init(..., data_directory=...)`, which defaults to the folder
 holding the EPSG database) and the transformation builds.
 
+### Where to get the grids
+
+Grid files belong to the agencies that publish them, so they are not shipped with CrsKit. The two
+you are most likely to need:
+
+**EGM2008**, the global geoid, published by the NGA — save the file under the name EPSG gives it,
+which is the name in the link:
+
+- [`Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree`](https://digi21.blob.core.windows.net/geodetic-grids/Und_min2.5x2.5_egm2008_isw%3D82_WGS84_TideFree) (2.5′, 149 MB) — enough for most work.
+- [`Und_min1x1_egm2008_isw=82_WGS84_TideFree`](https://digi21.blob.core.windows.net/geodetic-grids/Und_min1x1_egm2008_isw%3D82_WGS84_TideFree) (1′, 933 MB) — the finer grid.
+
+These are mirrors of the NGA files, in the little-endian layout the reader expects; the originals are
+at [earth-info.nga.mil](https://earth-info.nga.mil/index.php?dir=wgs84&action=wgs84).
+
+**Spain** — the EGM08-REDNAP geoid and the ED50↔ETRS89 NTv2 grids come from the *Instituto
+Geográfico Nacional*: the geoid from [datos-geodesia.ign.es/geoide](https://datos-geodesia.ign.es/geoide/)
+(`EGM08_REDNAP.txt`) and the grids from the [CNIG download centre](https://centrodedescargas.cnig.es/CentroDescargas/redes-geodesicas)
+(`PENR2009.gsb` for the peninsula, `BALR2009.gsb` for the Balearics). © Instituto Geográfico Nacional
+de España, under a CC BY 4.0-compatible licence.
+
+`data/grid-sources.json` in the repository maps a grid name to where it can be obtained, so an
+application can offer to fetch it when `GridFileNotFoundError` is raised.
+
 Every error the library raises derives from `crskit.CrsError`, so one `except` catches them all;
 `AuthorityCodeNotFoundError`, `WktParseError`, `TransformationNotFoundError`,
 `DimensionMismatchError`, `CoordinateOutsideDomainError` and `UnsupportedFormatError` let you

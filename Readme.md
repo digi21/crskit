@@ -115,6 +115,10 @@ suite, in the [`epsg-data`](https://github.com/digi21/crskit/releases/tag/epsg-d
 
 **Grid files** (geoid models, NTv2 datum-shift grids, …) are *not* redistributed here — they are
 obtained by the user from their official sources (national mapping agencies), each under its own licence.
+[`data/grid-sources.json`](data/grid-sources.json) maps a grid name to where it can be obtained, so an
+application can offer to fetch it when the library reports one missing. The global **EGM2008** geoid
+(NGA) is mirrored for convenience at `https://digi21.blob.core.windows.net/geodetic-grids/`, in the
+little-endian layout the reader expects.
 
 ## License
 
