@@ -1,5 +1,7 @@
 # CrsKit for Python — a tutorial
 
+**English** · [Español](TUTORIAL.es.md) · [Français](TUTORIAL.fr.md) · [Italiano](TUTORIAL.it.md) · [Deutsch](TUTORIAL.de.md)
+
 This is the long way in. It assumes you know Python and no geodesy at all: every idea is introduced
 when you first need it, and every output below was produced by running the code.
 

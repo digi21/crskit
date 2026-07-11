@@ -228,7 +228,8 @@ if not crskit.is_initialized():
 
 - **[TUTORIAL.md](TUTORIAL.md)** — the long way in, from "what is a CRS" to geoids and point clouds.
   Written for someone who knows Python and no geodesy; every output in it was produced by running the
-  code.
+  code. Also in [español](TUTORIAL.es.md), [français](TUTORIAL.fr.md), [italiano](TUTORIAL.it.md) and
+  [deutsch](TUTORIAL.de.md).
 - **[`examples/`](examples/)** — runnable scripts: a quick start, WKT round trips, a million points
   with NumPy, choosing among candidate operations, and orthometric heights. The test suite runs them,
   so they cannot rot.
