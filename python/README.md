@@ -130,6 +130,17 @@ crskit.transformation(etrs89_3d, utm_over_sea_level).transform([40.416775, -3.70
 # [440291.284, 4474254.600, 648.888]   <- 51.112 m of geoid undulation over Madrid
 ```
 
+Or transform straight to a vertical CRS, and get the point back with only its height changed —
+EGM2008 (EPSG 3855) is the global model, so this works anywhere:
+
+```python
+to_egm2008 = crskit.transformation(crskit.crs_from_epsg(4979), crskit.crs_from_epsg(3855),
+                                   select_operation=lambda source, target, ops: ops[0])
+
+to_egm2008.transform([27.988056, 86.925278, 8820.43])   # Everest, ellipsoidal height
+# [27.988056, 86.925278, 8848.86]   <- the orthometric height everyone knows
+```
+
 ## When a transformation needs a grid
 
 Datum shifts and orthometric heights often need a grid file (a geoid model, an NTv2 grid) that

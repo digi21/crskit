@@ -14,6 +14,7 @@ python 01_quickstart.py
 | [`03_point_cloud.py`](03_point_cloud.py) | A million points in one call, with NumPy. |
 | [`04_choosing_the_operation.py`](04_choosing_the_operation.py) | EPSG offers twelve ways from ED50 to ETRS89 — choose one. |
 | [`05_orthometric_heights.py`](05_orthometric_heights.py) | Ellipsoidal height to height above sea level, through a geoid model. |
+| [`06_global_geoid.py`](06_global_geoid.py) | The same, anywhere on Earth, with EGM2008 — Everest lands on 8848.86 m. |
 
 ## Grid files
 
