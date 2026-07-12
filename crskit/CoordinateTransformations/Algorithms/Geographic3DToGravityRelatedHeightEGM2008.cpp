@@ -7,16 +7,24 @@
 #include "GridFiles/GridAusGeoid.h"
 #include "../../CrsContext.h"
 #include <algorithm>
+#include <cerrno>
 #include <charconv>
+#include <clocale>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
+
+#ifdef __APPLE__
+#include <xlocale.h>
+#endif
 
 using namespace CrsKit::CoordinateSystems;
 using namespace CrsKit::Math;
@@ -36,13 +44,51 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			return s.size() >= n && 0 == compareNoCase(s.c_str() + s.size() - n, suffix);
 		}
 
+		// Whole-token parse of a double, without std::from_chars.
+		//
+		// Apple's libc++ keeps the floating-point from_chars in the system dylib and marks it available
+		// only from macOS 26.0, so the deployment target this library ships with cannot call it at all.
+		// strtod_l against a permanent C locale preserves the property from_chars was chosen for here:
+		// locale independence. Plain strtod would read "3.14" as 3 inside a host application that had
+		// installed a European locale, quietly corrupting every geoid grid it read.
+		auto parsesDouble(std::string const& t, double& value) -> bool
+		{
+			if (t.empty()) return false;
+
+#ifdef _WIN32
+			static auto const cLocale = _create_locale(LC_NUMERIC, "C");
+#else
+			static auto const cLocale = newlocale(LC_ALL_MASK, "C", locale_t{});
+#endif
+			char* end{};
+			errno = 0;
+
+#ifdef _WIN32
+			value = _strtod_l(t.c_str(), &end, cLocale);
+#else
+			value = strtod_l(t.c_str(), &end, cLocale);
+#endif
+			// Same contract as from_chars: the whole token consumed, and no overflow.
+			return end == t.c_str() + t.size() && errno != ERANGE;
+		}
+
 		// True if the whole token parses as a number of type T.
 		template <typename T>
 		auto parses(std::string const& t) -> bool
 		{
-			T value{};
-			auto const [ptr, ec] = std::from_chars(t.data(), t.data() + t.size(), value);
-			return ec == std::errc{} && ptr == t.data() + t.size();
+			if constexpr (std::is_floating_point_v<T>)
+			{
+				static_assert(std::is_same_v<T, double>, "parsesDouble covers double only.");
+				double value{};
+				return parsesDouble(t, value);
+			}
+			else
+			{
+				// The integral from_chars is header-only everywhere, Apple included.
+				T value{};
+				auto const [ptr, ec] = std::from_chars(t.data(), t.data() + t.size(), value);
+				return ec == std::errc{} && ptr == t.data() + t.size();
+			}
 		}
 
 		auto splitOn(std::string const& line, std::string_view delims) -> std::vector<std::string>
@@ -80,9 +126,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			if (x == std::string::npos) return std::nullopt;
 
 			double res{};
-			auto const head = mid.substr(0, x);
-			auto const [ptr, ec] = std::from_chars(head.data(), head.data() + head.size(), res);
-			if (ec != std::errc{} || ptr != head.data() + head.size() || !(res > 0.0)) return std::nullopt;
+			if (!parsesDouble(mid.substr(0, x), res) || !(res > 0.0)) return std::nullopt;
 			return res;
 		}
 
