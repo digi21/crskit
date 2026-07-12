@@ -47,7 +47,7 @@ namespace CrsKit::CoordinateSystems
 		if (IsWkt2(version))
 			return Wkt::ToWkt2(*this, version);
 
-		auto const axesString = std::ranges::fold_left(_axes, std::string{},
+		auto const axesString = std::accumulate(_axes.begin(), _axes.end(), std::string{},
 			[](std::string const& acc, auto const& axis) { return acc + "," + axis.GetWkt(); });
 
 		if (!_authority.empty() && _authorityCode)

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ConcatenatedTransform.h"
+#include <numeric>
 
 using namespace std;
 using namespace CrsKit::Math;
@@ -56,14 +57,14 @@ namespace CrsKit::CoordinateTransformations
 
 	auto ConcatenatedTransform::Transform(std::vector<double> const& point) const -> std::vector<double>
 	{
-		return std::ranges::fold_left(_transformations, point,
+		return std::accumulate(_transformations.begin(), _transformations.end(), point,
 			[](std::vector<double> const& acc, auto const& transformation) { return transformation->Transform(acc); });
 	}
 
 	auto ConcatenatedTransform::TransformPoints(std::span<double const> sourcePoints) const -> std::vector<double>
 	{
 		std::vector<double> buffer(sourcePoints.begin(), sourcePoints.end());
-		return std::ranges::fold_left(_transformations, std::move(buffer),
+		return std::accumulate(_transformations.begin(), _transformations.end(), std::move(buffer),
 			[](std::vector<double> const& acc, auto const& transformation) { return transformation->TransformPoints(acc); });
 	}
 
