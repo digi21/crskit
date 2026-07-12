@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "crskit"
-version = "0.4.2"
+version = "0.5.0"
 description = "Coordinate reference systems and coordinate transformations (OGC Coordinate Transformation Services, EPSG, WKT 1 and WKT 2)"
 # The Python-facing page, which is what PyPI renders. The Readme.md at the root is the C++ project's
 # front page (vcpkg, CMake, the GIGS suite) and would be the wrong thing to greet a pip user with.
