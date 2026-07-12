@@ -8,7 +8,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Builds the Python binding for CPython 3.10-3.13 on Windows and Linux with cibuildwheel. As in the
+# Builds the Python binding for CPython 3.10-3.13 on Linux, Windows and macOS with cibuildwheel. As in the
 # C++ CI, running the tests needs the EPSG SQLite database, which is not versioned: set the repository
 # variable EPSG_SQLITE_URL to a URL serving it and the pytest suite runs inside each wheel's
 # environment; without it the tests skip themselves (the fixture checks for the file) and the job
@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022, macos-14]
 
     steps:
       - uses: actions/checkout@v4
@@ -75,6 +75,29 @@ jobs:
             -w {dest_dir} {wheel}
 
           CIBW_ENVIRONMENT_WINDOWS: DIGI21_EPSG_SQLITE=$GITHUB_WORKSPACE/epsg.sqlite
+
+          # Both macOS wheels are built on the Apple Silicon runner, x86_64 by cross-compiling. The
+          # Intel runner cannot do this job: it is capped at Xcode 15, whose libc++ has no C++23
+          # ranges::fold_left, so the library does not even compile there.
+          CIBW_ARCHS_MACOS: arm64 x86_64
+
+          # 13.4 is not cosmetic. libc++ keeps parts of <charconv> in the system dylib and gates them
+          # by OS version; the library steers well clear of the floating-point from_chars, which Apple
+          # only made available in macOS 26, but the rest of the C++23 surface still needs a modern
+          # enough libc++ to link against.
+          CIBW_ENVIRONMENT_MACOS: >
+            DIGI21_EPSG_SQLITE=$GITHUB_WORKSPACE/epsg.sqlite
+            MACOSX_DEPLOYMENT_TARGET=13.4
+
+          # delocate would otherwise vendor a SECOND copy of libcrskit.dylib into .dylibs/ and point
+          # the module at it. The library already travels inside the package and _crskit resolves it
+          # through @loader_path -- same reasoning as --exclude crskit.dll on Windows above.
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --exclude libcrskit --require-archs {delocate_archs} -w {dest_dir} -v {wheel}
+
+          # The x86_64 wheels are cross-compiled on an arm64 runner, which cannot execute them (these
+          # runners carry no Rosetta). They are built and repaired, but only the arm64 ones are tested.
+          CIBW_TEST_SKIP: "*-macosx_x86_64"
 
           CIBW_TEST_REQUIRES: pytest numpy
           CIBW_TEST_COMMAND: pytest {project}/python/tests
