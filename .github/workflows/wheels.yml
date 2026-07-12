@@ -37,20 +37,19 @@ jobs:
           fi
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
+        uses: pypa/cibuildwheel@v4.1.0
         env:
           CIBW_BUILD: cp310-* cp311-* cp312-* cp313-*
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_SKIP: "*-musllinux*"
 
-          # The library is C++23, so the default manylinux2014 image (GCC 10) cannot build it. Naming the
-          # policy alone is not enough either: cibuildwheel would then use the image IT pins, and the one
-          # 2.21 pins still defaults to gcc-toolset-12, which has no <format> -- the build died on the
-          # first #include. Current manylinux_2_28 images ship GCC 14, the compiler the project targets,
-          # so the image is pinned explicitly (and by date, to keep the build reproducible: bump it by
-          # hand when the toolchain needs to move).
-          CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64:2026.07.11-2
+          # The library is C++23, so the image must carry a compiler that has <format>: manylinux_2_28,
+          # whose current images ship GCC 14, the compiler the project targets. The image itself is the
+          # one cibuildwheel pins for its release -- do not pin it by hand here: an image newer than the
+          # cibuildwheel that drives it no longer carries the CPython 3.8 that the older releases go
+          # looking for, and the build dies before it compiles a line.
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_ENVIRONMENT_LINUX: DIGI21_EPSG_SQLITE=/project/epsg.sqlite
 
           # cibuildwheel installs delvewheel on its own ONLY for its default repair command. The moment
