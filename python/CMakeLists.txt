@@ -39,11 +39,19 @@ target_include_directories(_crskit PRIVATE "${CMAKE_SOURCE_DIR}/external/sqlite"
 target_compile_definitions(_crskit PRIVATE _CRT_SECURE_NO_WARNINGS)
 target_link_libraries(_crskit PRIVATE crskit)
 
-# Linux: find libcrskit.so next to the module inside the package (Windows resolves it from the
-# module's own folder, which crskit/__init__.py adds to the DLL search path).
+# Linux and macOS: find libcrskit.so/.dylib next to the module inside the package (Windows resolves it
+# from the module's own folder, which crskit/__init__.py adds to the DLL search path). $ORIGIN is an
+# ELF token that dyld does not understand -- its Mach-O equivalent is @loader_path, and getting this
+# wrong costs an ImportError at load time, not a build error.
+if(APPLE)
+    set(CRSKIT_MODULE_RPATH "@loader_path")
+else()
+    set(CRSKIT_MODULE_RPATH "$ORIGIN")
+endif()
+
 set_target_properties(_crskit PROPERTIES
-    BUILD_RPATH "$ORIGIN"
-    INSTALL_RPATH "$ORIGIN")
+    BUILD_RPATH "${CRSKIT_MODULE_RPATH}"
+    INSTALL_RPATH "${CRSKIT_MODULE_RPATH}")
 
 # scikit-build-core installs into the wheel root, so both binaries land inside the package.
 # The import library is of no use to a Python consumer, hence the separate, excluded component.

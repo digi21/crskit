@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 3.21)
 
+# macOS: libc++ implements the floating-point to_chars/from_chars inside the system dylib and marks
+# them unavailable below macOS 13.4. WKT emission formats doubles everywhere (std::format goes through
+# to_chars) and the EGM2008 grid reader parses them with std::from_chars, so an older deployment target
+# does not compile. Has to be set before project(), which is what fixes the target for the whole build.
+if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.4" CACHE STRING "Minimum macOS version to build for")
+endif()
+
 project(crskit LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -25,10 +33,15 @@ target_include_directories(crskit PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/crskit>"
     "$<INSTALL_INTERFACE:include>")
 
-# _CREATING_CRSKIT -> __declspec(dllexport) (see CrsKitExport.h). The library uses no TCHAR/wide APIs
-# and no <windows.h>, so it does not define UNICODE/_UNICODE.
-target_compile_definitions(crskit PRIVATE
-    _CREATING_CRSKIT WIN32 _WINDOWS _USRDLL)
+# _CREATING_CRSKIT -> __declspec(dllexport) on Windows, __attribute__((visibility("default")))
+# elsewhere (see CrsKitExport.h), so it is defined on every platform. The Windows trio is not: a
+# third-party header that keys off a bare WIN32 would misfire on Unix.
+target_compile_definitions(crskit PRIVATE _CREATING_CRSKIT)
+
+# The library uses no TCHAR/wide APIs and no <windows.h>, so it does not define UNICODE/_UNICODE.
+if(WIN32)
+    target_compile_definitions(crskit PRIVATE WIN32 _WINDOWS _USRDLL)
+endif()
 
 set_target_properties(crskit PROPERTIES
     DEBUG_POSTFIX "D"
