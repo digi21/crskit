@@ -7,8 +7,14 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the result to TestPyPI (a tag publishes to the real PyPI)"
+        type: boolean
+        default: false
 
-# Builds the Python binding for CPython 3.10-3.13 on Linux, Windows and macOS with cibuildwheel. As in the
+# Builds the Python binding for CPython 3.10-3.13 on Linux, Windows and macOS with cibuildwheel, and
+# publishes it: a v* tag goes to PyPI, a manual run with `publish` ticked goes to TestPyPI. As in the
 # C++ CI, running the tests needs the EPSG SQLite database, which is not versioned: set the repository
 # variable EPSG_SQLITE_URL to a URL serving it and the pytest suite runs inside each wheel's
 # environment; without it the tests skip themselves (the fixture checks for the file) and the job
@@ -106,3 +112,49 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
+
+  # The source distribution: the fallback for any platform we ship no wheel for, and what PyPI shows
+  # as the project's source. It needs no compiler here -- it is only an archive of the tree.
+  sdist:
+    name: sdist
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
+
+  # Publishing goes through PyPI's trusted publishing: the id-token permission below lets this job mint
+  # a short-lived OIDC token that PyPI trades for an upload token, so there is no API key stored in this
+  # repository to leak. It is configured once on PyPI's side, as a pending publisher naming this
+  # repository, this workflow file and the environment below.
+  publish:
+    name: Publish
+    needs: [wheels, sdist]
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
+    runs-on: ubuntu-24.04
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'pypi' || 'testpypi' }}
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{wheels-*,sdist}"
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to TestPyPI
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: pypa/gh-action-pypi-publish@release/v1
