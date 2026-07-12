@@ -53,7 +53,13 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64:2026.07.11-2
           CIBW_ENVIRONMENT_LINUX: DIGI21_EPSG_SQLITE=/project/epsg.sqlite
 
-          # delvewheel, which cibuildwheel runs by default on Windows, needs three corrections here:
+          # cibuildwheel installs delvewheel on its own ONLY for its default repair command. The moment
+          # that command is overridden -- as it is right below -- it stops doing so, and the step died
+          # with "'delvewheel' is not recognized as an internal or external command" after building a
+          # perfectly good wheel. So we install it ourselves.
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+
+          # delvewheel needs three corrections here:
           #   --no-mangle-all  it renames every DLL it vendors (crskit.dll -> crskit-<hash>.dll), which
           #                    would defeat the point of linking the shared library: in a host application
           #                    that embeds Python and already has crskit.dll loaded, the loader binds the
