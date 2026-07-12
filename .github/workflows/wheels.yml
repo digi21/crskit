@@ -26,9 +26,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15, not macos-14: the Sonoma image is capped at Xcode 15, whose libc++ has no
-        # std::ranges::fold_left (a C++23 addition that landed in libc++ 17), and the library uses it.
-        # macos-15 carries Xcode 16. Both are Apple Silicon.
         os: [ubuntu-24.04, windows-2022, macos-15]
 
     steps:
@@ -86,8 +83,9 @@ jobs:
           CIBW_ENVIRONMENT_WINDOWS: DIGI21_EPSG_SQLITE=$GITHUB_WORKSPACE/epsg.sqlite
 
           # Both macOS wheels come off the Apple Silicon runner, the x86_64 one by cross-compiling.
-          # The Intel runner cannot do this job: it is capped at Xcode 15 (see above), so the library
-          # does not even compile there.
+          # The Intel image is the other option and it is a worse one: it is capped at Xcode 15, an
+          # old libc++ that the library used to be unable to compile against at all, and it is on its
+          # way out of GitHub's fleet.
           CIBW_ARCHS_MACOS: arm64 x86_64
 
           # 13.4 is not cosmetic. libc++ keeps parts of <charconv> in the system dylib and gates them
