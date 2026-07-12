@@ -1,0 +1,80 @@
+name: EPSG data package
+
+# crskit-epsg carries the EPSG Geodetic Parameter Dataset as a SQLite database. It is published on its
+# own schedule, not the library's: its version IS the EPSG dataset version (12.57 = EPSG 12.057), it
+# holds no compiled code, and it only changes when IOGP releases a new dataset -- a few times a year.
+# Hence a manual workflow rather than a tag: run it when the epsg-data release carries a new database.
+#
+# The database is not versioned in this repository (11 MB of binary that changes wholesale). fetch.py
+# pulls it from the release asset below and writes the package version out of the database itself.
+on:
+  workflow_dispatch:
+    inputs:
+      database-url:
+        description: "The EPSG SQLite database to package"
+        required: true
+        default: https://github.com/digi21/crskit/releases/download/epsg-data/epsg-v12.057.sqlite
+      publish:
+        description: "Publish to TestPyPI (untick to only build and inspect the artifact)"
+        type: boolean
+        default: true
+      production:
+        description: "Publish to the REAL PyPI instead of TestPyPI. Irreversible."
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the EPSG database into the package
+        working-directory: python-epsg
+        run: python fetch.py --url "${{ inputs.database-url }}"
+
+      - name: Build wheel and sdist
+        working-directory: python-epsg
+        run: pipx run build
+
+      # A pure-data package: no extension module, so one py3-none-any wheel serves every platform.
+      # If this ever produces something else, the packaging has gone wrong and the upload should not
+      # happen -- a platform-tagged wheel here would silently exclude every other platform.
+      - name: Check the artifacts
+        working-directory: python-epsg
+        run: |
+          ls -la dist/
+          pipx run twine check dist/*
+          test -n "$(find dist -name 'crskit_epsg-*-py3-none-any.whl')" \
+            || { echo "::error::expected a pure-python wheel; got something platform-specific"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: epsg-package
+          path: python-epsg/dist/*
+
+  publish:
+    name: Publish
+    needs: build
+    if: inputs.publish
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.production && 'pypi' || 'testpypi' }}
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: epsg-package
+          path: dist
+
+      - name: Publish to TestPyPI
+        if: ${{ !inputs.production }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Publish to PyPI
+        if: inputs.production
+        uses: pypa/gh-action-pypi-publish@release/v1
