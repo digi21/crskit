@@ -1,6 +1,8 @@
 #pragma once
 
+#ifdef _MSC_VER
 #pragma warning(disable : 4471)
+#endif
 
 #include <cstring>
 #include <cstdlib>
