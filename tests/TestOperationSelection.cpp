@@ -71,6 +71,34 @@ TEST(OperationSelection, GeoidFallbackAsksWhichOperation)
 	EXPECT_EQ(bothGeoidOperations, CandidatesOfferedFor(twd97, 3858));
 }
 
+// The authority factory is asked for the INVERSE geoid transform when the pair runs vertical ->
+// geographic. That request used to be dropped whenever the caller had to choose between several
+// operations: the direct transform came back instead, describing itself the wrong way round.
+TEST(OperationSelection, TheAuthorityFactoryKeepsTheDirectionWhenTheOperationIsChosen)
+{
+	CoordinateTransformationOptions options;
+	options.selectOperation = [](std::string const&, std::string const&, std::vector<CoordinateOperation> const&)
+		{
+			return 3858;   // the 2.5' grid
+		};
+
+	auto const vertical = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(egm2008Height);
+	auto const geographic = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(wgs84);
+
+	std::shared_ptr<ICoordinateTransformation> transformation;
+	try
+	{
+		transformation = GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(vertical, geographic, options);
+	}
+	catch (GridFileNotFoundException const& e)
+	{
+		GTEST_SKIP() << e.what();
+	}
+
+	EXPECT_EQ(egm2008Height, transformation->GetSourceCS()->GetAuthorityCode());
+	EXPECT_EQ(wgs84, transformation->GetTargetCS()->GetAuthorityCode());
+}
+
 // And with nobody to ask, it must refuse rather than guess -- as the catalogued path already did.
 TEST(OperationSelection, GeoidFallbackRefusesToGuessWithoutADelegate)
 {

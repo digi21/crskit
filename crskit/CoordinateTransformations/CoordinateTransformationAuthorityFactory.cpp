@@ -776,7 +776,7 @@ namespace CrsKit::Epsg
 				dynamic_pointer_cast<GeographicCoordinateSystem>(source),
 				dynamic_pointer_cast<VerticalCoordinateSystem>(target),
 				options.selectOperation(source->GetName(), target->GetName(), transformations),
-				false);
+				inverse);
 		}
 
 		if (transformations.size() == 1)
