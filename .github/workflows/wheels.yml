@@ -44,9 +44,13 @@ jobs:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_SKIP: "*-musllinux*"
 
-          # The library is C++23, so the default manylinux2014 image (GCC 10) cannot build it.
-          # manylinux_2_28 ships GCC 14 on the PATH, which is the compiler the project targets.
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          # The library is C++23, so the default manylinux2014 image (GCC 10) cannot build it. Naming the
+          # policy alone is not enough either: cibuildwheel would then use the image IT pins, and the one
+          # 2.21 pins still defaults to gcc-toolset-12, which has no <format> -- the build died on the
+          # first #include. Current manylinux_2_28 images ship GCC 14, the compiler the project targets,
+          # so the image is pinned explicitly (and by date, to keep the build reproducible: bump it by
+          # hand when the toolchain needs to move).
+          CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux_2_28_x86_64:2026.07.11-2
           CIBW_ENVIRONMENT_LINUX: DIGI21_EPSG_SQLITE=/project/epsg.sqlite
 
           # delvewheel, which cibuildwheel runs by default on Windows, needs three corrections here:
