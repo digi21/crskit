@@ -1,7 +1,7 @@
 {
   "default": {
     "crskit": {
-      "baseline": "0.4.2",
+      "baseline": "0.5.0",
       "port-version": 0
     }
   }
