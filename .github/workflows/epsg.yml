@@ -15,11 +15,11 @@ on:
         required: true
         default: https://github.com/digi21/crskit/releases/download/epsg-data/epsg-v12.057.sqlite
       publish:
-        description: "Publish to TestPyPI (untick to only build and inspect the artifact)"
+        description: "Publish it (untick to only build the package and inspect the artifact)"
         type: boolean
         default: true
       production:
-        description: "Publish to the REAL PyPI instead of TestPyPI. Irreversible."
+        description: "Publish to the REAL PyPI. Irreversible. Leave unticked to publish to TestPyPI."
         type: boolean
         default: false
 
