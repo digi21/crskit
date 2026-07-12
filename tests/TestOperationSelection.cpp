@@ -99,6 +99,42 @@ TEST(OperationSelection, TheAuthorityFactoryKeepsTheDirectionWhenTheOperationIsC
 	EXPECT_EQ(wgs84, transformation->GetTargetCS()->GetAuthorityCode());
 }
 
+// Vertical -> geographic 3D is a geoid undone, and it must go through the same normalizing path as the
+// direct pair: the raw operation interpolates the grid at (longitude, latitude), so a CRS that declares
+// its axes the other way round -- EPSG 4979 is (Lat, Lon, h) -- had its point sampled transposed. Over
+// Madrid the height came back 84 m short, silently.
+TEST(OperationSelection, VerticalToGeographicKeepsItsDirectionWhenTheOperationIsChosen)
+{
+	constexpr auto latitude = 40.41;      // Madrid
+	constexpr auto longitude = -3.7;
+	constexpr auto orthometric = 648.334999;   // EGM2008 height of the point at 700 m ellipsoidal
+
+	CoordinateTransformationOptions options;
+	options.selectOperation = [](std::string const&, std::string const&, std::vector<CoordinateOperation> const&)
+		{
+			return 3858;   // the 2.5' grid
+		};
+
+	auto const source = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(egm2008Height);
+	auto const target = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(wgs84);
+
+	std::shared_ptr<ICoordinateTransformation> transformation;
+	try
+	{
+		transformation = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target, options);
+	}
+	catch (GridFileNotFoundException const& e)
+	{
+		GTEST_SKIP() << e.what();
+	}
+
+	EXPECT_EQ(egm2008Height, transformation->GetSourceCS()->GetAuthorityCode());
+	EXPECT_EQ(wgs84, transformation->GetTargetCS()->GetAuthorityCode());
+
+	auto const height = transformation->GetMathTransform()->Transform({ latitude, longitude, orthometric }).back();
+	EXPECT_NEAR(700.0, height, 0.01);
+}
+
 // And with nobody to ask, it must refuse rather than guess -- as the catalogued path already did.
 TEST(OperationSelection, GeoidFallbackRefusesToGuessWithoutADelegate)
 {

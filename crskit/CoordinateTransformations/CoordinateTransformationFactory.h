@@ -111,6 +111,7 @@ namespace CrsKit::CoordinateTransformations
 		// Here we analyze the systems by decomposing them 
 		[[nodiscard]] static auto CreateFromVerticalCoordinateSystems(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& source, std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& target, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
 		[[nodiscard]] static auto CreateFromVerticalCoordinateSystems(std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& source, std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& target, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
+		[[nodiscard]] static auto CreateFromVerticalCoordinateSystems(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& source, std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& target, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
 #pragma endregion
 	};
 }

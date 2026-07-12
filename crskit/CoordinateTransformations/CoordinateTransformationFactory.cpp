@@ -378,6 +378,18 @@ namespace CrsKit::CoordinateTransformations
 				return CreateFromVerticalCoordinateSystems(geographic, vertical, options);
 		}
 
+		// ... and so is the way back, for the very same reason: undoing a geoid means interpolating the
+		// same grid at the same point, so a raw operation transposes it just as badly (Madrid came back
+		// 84 m below where it went in). The height travels with the horizontal coordinates the geoid
+		// needs to interpolate, so this pair is 3D in and 3D out too.
+		if (1 == sourceCS->GetDimension() && 3 == targetCS->GetDimension())
+		{
+			auto const vertical = dynamic_pointer_cast<VerticalCoordinateSystem>(sourceCS);
+			auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS);
+			if (vertical && geographic)
+				return CreateFromVerticalCoordinateSystems(vertical, geographic, options);
+		}
+
 		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG")
 			return GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(sourceCS, targetCS, options);
 
@@ -690,6 +702,70 @@ namespace CrsKit::CoordinateTransformations
 		}
 
 		throw runtime_error(std::format("The coordinate reference system {} is neither 1 nor 3 dimensional.", sourceCS->GetName().c_str()));
+	}
+
+	// Vertical -> geographic 3D: undoing a geoid. LocateFromVerticalCoordinateSystems already knows how
+	// to build the inverse chain with the axes and the angular unit normalized (it is what a compound
+	// source has always used); all that is left is to carry the horizontal coordinates through, so the
+	// point comes back with its latitude and longitude untouched and its height now ellipsoidal.
+	auto StaticCoordinateTransformationFactory::CreateFromVerticalCoordinateSystems(std::shared_ptr<VerticalCoordinateSystem> const& sourceCS, std::shared_ptr<GeographicCoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
+	{
+		auto transformations = LocateFromVerticalCoordinateSystems(targetCS, sourceCS, options, true);
+
+		if (0 == transformations.size())
+		{
+			if (nullptr != options.resolveTransform)
+			{
+				auto const transformation = options.resolveTransform(sourceCS, targetCS);
+				if (nullptr != transformation)
+					transformations.push_back(transformation);
+			}
+		}
+
+		if (0 == transformations.size())
+			throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", sourceCS->GetName().c_str(), targetCS->GetName().c_str()));
+
+		std::shared_ptr<IMathTransform> verticalTransformation;
+		if (1 == transformations.size())
+			verticalTransformation = transformations[0];
+		else
+			verticalTransformation = make_shared<ConcatenatedTransform>(transformations);
+
+		// The chain receives XYZ and returns just the height, so the horizontal coordinates are
+		// duplicated (XYZ -> XYXYZ) and passed around it, exactly as the direct path does.
+		if (3 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
+		{
+			vector<shared_ptr<IMathTransform>> chain;
+			chain.push_back(Affine::TransformXyzToXyXyz());
+			chain.push_back(make_shared<PassThrough>(2, verticalTransformation));
+
+			return make_shared<CoordinateTransformation>(
+				"",
+				"",
+				"",
+				sourceCS,
+				targetCS,
+				make_shared<ConcatenatedTransform>(chain));
+		}
+
+		if (1 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
+		{
+			return make_shared<CoordinateTransformation>(
+				"",
+				"",
+				"",
+				sourceCS,
+				targetCS,
+				make_shared<PassThrough>(2, verticalTransformation));
+		}
+
+		return make_shared<CoordinateTransformation>(
+			"",
+			"",
+			"",
+			sourceCS,
+			targetCS,
+			verticalTransformation);
 	}
 
 	auto StaticCoordinateTransformationFactory::CreateFromVerticalCoordinateSystems(std::shared_ptr<VerticalCoordinateSystem> const& sourceCS, std::shared_ptr<VerticalCoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
