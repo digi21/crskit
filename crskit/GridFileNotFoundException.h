@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 
+#include "CrsKitExport.h"
 #include "OpenGisException.h"
 
 namespace CrsKit
@@ -13,7 +14,7 @@ namespace CrsKit
 	///		found in the data directory. Carries enough information for the caller to locate the file
 	///		(e.g. to show a dialog or search for it online).
 	///	</summary>
-	class GridFileNotFoundException : public OpenGisException
+	class _visibleCrsKit GridFileNotFoundException : public OpenGisException
 	{
 	public:
 		std::string gridFileName;       // file name as referenced by the EPSG dataset
