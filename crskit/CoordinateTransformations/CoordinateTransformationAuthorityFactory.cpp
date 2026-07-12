@@ -739,7 +739,24 @@ namespace CrsKit::Epsg
 			// pair finds nothing. Locate the geoid operation by the vertical target and reuse it: the
 			// grid is interpolated at the point's lat/lon, so the source realization is immaterial.
 			auto const geoidOperations = _provider->GeographicToVerticalOperationCodes(target->GetAuthorityCode());
-			if (!geoidOperations.empty())
+
+			// Several geoid models may serve the same vertical system (EGM2008 height has two: a 1' grid
+			// and a 2.5' one), and they are not interchangeable. Ambiguity is the caller's to resolve
+			// here exactly as it is below, when the pair IS catalogued: ask, and refuse to guess when
+			// there is nobody to ask. Taking the first would silently pick a grid the caller never chose.
+			if (geoidOperations.size() > 1)
+			{
+				if (nullptr == options.selectOperation)
+					throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
+
+				return CreateCoordinateTransformBetweenGeographicVerticalSystems(
+					source,
+					target,
+					options.selectOperation(source->GetName(), target->GetName(), geoidOperations),
+					inverse);
+			}
+
+			if (1 == geoidOperations.size())
 				return CreateCoordinateTransformBetweenGeographicVerticalSystems(source, target, geoidOperations.front().Code, inverse);
 
 			auto const transformation = options.resolveTransform ? options.resolveTransform(source, target) : nullptr;
