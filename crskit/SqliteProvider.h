@@ -47,9 +47,18 @@ namespace CrsKit::Epsg
 			sqlite3_finalize(_stmt);
 		}
 
+		// False when there are no more rows. Any other result (database locked, I/O error) throws.
 		[[nodiscard]] bool Step() const
 		{
-			return SQLITE_ROW == sqlite3_step(_stmt);
+			switch (sqlite3_step(_stmt))
+			{
+			case SQLITE_ROW:
+				return true;
+			case SQLITE_DONE:
+				return false;
+			default:
+				throw OpenGisException(sqlite3_errmsg(sqlite3_db_handle(_stmt)));
+			}
 		}
 
 		[[nodiscard]] std::map<std::string, std::variant<nullptr_t, int, double, std::string, std::unique_ptr<char[]>>> GetData() const
@@ -747,9 +756,9 @@ namespace CrsKit::Epsg
 
 			assert(sqlite3_column_count(stmt) == 1);
 
+			// No row means the code is not in the catalogue: the caller sees the default value.
 			if (!stmt.Step())
-				return {};// throw std::runtime_error("Could not read the value");
-
+				return {};
 
 			auto result = stmt.ReadField<0, std::optional<T>>();
 			if (!result.has_value())
