@@ -215,30 +215,15 @@ namespace CrsKit::Epsg
 
 		virtual ~SQliteProvider() = default;
 
+		// False for a unit that is not in the catalogue. A database failure throws.
 		auto GetUnitIsLength(int angularUnitCode) -> bool override
 		{
-			try
-			{
-				auto const value = ExecuteScalar<std::string>(std::format("SELECT UNIT_OF_MEAS_TYPE FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
-				return value == "length";
-			}
-			catch (...)
-			{
-				return false;
-			}
+			return "length" == ExecuteScalar<std::string>(std::format("SELECT UNIT_OF_MEAS_TYPE FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
 		}
 
 		auto GetUnitIsAngle(int angularUnitCode) -> bool override
 		{
-			try
-			{
-				auto const value = ExecuteScalar<std::string>(std::format("SELECT UNIT_OF_MEAS_TYPE FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
-				return value == "angle";
-			}
-			catch (...)
-			{
-				return false;
-			}
+			return "angle" == ExecuteScalar<std::string>(std::format("SELECT UNIT_OF_MEAS_TYPE FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
 		}
 
 		auto GetCoordinateSystemName(int coordinateSystemCode) -> std::string override
@@ -629,8 +614,11 @@ namespace CrsKit::Epsg
 
 		auto GetEpsgVersion() -> std::string override
 		{
-			try { return ExecuteScalar<std::string>("SELECT version_number FROM epsg_versionhistory ORDER BY version_date DESC LIMIT 1"); }
-			catch (...) { return {}; }
+			// A database without the version history table has an unknown version.
+			if (0 == ExecuteScalar<int>("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='epsg_versionhistory'"))
+				return {};
+
+			return ExecuteScalar<std::string>("SELECT version_number FROM epsg_versionhistory ORDER BY version_date DESC LIMIT 1");
 		}
 
 		// The grid file(s) an operation references (EPSG PARAM_VALUE_FILE_REF): a geoid model, an NTv2
@@ -660,8 +648,8 @@ namespace CrsKit::Epsg
 		{
 			for (auto& op : operations)
 			{
-				try { op.AreaOfUse = GetAreaName(GetCoordinateOperationAreaOfUse(op.Code)); }
-				catch (...) { /* operation without a usage extent: leave area empty */ }
+				// An operation without a usage extent gets extent code 0 and an empty area name.
+				op.AreaOfUse = GetAreaName(GetCoordinateOperationAreaOfUse(op.Code));
 				op.GridFiles = GetCoordinateOperationGridFiles(op.Code);
 			}
 		}
@@ -688,16 +676,9 @@ namespace CrsKit::Epsg
 
 		auto GetFactorToStandardUnit(int angularUnitCode) -> double override
 		{
-			try
-			{
-				auto const b = ExecuteScalar<double>(std::format("SELECT FACTOR_B FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
-				auto const c = ExecuteScalar<double>(std::format("SELECT FACTOR_C FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
-				return b / c;
-			}
-			catch (...)
-			{
-				return 0.0;
-			}
+			auto const b = ExecuteScalar<double>(std::format("SELECT FACTOR_B FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
+			auto const c = ExecuteScalar<double>(std::format("SELECT FACTOR_C FROM epsg_unitofmeasure WHERE UOM_CODE={}", angularUnitCode));
+			return b / c;
 		}
 
 		auto GetProjectedCrsCountFromProjConvCodeAndBaseCrsCode(int projectionCode, int geographicCrsCode) const -> int override

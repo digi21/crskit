@@ -88,9 +88,40 @@ TEST_F(LockedDatabase, KindOfCoordinateSystemThrows)
 	EXPECT_THROW((void)GetCoordinateSystemAuthorityFactory()->GetKindOfCoordinateSystem(4326), OpenGisException);
 }
 
+TEST_F(LockedDatabase, UnitQueriesThrow)
+{
+	EXPECT_THROW((void)_provider->GetUnitIsLength(9001), OpenGisException);
+	EXPECT_THROW((void)_provider->GetUnitIsAngle(9102), OpenGisException);
+	EXPECT_THROW((void)_provider->GetFactorToStandardUnit(9001), OpenGisException);
+}
+
+TEST_F(LockedDatabase, EpsgVersionThrows)
+{
+	EXPECT_THROW((void)_provider->GetEpsgVersion(), OpenGisException);
+}
+
+// The candidate-operation list is read in a while (Step()) loop: a locked database must not return it empty.
+TEST_F(LockedDatabase, OperationListThrows)
+{
+	EXPECT_THROW((void)_provider->OperationCodesToTransformSystemAtoB(4230, 4326), OpenGisException);
+}
+
 // Releasing the lock makes the same provider work again.
 TEST_F(LockedDatabase, ProviderRecoversAfterTheLockIsReleased)
 {
 	sqlite3_exec(_locker, "ROLLBACK;", nullptr, nullptr, nullptr);
 	EXPECT_EQ("ETRS89", GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4258)->GetName());
+	EXPECT_TRUE(_provider->GetUnitIsLength(9001));
+	EXPECT_FALSE(_provider->GetEpsgVersion().empty());
+	EXPECT_FALSE(_provider->OperationCodesToTransformSystemAtoB(4230, 4326).empty());
+}
+
+// A unit that is not in the catalogue is neither a length nor an angle; that is not an error.
+TEST(DatabaseNotFound, MissingUnitIsNeitherLengthNorAngle)
+{
+	auto const provider = GetCurrentEnvironment()->Provider;
+	EXPECT_FALSE(provider->GetUnitIsLength(999999));
+	EXPECT_FALSE(provider->GetUnitIsAngle(999999));
+	EXPECT_TRUE(provider->GetUnitIsLength(9001));
+	EXPECT_TRUE(provider->GetUnitIsAngle(9102));
 }
