@@ -117,6 +117,15 @@ TEST_F(LockedDatabase, UtilitiesThrowInsteadOfReturningEmpty)
 	EXPECT_THROW((void)u->GetCoordinateReferenceSystemName(4979), OpenGisException);
 }
 
+// A provider that has run no query yet fails in sqlite3_prepare_v2 (the schema is locked): same exception type.
+TEST_F(LockedDatabase, FreshProviderThrowsFromPrepare)
+{
+	auto const fresh = std::make_shared<Epsg::SQliteProvider>(_copy.string());
+	EXPECT_THROW((void)fresh->GetEpsgVersion(), OpenGisException);
+	EXPECT_THROW((void)fresh->GetUnitIsLength(9001), OpenGisException);
+	EXPECT_THROW((void)fresh->GetCoordinateSystemType(4258), OpenGisException);
+}
+
 // Releasing the lock makes the same provider work again.
 TEST_F(LockedDatabase, ProviderRecoversAfterTheLockIsReleased)
 {

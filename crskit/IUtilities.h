@@ -24,7 +24,9 @@ namespace CrsKit
 		// GetCoordinateReferenceSystemName(int), GetWktFromGeographicEpsgCode, GetWktFromEpsgCode and
 		// GetWktFromEpsgCodeWithEastNorthAxes return an empty string only when the catalogue has no CRS with
 		// that code or its kind is not projected, geographic 2D/3D, vertical or geocentric (compound,
-		// engineering, Local...). Any other failure, a locked or unreadable database included, throws.
+		// engineering, Local...). Any other failure throws std::runtime_error or a derived type: OpenGisException
+		// for a locked or unreadable database, std::runtime_error for a CRS of a supported kind that the
+		// factory cannot build (e.g. an unsupported projection method).
 		[[nodiscard]] virtual auto GetCoordinateReferenceSystemName(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateReferenceSystemName(std::string const& wkt) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetWktFromProjectionCodeForGeographic(int projectionCode, int geographicCode) const -> std::string = 0;

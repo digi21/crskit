@@ -35,7 +35,7 @@ namespace CrsKit::Epsg
 		Stmt(sqlite3* db, std::string const& sql)
 		{
 			if (sqlite3_prepare_v2(db, sql.c_str(), -1, &_stmt, nullptr) != SQLITE_OK) {
-				throw std::runtime_error(sqlite3_errmsg(db));
+				throw OpenGisException(sqlite3_errmsg(db));
 			}
 		}
 
