@@ -67,6 +67,22 @@ TEST(UtilitiesContract, GeographicOfProjectedWkt)
 	EXPECT_THROW((void)u->GetWktFromGeographic3DSystemForProjected("this is not valid wkt"), WktParseException);
 }
 
+TEST(UtilitiesContract, CrsCodeWithEastNorthAxes)
+{
+	auto const u = GetUtilities();
+	EXPECT_TRUE(u->GetWktFromCrsCodeWithEastNorthAxes("EPSG:25830").starts_with("PROJCS[\"ETRS89 / UTM zone 30N\""));
+	EXPECT_TRUE(u->GetWktFromCrsCodeWithEastNorthAxes("CRS:84").starts_with("GEOGCS[\"WGS 84\""));
+	EXPECT_EQ(u->GetWktFromEpsgCodeWithEastNorthAxes(4326), u->GetWktFromCrsCodeWithEastNorthAxes("CRS:84"));
+}
+
+// A code that gives no WKT, or a prefix that is not EPSG/CRS, throws "not recognized".
+TEST(UtilitiesContract, CrsCodeWithEastNorthAxesRejectsUnknownCodes)
+{
+	auto const u = GetUtilities();
+	for (auto const* code : { "EPSG:999999", "EPSG:7415", "EPSG:", "EPSG:abc", "CRS:99", "FOO:1", "" })
+		EXPECT_THROW((void)u->GetWktFromCrsCodeWithEastNorthAxes(code), std::runtime_error) << code;
+}
+
 TEST(UtilitiesContract, EastNorthOfMalformedWktThrows)
 {
 	auto const u = GetUtilities();

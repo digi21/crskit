@@ -180,14 +180,15 @@ namespace CrsKit
 
 	auto Utilities::GetWktFromCrsCodeWithEastNorthAxes(std::string const& crsCode) const->std::string
 	{
-		if (crsCode.substr(0, 5) == "EPSG:") {
-			auto const epsgCode = std::stoi(crsCode.substr(crsCode.size(), crsCode.size() - 5));
+		// parse_int returns 0 for a non-numeric code, which falls through to the "not recognized" error.
+		if (crsCode.starts_with("EPSG:")) {
+			auto const epsgCode = parse_int(crsCode.c_str() + 5);
 			if (auto wkt = GetWktFromEpsgCodeWithEastNorthAxes(epsgCode); !wkt.empty())
 				return wkt;
 		}
 
-		if (crsCode.substr(0, 4) == "CRS:") {
-			auto const crsNumber = std::stoi(crsCode.substr(crsCode.size(), crsCode.size() - 4));
+		if (crsCode.starts_with("CRS:")) {
+			auto const crsNumber = parse_int(crsCode.c_str() + 4);
 			auto const epsgCode = 84 == crsNumber ? 4326 : 83 == crsNumber ? 4269 : 27 == crsNumber ? 4267 : 0;
 			if (0 != epsgCode) {
 				if (auto wkt = GetWktFromEpsgCodeWithEastNorthAxes(epsgCode); !wkt.empty())
