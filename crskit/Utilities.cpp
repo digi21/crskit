@@ -21,6 +21,20 @@ using namespace CrsKit::Epsg;
 
 namespace CrsKit
 {
+	namespace
+	{
+		// False if the EPSG catalogue has no CRS with this code or its kind cannot be built from the code
+		// alone (compound, engineering, Local...). A database failure propagates.
+		auto IsCreatableEpsgCode(int const code, bool const geographicOnly) -> bool
+		{
+			auto const kind = GetCoordinateSystemAuthorityFactory()->GetKindOfCoordinateSystem(code);
+			if (0 == compareNoCase(kind.c_str(), "geographic 2D") || 0 == compareNoCase(kind.c_str(), "geographic 3D"))
+				return true;
+
+			return !geographicOnly && (0 == compareNoCase(kind.c_str(), "projected") || 0 == compareNoCase(kind.c_str(), "vertical") || 0 == compareNoCase(kind.c_str(), "geocentric"));
+		}
+	}
+
 	auto Utilities::GetCompoundLocalWkt() const -> std::string
 	{
 		return "COMPD_CS[\"Local or unknown horizontal coordinate system + Local or unknown vertical coordinate system\",LOCAL_CS[\"Local or unknown horizontal coordinate system\", LOCAL_DATUM[\"Local or unknown horizontal datum\", 32767],UNIT[\"unknown\",1.0000000000],AXIS[\"X\", EAST],AXIS[\"Y\",NORTH]],LOCAL_CS[\"Local or unknown vertical coordinate system\", LOCAL_DATUM[\"Local or unknown vertical datum\", 2005],UNIT[\"unknown\",1.0000000000],AXIS[\"Z\",UP]]]";
@@ -94,14 +108,10 @@ namespace CrsKit
 
 	auto Utilities::GetCoordinateReferenceSystemName(int const code) const -> std::string
 	{
-		try
-		{
-			return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code)->GetName();
-		}
-		catch (exception& ex)
-		{
-			return std::string(ex.what());
-		}
+		if (!IsCreatableEpsgCode(code, false))
+			return {};
+
+		return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code)->GetName();
 	}
 
 	auto Utilities::GetCoordinateReferenceSystemName(std::string const& wkt) const -> std::string
@@ -111,14 +121,10 @@ namespace CrsKit
 
 	auto Utilities::GetWktFromEpsgCode(int const code) const -> std::string
 	{
-		try
-		{
-			return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code)->GetWkt();
-		}
-		catch (exception& ex)
-		{
-			return std::string(ex.what());
-		}
+		if (!IsCreatableEpsgCode(code, false))
+			return {};
+
+		return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code)->GetWkt();
 	}
 
 	auto Utilities::GetWktFromProjectionCodeForGeographic(int const projectionCode, int const geographicCode) const -> std::string
@@ -129,53 +135,44 @@ namespace CrsKit
 
 	auto Utilities::GetWktFromGeographic3DSystemForProjected(std::string const& wkt) const->std::string
 	{
-		try {
-			auto const sc = GetCoordinateSystemFactory()->CreateFromWkt(wkt);
-			auto const projected = dynamic_pointer_cast<ProjectedCoordinateSystem>(sc);
-			if (!projected)
-				return std::format("The {} coordinate system is not projected.", sc->GetName().c_str());
+		auto const projected = dynamic_pointer_cast<ProjectedCoordinateSystem>(GetCoordinateSystemFactory()->CreateFromWkt(wkt));
+		if (!projected)
+			return {};
 
-			auto const geographic = projected->GetGeographicCoordinateSystem();
-			return geographic->GetWkt();
-		}
-		catch (exception& exception)
-		{
-			return std::string(exception.what());
-		}
+		return projected->GetGeographicCoordinateSystem()->GetWkt();
 	}
 
 	auto Utilities::GetWktFromGeographicEpsgCode(int const epsgCode, bool const longitudeLatitude) const -> std::string
 	{
-		try
+		if (!IsCreatableEpsgCode(epsgCode, true))
+			return {};
+
+		shared_ptr<GeographicCoordinateSystem> coordinateSystem;
+
+		if (longitudeLatitude)
 		{
-			shared_ptr<GeographicCoordinateSystem> coordinateSystem;
+			vector<AxisInfo> axes;
+			axes.resize(2);
+			axes[0].SetName("Long");
+			axes[0].SetOrientation(AxisOrientationEnum::East);
+			axes[1].SetName("Lat");
+			axes[1].SetOrientation(AxisOrientationEnum::North);
 
-			if (longitudeLatitude)
-			{
-				vector<AxisInfo> axes;
-				axes.resize(2);
-				axes[0].SetName("Long");
-				axes[0].SetOrientation(AxisOrientationEnum::East);
-				axes[1].SetName("Lat");
-				axes[1].SetOrientation(AxisOrientationEnum::North);
-
-				coordinateSystem = GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode, axes);
-			}
-			else
-			{
-				coordinateSystem = GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode);
-			}
-
-			return coordinateSystem->GetWkt();
+			coordinateSystem = GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode, axes);
 		}
-		catch (exception& exception)
+		else
 		{
-			return std::string(exception.what());
+			coordinateSystem = GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode);
 		}
+
+		return coordinateSystem->GetWkt();
 	}
 
 	auto Utilities::GetWktFromEpsgCodeWithEastNorthAxes(int const epsgCode) const -> std::string
 	{
+		if (!IsCreatableEpsgCode(epsgCode, false))
+			return {};
+
 		auto coordinateSystem = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(epsgCode);
 		coordinateSystem = CoordinateSystemFactory::WithAxesEastNorth(coordinateSystem);
 		return coordinateSystem->GetWkt();
@@ -185,18 +182,17 @@ namespace CrsKit
 	{
 		if (crsCode.substr(0, 5) == "EPSG:") {
 			auto const epsgCode = std::stoi(crsCode.substr(crsCode.size(), crsCode.size() - 5));
-			return GetWktFromEpsgCodeWithEastNorthAxes(epsgCode);
+			if (auto wkt = GetWktFromEpsgCodeWithEastNorthAxes(epsgCode); !wkt.empty())
+				return wkt;
 		}
 
 		if (crsCode.substr(0, 4) == "CRS:") {
 			auto const crsNumber = std::stoi(crsCode.substr(crsCode.size(), crsCode.size() - 4));
-
-			if (84 == crsNumber)
-				return GetWktFromEpsgCodeWithEastNorthAxes(4326);
-			if (83 == crsNumber)
-				return GetWktFromEpsgCodeWithEastNorthAxes(4269);
-			if (27 == crsNumber)
-				return GetWktFromEpsgCodeWithEastNorthAxes(4267);
+			auto const epsgCode = 84 == crsNumber ? 4326 : 83 == crsNumber ? 4269 : 27 == crsNumber ? 4267 : 0;
+			if (0 != epsgCode) {
+				if (auto wkt = GetWktFromEpsgCodeWithEastNorthAxes(epsgCode); !wkt.empty())
+					return wkt;
+			}
 		}
 
 		throw runtime_error{ std::format("The coordinate reference system: {} is not recognized", crsCode.c_str()).c_str() };
@@ -204,16 +200,9 @@ namespace CrsKit
 
 	auto Utilities::GetWktWithEastNorthAxes(std::string const& wkt) const -> std::string
 	{
-		try
-		{
-			auto coordinateSystem = GetCoordinateSystemFactory()->CreateFromWkt(wkt);
-			coordinateSystem = CoordinateSystemFactory::WithAxesEastNorth(coordinateSystem);
-			return coordinateSystem->GetWkt();
-		}
-		catch (exception& exception)
-		{
-			return std::string(exception.what());
-		}
+		auto coordinateSystem = GetCoordinateSystemFactory()->CreateFromWkt(wkt);
+		coordinateSystem = CoordinateSystemFactory::WithAxesEastNorth(coordinateSystem);
+		return coordinateSystem->GetWkt();
 	}
 
 

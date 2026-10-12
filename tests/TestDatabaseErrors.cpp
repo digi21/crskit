@@ -106,6 +106,17 @@ TEST_F(LockedDatabase, OperationListThrows)
 	EXPECT_THROW((void)_provider->OperationCodesToTransformSystemAtoB(4230, 4326), OpenGisException);
 }
 
+// The IUtilities functions return an empty string only for a missing code, never for a database failure.
+TEST_F(LockedDatabase, UtilitiesThrowInsteadOfReturningEmpty)
+{
+	auto const u = GetUtilities();
+	EXPECT_THROW((void)u->GetWktFromEpsgCode(4326), OpenGisException);
+	EXPECT_THROW((void)u->GetWktFromEpsgCode(25830), OpenGisException);
+	EXPECT_THROW((void)u->GetWktFromGeographicEpsgCode(4326, true), OpenGisException);
+	EXPECT_THROW((void)u->GetWktFromEpsgCodeWithEastNorthAxes(5782), OpenGisException);
+	EXPECT_THROW((void)u->GetCoordinateReferenceSystemName(4979), OpenGisException);
+}
+
 // Releasing the lock makes the same provider work again.
 TEST_F(LockedDatabase, ProviderRecoversAfterTheLockIsReleased)
 {

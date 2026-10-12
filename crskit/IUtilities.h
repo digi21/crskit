@@ -21,14 +21,23 @@ namespace CrsKit
 		[[nodiscard]] virtual auto CreateCompoundCrsWktFromHorizontalCrs(std::string const& horizontalWkt) const -> std::string = 0;
 		[[nodiscard]] virtual auto CreateCompoundCrsWktFromHorizontalAndVerticalCrs(std::string const& horizontalWkt, std::string const& verticalWkt) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetCompoundCrsWktFromHorizontalCrs(std::string const& horizontalWkt) const -> std::string = 0;
+		// GetCoordinateReferenceSystemName(int), GetWktFromGeographicEpsgCode, GetWktFromEpsgCode and
+		// GetWktFromEpsgCodeWithEastNorthAxes return an empty string only when the catalogue has no CRS with
+		// that code or its kind is not projected, geographic 2D/3D, vertical or geocentric (compound,
+		// engineering, Local...). Any other failure, a locked or unreadable database included, throws.
 		[[nodiscard]] virtual auto GetCoordinateReferenceSystemName(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateReferenceSystemName(std::string const& wkt) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetWktFromProjectionCodeForGeographic(int projectionCode, int geographicCode) const -> std::string = 0;
+		// Empty string if the WKT is not a projected CRS. A WKT that cannot be parsed throws.
 		[[nodiscard]] virtual auto GetWktFromGeographic3DSystemForProjected(std::string const& wkt) const -> std::string = 0;
+		// Also an empty string if the code is not a geographic 2D/3D CRS.
 		[[nodiscard]] virtual auto GetWktFromGeographicEpsgCode(int epsgCode, bool longitudeLatitude) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetWktFromEpsgCode(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetWktFromEpsgCodeWithEastNorthAxes(int epsgCode) const -> std::string = 0;
+		// "EPSG:<code>", "CRS:84", "CRS:83" or "CRS:27". Never empty: anything else, or a code with an
+		// empty WKT, throws std::runtime_error.
 		[[nodiscard]] virtual auto GetWktFromCrsCodeWithEastNorthAxes(std::string const& crsCode) const -> std::string = 0;
+		// A WKT that cannot be parsed throws.
 		[[nodiscard]] virtual auto GetWktWithEastNorthAxes(std::string const& wkt) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetAxisNames(std::string const& wkt) const -> std::vector<std::string> = 0;
 		[[nodiscard]] virtual auto GetUnitNames(std::string const& wkt) const -> std::vector<std::string> = 0;
