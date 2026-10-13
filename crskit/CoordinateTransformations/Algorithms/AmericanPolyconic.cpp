@@ -46,7 +46,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 			auto const v = _semiMajorAxis / sqrt(1 - pow(_e, 2) * pow(sin(phi), 2));
 
 			x = _falseEasting + (v / tan(phi)) * sin(L);
-			y = _falseNorthing + M + _m0 + (v / tan(phi)) * (1 - cos(L));
+			y = _falseNorthing + M - _m0 + (v / tan(phi)) * (1 - cos(L));
 		}
 	}
 
