@@ -45,8 +45,9 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 		_vc = 0.0;
 
-		// atan2 keeps the azimuth of 90 deg (Switzerland, Hungary) inside the general formula: uc = (A / B) pi / 2.
-		_uc = (_a / _b) * atan2(sqrt(pow(_d, 2) - 1), cos(_initialLineAzimuth)) * SIGN(_projectionCenterLatitude);
+		// |cos(alphac)|: only |uc| is used, and atan2 then also covers an azimuth of 90 deg (uc = (A / B) pi / 2) and azimuths
+		// whose cosine is negative.
+		_uc = (_a / _b) * atan2(sqrt(pow(_d, 2) - 1), fabs(cos(_initialLineAzimuth))) * SIGN(_projectionCenterLatitude);
 	}
 
 #pragma region MapProjectionBase members

@@ -40,3 +40,17 @@ INSTANTIATE_TEST_SUITE_P(SwitzerlandAndHungary, ObliqueMercatorAzimuth90, ::test
 	ObliqueMercatorCase{ 2056, 4150, 47.41, 9.59, 2762262.0062271687, 1253092.9507483162 },   // CH1903+ / LV95, east of the centre
 	ObliqueMercatorCase{ 2056, 4150, 46.21, 6.86, 2555275.806561594, 1117644.460662901 },     // CH1903+ / LV95, west of the centre
 	ObliqueMercatorCase{ 23700, 4237, 47.5, 21.5, 834660.5427399104, 242428.92048935124 }));  // HD72 / EOV
+// The projection centre maps to (Ec, Nc) for any azimuth, also when its cosine is negative.
+TEST(ObliqueMercatorCentre, CentreMapsToTheFalseOrigin)
+{
+	for (auto const [latitude, azimuth] : { std::pair{ 45.0, 120.0 }, std::pair{ -45.0, 95.0 }, std::pair{ -0.5, 120.0 }, std::pair{ 46.95, 90.0 }, std::pair{ 10.0, 30.0 } })
+	{
+		auto const transform = GetMathTransformFactory()->CreateParameterizedTransform("oblique_mercator", {
+			{ "semi_major", 6378137.0 }, { "semi_minor", 6356752.314245179 },
+			{ "latitude_of_center", latitude }, { "longitude_of_center", 10.0 }, { "azimuth", azimuth },
+			{ "rectified_grid_angle", azimuth }, { "scale_factor", 1.0 }, { "false_easting", 500000.0 }, { "false_northing", 200000.0 } });
+		auto const centre = transform->Transform({ 10.0, latitude });
+		EXPECT_NEAR(500000.0, centre[0], 1e-6) << latitude << ", " << azimuth;
+		EXPECT_NEAR(200000.0, centre[1], 1e-6) << latitude << ", " << azimuth;
+	}
+}
