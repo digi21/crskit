@@ -28,7 +28,7 @@ namespace CrsKit::Wkt
 						if ('"' == text[j])
 							++j;
 					if (0 == text[j])
-						break;
+						throw WktParseException("A quoted text of the WKT is not closed.");
 				}
 				++j;
 			}

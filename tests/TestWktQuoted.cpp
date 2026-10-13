@@ -21,3 +21,21 @@ TEST(WktQuoted, NameWithBracketsParses)
 		R"(GEOGCS["a [b], c",DATUM["d",SPHEROID["s",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]])");
 	EXPECT_EQ("a [b], c", parsed->GetName());
 }
+// A quote that is not closed, or a single quote inside a name (WKT doubles it), is reported as such.
+TEST(WktQuoted, UnclosedQuoteIsReported)
+{
+	for (auto const* wkt : {
+		R"(GEOGCS["WGS 84,DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]])",
+		R"(GEOGCS["a"b",DATUM["d",SPHEROID["s",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]])" })
+	{
+		try
+		{
+			(void)GetCoordinateSystemFactory()->CreateFromWkt(wkt);
+			ADD_FAILURE() << "no exception: " << wkt;
+		}
+		catch (WktParseException const& e)
+		{
+			EXPECT_TRUE(std::string{ e.what() }.contains("not closed")) << e.what();
+		}
+	}
+}
