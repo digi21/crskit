@@ -377,7 +377,8 @@ namespace CrsKit::Wkt
 					{"standard_parallel2", "Latitude of 2nd standard parallel", 8824, U::Angular},
 					{"false_easting", "Easting at false origin", 8826, U::Length},
 					{"false_northing", "Northing at false origin", 8827, U::Length}}},
-				{"Mercator_1SP", "Mercator (variant A)", 9804, {					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+				{"Mercator_1SP", "Mercator (variant A)", 9804, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
 					{"scale_factor", "Scale factor at natural origin", 8805, U::Scale},
 					{"false_easting", "False easting", 8806, U::Length},

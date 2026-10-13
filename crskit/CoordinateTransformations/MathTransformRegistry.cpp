@@ -163,7 +163,8 @@ namespace CrsKit
 			parameter("false_easting", ParameterType::Length, 8826),
 			parameter("false_northing", ParameterType::Length, 8827) });
 
-		MathTransformGenerics::Register<MP::Mercator1Sp>({			mathTransform("Mercator_1SP"), authorityOperation("EPSG", 9804),
+		MathTransformGenerics::Register<MP::Mercator1Sp>({
+			mathTransform("Mercator_1SP"), authorityOperation("EPSG", 9804),
 			parameter("latitude_of_origin", ParameterType::Angular, 8801),
 			parameter("central_meridian", ParameterType::Angular, 8802),
 			parameter("scale_factor", ParameterType::Scalar, 8805),
