@@ -910,24 +910,33 @@ namespace CrsKit::CoordinateTransformations
 			return transformations;
 		}
 
+		// An empty result (no usable EPSG operation) lets the caller ask options.resolveTransform. Any other
+		// failure, such as a database error, propagates.
 		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG")
 		{
+			std::shared_ptr<IMathTransform> operation;
 			try
 			{
-				for (auto const& transformation : CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS))
-					transformations.push_back(transformation);
-
-				transformations.push_back(GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(
-					sourceCS,
-					targetCS,
-					options)->GetMathTransform());
-
-				for (auto const& transformation : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(targetCS))
-					transformations.push_back(transformation);
+				operation = GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(sourceCS, targetCS, options)->GetMathTransform();
 			}
-			catch (...)
+			catch (TransformationNotFoundException const&)
 			{
+				return transformations;  // No operation, or several and no selectOperation.
 			}
+			catch (AuthorityCodeNotFoundException const&)
+			{
+				return transformations;
+			}
+			catch (UnsupportedFormatException const&)
+			{
+				return transformations;  // The operation method is not implemented.
+			}
+
+			for (auto const& transformation : CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS))
+				transformations.push_back(transformation);
+			transformations.push_back(operation);
+			for (auto const& transformation : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(targetCS))
+				transformations.push_back(transformation);
 		}
 
 		return transformations;

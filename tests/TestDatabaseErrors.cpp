@@ -212,3 +212,40 @@ TEST_F(DatabaseWithoutTable, Towgs84LookupPropagatesTheDatabaseError)
 	}
 }
 
+// The vertical step of a compound-to-compound transformation (EPSG 5703 NAVD88 -> 5702 NGVD29) propagates a database
+// failure instead of reporting that no operation exists.
+TEST_F(DatabaseWithoutTable, CompoundVerticalStepPropagatesTheDatabaseError)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const source = factory->CreateCompoundCoordinateSystem(25830, 5703);
+	auto const target = factory->CreateCompoundCoordinateSystem(25830, 5702);
+	UseCopyWithout("epsg_coordoperation");
+	try
+	{
+		(void)GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target);
+		FAIL() << "no exception";
+	}
+	catch (TransformationNotFoundException const& e)
+	{
+		FAIL() << "a database failure was reported as a missing operation: " << e.what();
+	}
+	catch (OpenGisException const& e)
+	{
+		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
+	}
+}
+
+// Two vertical CRS without an EPSG operation between them (5703 NAVD88, 5782 Alicante) still reach
+// options.resolveTransform in a compound-to-compound transformation.
+TEST(DatabaseNotFound, CompoundVerticalStepWithoutOperationAsksResolveTransform)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto called = false;
+	CoordinateTransformationOptions options;
+	options.resolveTransform = [&](auto const&, auto const&) { called = true; return GetUtilities()->CreateAffineMainDiagonalTransform(1); };
+
+	auto const transformation = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+		factory->CreateCompoundCoordinateSystem(25830, 5703), factory->CreateCompoundCoordinateSystem(25830, 5782), options);
+	EXPECT_TRUE(called);
+	EXPECT_NE(nullptr, transformation);
+}
