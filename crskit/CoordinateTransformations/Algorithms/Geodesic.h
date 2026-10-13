@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <algorithm>
 #include <cmath>
@@ -91,6 +91,23 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			auto const dl = std::remainder(lon2 - lon1, 2 * pi);
 			auto const sinU1 = std::sin(u1), cosU1 = std::cos(u1), sinU2 = std::sin(u2);
 
+			// Near opposite poles, with the second point on the meridian opposite the first one, the scan cancels in omega;
+			// the geodesic is the meridian over the nearer pole.
+			if (_a * std::cos(u2) * std::fabs(std::sin(dl)) < 1e-6 && std::fabs(dl) > pi / 2 && std::max(cosU1, std::cos(u2)) < 1e-6)
+			{
+				auto const meridian = [&](double alpha, double sigma)
+				{
+					double bigAcoef, bigBcoef;
+					Coefficients(1.0, bigAcoef, bigBcoef);
+					auto const cos2SigmaM = std::cos(2 * std::atan2(std::tan(u1), std::cos(alpha)) + sigma);
+					return _b * bigAcoef * (sigma - DeltaSigma(bigBcoef, std::sin(sigma), std::cos(sigma), cos2SigmaM));
+				};
+				auto const north = meridian(0.0, pi - u1 - u2), south = meridian(pi, pi + u1 + u2);
+				s = std::min(north, south);
+				azimuth = north <= south ? 0.0 : pi;
+				return;
+			}
+
 			// Longitude mismatch and distance of the geodesic with azimuth alpha at its branch-th crossing of u2.
 			auto const evaluate = [&](double alpha, int branch, double& mismatch, double& distance) -> bool
 			{
@@ -157,6 +174,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 					previousMismatch = mismatch;
 				}
 			}
+			if (std::isinf(best))
+				s = azimuth = std::numeric_limits<double>::quiet_NaN();
 		}
 	public:
 

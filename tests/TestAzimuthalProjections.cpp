@@ -7,6 +7,7 @@
 #include <tuple>
 
 #include "TestBase.h"
+#include "../crskit/CoordinateTransformations/Algorithms/Geodesic.h"
 
 using namespace CrsKit;
 
@@ -68,5 +69,22 @@ TEST(AzimuthalEquidistantAntipode, NearTheAntipodeOfTheOrigin)
 		auto const geographic = forward->GetInverse()->Transform({ projected[0], projected[1] });
 		EXPECT_NEAR(latitude, geographic[0], 1e-9) << latitude << " " << longitude;
 		EXPECT_NEAR(longitude, geographic[1], 1e-9) << latitude << " " << longitude;
+	}
+}
+
+// Two points next to opposite poles, the second on the meridian opposite the first: the geodesic is the meridian over a
+// pole. Values from PROJ 9.8.1 (Karney).
+TEST(GeodesicNearThePoles, OppositeMeridians)
+{
+	constexpr double degree = 3.141592653589793 / 180;
+	CoordinateTransformations::Algorithms::Geodesic const wgs84{6378137.0, 1 / 298.257223563};
+	for (auto const [lat1, lon2, expected] : {
+		std::tuple{-89.99999959509688, 179.99999999999864, 20003931.458625},
+		std::tuple{-89.99999927448152, 179.999999999999, 20003931.458625},
+		std::tuple{89.99999978665925, 180.0000000000081, 20003931.458625}})
+	{
+		double s{}, azimuth{};
+		wgs84.Inverse(lat1 * degree, 0.0, -lat1 * degree, lon2 * degree, s, azimuth);
+		EXPECT_NEAR(expected, s, 1e-3) << lat1;
 	}
 }
