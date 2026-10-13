@@ -39,7 +39,12 @@ namespace CrsKit::CoordinateSystems
 		if (compareNoCase(tokenGEOCCS.GetChild(3).GetName().c_str(), "UNIT"))
 			throw WktParseException("UNIT");
 
-		auto const axis = AxisInfo::FromWkt(tokenGEOCCS);
+		// Without AXIS, WKT1 (OGC 01-009) defines X OTHER, Y EAST, Z NORTH.
+		auto axis = AxisInfo::FromWkt(tokenGEOCCS);
+		if (axis.empty())
+			axis = { AxisInfo("X", AxisOrientationEnum::Other), AxisInfo("Y", AxisOrientationEnum::East), AxisInfo("Z", AxisOrientationEnum::North) };
+		if (axis.size() != 3)
+			throw WktParseException(std::format("A GEOCCS takes 3 AXIS, not {}.", axis.size()));
 
 		return make_shared<GeocentricCoordinateSystem>(
 			tokenGEOCCS.GetChild(0).GetString(),
@@ -79,23 +84,25 @@ namespace CrsKit::CoordinateSystems
 
 		if (!_authority.empty() && _authorityCode)
 		{
-			return std::format("GEOCCS[\"{}\",{},{},{},{},{},AUTHORITY[\"{}\",\"{}\"]]",
+			return std::format("GEOCCS[\"{}\",{},{},{},{},{},{},AUTHORITY[\"{}\",\"{}\"]]",
 						_name.c_str(),
 						dynamic_pointer_cast<IInfo>(_datum)->GetWkt().c_str(),
 						_primeMeridian.GetWkt().c_str(),
 						_linearUnit.GetWkt().c_str(),
 						_axes[0].GetWkt().c_str(),
 						_axes[1].GetWkt().c_str(),
+						_axes[2].GetWkt().c_str(),
 						_authority.c_str(),
 						_authorityCode);
 		}
 
-		return std::format("GEOCCS[\"{}\",{},{},{},{},{}]",
+		return std::format("GEOCCS[\"{}\",{},{},{},{},{},{}]",
 						_name.c_str(),
 						dynamic_pointer_cast<IInfo>(_datum)->GetWkt().c_str(),
 						_primeMeridian.GetWkt().c_str(),
 						_linearUnit.GetWkt().c_str(),
 						_axes[0].GetWkt().c_str(),
-						_axes[1].GetWkt().c_str());
+						_axes[1].GetWkt().c_str(),
+						_axes[2].GetWkt().c_str());
 	}
 }
