@@ -21,3 +21,18 @@ TEST(WestSouthAxes, CassiniWithSouthWestAxesMatchesProj)
 	EXPECT_NEAR(48.5, geographic[0], 1e-9);
 	EXPECT_NEAR(33.0, geographic[1], 1e-9);
 }
+// EPSG 2046 (Hartebeesthoek94 / Lo15, Transverse Mercator (South Orientated)) ten degrees from the central meridian.
+TEST(WestSouthAxes, SouthOrientatedFarFromTheMeridianMatchesProj)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+		factory->CreateCoordinateSystem(4148), factory->CreateCoordinateSystem(2046))->GetMathTransform();
+
+	auto const projected = forward->Transform({ -30.0, 25.0 });
+	EXPECT_NEAR(-967326.622891421, projected[0], 1e-3);
+	EXPECT_NEAR(3362593.789816582, projected[1], 1e-3);
+
+	auto const geographic = forward->GetInverse()->Transform({ -967326.622891421, 3362593.789816582 });
+	EXPECT_NEAR(-30.0, geographic[0], 1e-9);
+	EXPECT_NEAR(25.0, geographic[1], 1e-9);
+}

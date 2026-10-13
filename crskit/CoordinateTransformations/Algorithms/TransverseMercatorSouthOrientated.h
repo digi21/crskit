@@ -5,39 +5,22 @@
 
 #include "../../CoordinateSystems/IProjection.h"
 #include "MapProjectionBase.h"
+#include "TransverseMercator.h"
 
 namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 {
+	// Westing W = FE - E' and southing S = FN - N', with (E', N') the Transverse Mercator coordinates of the same
+	// point for a zero false origin (GN7-2, method 9808).
 	class TransverseMercatorSouthOrientated final
 	: public MapProjectionBase
 	{
-
-#pragma region Parameters
-		double _semiMinorAxis;
-		double _semiMajorAxis;
-		double _latitudeOfNaturalOrigin;
-		double _longitudeOfNaturalOrigin;
-		double _scaleFactorAtNaturalOrigin;
 		double _falseEasting;
 		double _falseNorthing;
-#pragma endregion
-#pragma region Constants to speed up the computation
-		double _a;
-		double _e;
-		double _e2;
-		double _e4;
-		double _e6;
-		//						double e8;
-		double _m0;
-		double _e1;
-		double _e_2;
-#pragma endregion
-
-#pragma region Constructor
+		std::shared_ptr<TransverseMercator> _transverseMercator;
 
 	public:
 		TransverseMercatorSouthOrientated(std::shared_ptr<CoordinateSystems::IProjection> const& parameters, bool inverse);
-#pragma endregion
+
 #pragma region MapProjectionBase members
 		auto Geo2Proj(double lambda, double phi, double& x, double& y) const -> void override;
 		auto Proj2Geo(double x, double y, double& lambda, double& phi) const -> void override;
