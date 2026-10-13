@@ -588,48 +588,20 @@ namespace CrsKit
 
 	auto Utilities::ToSexagesimal(int const angularUnitCode, double const factorToStandardUnit, double value) -> double
 	{
-		if (MEASURE_UNIT_DEGREES == value)
+		if (MEASURE_UNIT_DEGREES == angularUnitCode)
 			return value;
 
 		if (ANGULAR_UNIT_SEXAGESIMAL_DMS == angularUnitCode)
 		{
-			// This is a dangerous case due to rounding problems. A character string was stored in a float (which the .NET framework reads as a double, if 
-			// we tried to read the value from the database as a float, an exception would be thrown).
-			//
-			// The rounding problem is that, for example, in coordinate operation 18086 the value 46.48 was stored, but it reaches me as 46.4799999999999 and this is a problem
-			// because if the algorithm is followed I get 46º47'99.999999999968736" which when converted to decimal degrees yields 46.811111111111103
-			// which is not the same as 46º48'00" which in decimal degrees is 46.80
-			//
-			// This makes, for example, test 5102_part_1 not fail when instantiating the GIGS objects but fail when instantiating from the EPSG database (the only case where
-			// we will enter this block of code, since only the EPSG database defines angular values of type ANGULAR_UNIT_SEXAGESIMAL_DMS).
-			//
-			// I found two solutions: print the string with %.16g and read the values from that string, or add a sigma 0.00000000000001 that gives us 46º48'3.9790393202565610e-011" which when converted to decimal degrees yields 46.800000000000011
-			// The one I like most is the text-based one, so I have commented out the original solution (the + 0.00000000000001 is kept so the tests do not fail).
-			auto text = std::format("{:.16g}", value);
-
-			auto pointPos = text.find('.');
-			if (std::string::npos == pointPos) {
-				text += ".0";
-				pointPos = text.find('.');
-			}
-			text += "0000000000";
-
-			auto const degrees = abs(static_cast<int>(value));
-
-			text = text.substr(pointPos + 1);
-
-			auto const minutes = std::stoi(text.substr(0, 2));
-
-			text = text.substr(2);
-
-			auto const temp = std::format("{}.{}", text.substr(0, 2).c_str(), text.substr(2).c_str());
-			auto const seconds = std::stod(temp);
-
-			double sexagesimalDegrees;
-			DmsToDecimalDegrees(degrees, minutes, seconds, value > 0.0, sexagesimalDegrees);
-			return sexagesimalDegrees;
+			// DDD.MMSSssssss: decimal digits stored in a binary double (-82.1 arrives as -82.0999...), so the value is
+			// rounded to 10^-10, the last digit the EPSG dataset uses, before it is split into fields.
+			auto const scaled = std::llround(std::abs(value) * 1e10);
+			auto const degrees = static_cast<double>(scaled / 10'000'000'000LL);
+			auto const minutes = static_cast<double>(scaled / 100'000'000LL % 100);
+			auto const seconds = static_cast<double>(scaled % 100'000'000LL) / 1e6;
+			auto const decimalDegrees = degrees + minutes / 60.0 + seconds / 3600.0;
+			return value < 0.0 ? -decimalDegrees : decimalDegrees;
 		}
-
 		return RADIANS_TO_DEGREES(factorToStandardUnit * value);
 	}
 
