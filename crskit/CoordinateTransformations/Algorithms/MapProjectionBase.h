@@ -34,5 +34,10 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 		virtual auto Geo2Proj(double lambda, double phi, double& x, double& y) const -> void = 0;
 		virtual auto Proj2Geo(double x, double y, double& lambda, double& phi) const -> void = 0;
+
+	protected:
+		// Newton on Geo2Proj from (lambda, phi): refines a reverse conversion given by a truncated series until the
+		// forward conversion reproduces (x, y) to 1e-9 m.
+		auto RefineReverse(double x, double y, double& lambda, double& phi) const -> void;
 	};
 }

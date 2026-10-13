@@ -13,6 +13,34 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	{
 	}
 
+	auto MapProjectionBase::RefineReverse(double x, double y, double& lambda, double& phi) const -> void
+	{
+		constexpr double h = 1e-7;  // radians, about 0.6 m: the step of the numerical Jacobian
+		for (auto i = 0; i < 8; ++i)
+		{
+			double x0, y0;
+			Geo2Proj(lambda, phi, x0, y0);
+			auto const dx = x - x0;
+			auto const dy = y - y0;
+			if (!std::isfinite(dx) || !std::isfinite(dy) || std::hypot(dx, dy) < 1e-9)
+				return;
+
+			double xl, yl, xp, yp;
+			Geo2Proj(lambda + h, phi, xl, yl);
+			Geo2Proj(lambda, phi + h, xp, yp);
+			auto const a = (xl - x0) / h;
+			auto const b = (xp - x0) / h;
+			auto const c = (yl - y0) / h;
+			auto const d = (yp - y0) / h;
+			auto const det = a * d - b * c;
+			if (!std::isfinite(det) || det == 0.0)
+				return;
+
+			lambda += (d * dx - b * dy) / det;
+			phi += (a * dy - c * dx) / det;
+		}
+	}
+
 	auto MapProjectionBase::Transform(std::vector<double> const& point) const -> std::vector<double>
 	{
 		if (point.size() != this->GetSourceDimension())

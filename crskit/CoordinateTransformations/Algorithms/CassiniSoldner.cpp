@@ -52,7 +52,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const mu1 = M1 / (_semiMajorAxis * (1 - pow(_e, 2) / 4 - 3 * pow(_e, 4) / 64 - 5 * pow(_e, 6) / 256));
 		auto const e1 = (1 - sqrt(1 - pow(_e, 2))) / (1 + sqrt(1 - pow(_e, 2)));
 		auto const latitude1 = mu1 + (3 * e1 / 2 - 27 * pow(e1, 3) / 32) * sin(2 * mu1)
-		+ (21 * pow(e1, 2) / 16 - 55 * pow(e1, 32)) * sin(4 * mu1)
+		+ (21 * pow(e1, 2) / 16 - 55 * pow(e1, 4) / 32) * sin(4 * mu1)
 		+ (151 * pow(e1, 3) / 96) * sin(6 * mu1)
 		+ (1097 * pow(e1, 4) / 512) * sin(8 * mu1);
 
@@ -61,10 +61,13 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const D = (x - _falseEasting) / v1;
 		auto const T1 = pow(tan(latitude1), 2);
 
-		auto p1 = _semiMajorAxis * (1 - pow(_e, 2) / pow(1 - pow(_e, 2) * pow(sin(latitude1), 2), 1.5));
+		auto const rho1 = _semiMajorAxis * (1 - pow(_e, 2)) / pow(1 - pow(_e, 2) * pow(sin(latitude1), 2), 1.5);
 
 		lambda = _falseOriginLongitude + (D - T1 * pow(D, 3) / 3 + (1 + 3 * T1) * T1 * pow(D, 5) / 15) / cos(latitude1);
-		phi = latitude1 - (v1 * tan(latitude1 / p1) * (pow(D, 2) / 2 - (1 + 3 * T1) * pow(D, 4) / 24));
+		phi = latitude1 - (v1 * tan(latitude1) / rho1 * (pow(D, 2) / 2 - (1 + 3 * T1) * pow(D, 4) / 24));
+
+		// The GN7-2 reverse series loses about 1e-3 deg six degrees from the central meridian.
+		RefineReverse(x, y, lambda, phi);
 	}
 #pragma endregion
 
