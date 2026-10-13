@@ -42,3 +42,16 @@ INSTANTIATE_TEST_SUITE_P(PolarAndOblique, LambertAzimuthalEqualArea, ::testing::
 	LaeaCase{ 6932, 4326, -70.0, 100.0, 2187918.7146477452, -385789.1009893824 },   // south pole, EASE-Grid 2.0 South
 	LaeaCase{ 10598, 4326, 30.0, -60.0, 3734914.636048683, -1249904.7411164858 },   // oblique, point east of the origin
 	LaeaCase{ 3035, 4258, 40.0, -5.0, 2005271.6752567608, 3042765.835795318 }));    // oblique, LAEA Europe (axes N, E)
+// The pole itself projects to the false origin.
+TEST(LambertAzimuthalEqualAreaPole, PoleProjectsToTheFalseOrigin)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	for (auto const [crs, latitude] : { std::pair{ 6932, -90.0 }, std::pair{ 3571, 90.0 } })
+	{
+		auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+			factory->CreateCoordinateSystem(4326), factory->CreateCoordinateSystem(crs))->GetMathTransform();
+		auto const projected = forward->Transform({ latitude, 0.0 });
+		EXPECT_NEAR(0.0, projected[0], 1e-6) << crs;
+		EXPECT_NEAR(0.0, projected[1], 1e-6) << crs;
+	}
+}

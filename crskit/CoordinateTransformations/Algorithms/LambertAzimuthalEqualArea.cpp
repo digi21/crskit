@@ -48,13 +48,13 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		{
 			if (_latitude0 > 0)
 			{
-				auto const p = _semiMajorAxis * sqrt(_qp - q);
+				auto const p = _semiMajorAxis * sqrt(std::max(0.0, _qp - q));  // the pole itself gives -4e-16 by rounding
 				x = _falseEasting + (p * sin(LongitudeFromOrigin(lambda, _longitude0)));
 				y = _falseNorthing - (p * cos(LongitudeFromOrigin(lambda, _longitude0)));
 			}
 			else
 			{
-				auto const p = _semiMajorAxis * sqrt(_qp + q);
+				auto const p = _semiMajorAxis * sqrt(std::max(0.0, _qp + q));
 				x = _falseEasting + (p * sin(LongitudeFromOrigin(lambda, _longitude0)));
 				y = _falseNorthing + (p * cos(LongitudeFromOrigin(lambda, _longitude0)));
 			}
