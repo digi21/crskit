@@ -19,6 +19,7 @@
 #include "Algorithms/Geographic3DToGravityRelatedHeightEGM.h"
 #include "Algorithms/Geographic3DToGravityRelatedHeightEGM2008.h"
 #include "Algorithms/HotineObliqueMercator.h"
+#include "Algorithms/Krovak.h"
 #include "Algorithms/LambertAzimuthalEqualArea.h"
 #include "Algorithms/LambertConformalConic1SP.h"
 #include "Algorithms/LambertConformalConic2SP.h"
@@ -103,6 +104,72 @@ namespace CrsKit
 			parameter("scale_factor", ParameterType::Scalar, 8815),
 			parameter("false_easting", ParameterType::Length, 8806),
 			parameter("false_northing", ParameterType::Length, 8807) });
+
+		// Krovak and Krovak (North Orientated) share the WKT1 name and the formulas, as do the two modified methods: the CRS
+		// axes tell them apart.
+		MathTransformGenerics::Register<MP::Krovak>({
+			mathTransform("Krovak"), authorityOperation("EPSG", 9819),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8833),
+			parameter("azimuth", ParameterType::Angular, 1036),
+			parameter("pseudo_standard_parallel_1", ParameterType::Angular, 8818),
+			parameter("scale_factor", ParameterType::Scalar, 8819),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::KrovakNorthOrientated>({
+			mathTransform("Krovak"), authorityOperation("EPSG", 1041),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8833),
+			parameter("azimuth", ParameterType::Angular, 1036),
+			parameter("pseudo_standard_parallel_1", ParameterType::Angular, 8818),
+			parameter("scale_factor", ParameterType::Scalar, 8819),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::KrovakModified>({
+			mathTransform("Krovak_Modified"), authorityOperation("EPSG", 1042),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8833),
+			parameter("azimuth", ParameterType::Angular, 1036),
+			parameter("pseudo_standard_parallel_1", ParameterType::Angular, 8818),
+			parameter("scale_factor", ParameterType::Scalar, 8819),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807),
+			parameter("evaluation_point_ordinate_1", ParameterType::Length, 8617),
+			parameter("evaluation_point_ordinate_2", ParameterType::Length, 8618),
+			parameter("C1", ParameterType::Scalar, 1026),
+			parameter("C2", ParameterType::Scalar, 1027),
+			parameter("C3", ParameterType::Scalar, 1028),
+			parameter("C4", ParameterType::Scalar, 1029),
+			parameter("C5", ParameterType::Scalar, 1030),
+			parameter("C6", ParameterType::Scalar, 1031),
+			parameter("C7", ParameterType::Scalar, 1032),
+			parameter("C8", ParameterType::Scalar, 1033),
+			parameter("C9", ParameterType::Scalar, 1034),
+			parameter("C10", ParameterType::Scalar, 1035) });
+
+		MathTransformGenerics::Register<MP::KrovakModifiedNorthOrientated>({
+			mathTransform("Krovak_Modified"), authorityOperation("EPSG", 1043),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8833),
+			parameter("azimuth", ParameterType::Angular, 1036),
+			parameter("pseudo_standard_parallel_1", ParameterType::Angular, 8818),
+			parameter("scale_factor", ParameterType::Scalar, 8819),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807),
+			parameter("evaluation_point_ordinate_1", ParameterType::Length, 8617),
+			parameter("evaluation_point_ordinate_2", ParameterType::Length, 8618),
+			parameter("C1", ParameterType::Scalar, 1026),
+			parameter("C2", ParameterType::Scalar, 1027),
+			parameter("C3", ParameterType::Scalar, 1028),
+			parameter("C4", ParameterType::Scalar, 1029),
+			parameter("C5", ParameterType::Scalar, 1030),
+			parameter("C6", ParameterType::Scalar, 1031),
+			parameter("C7", ParameterType::Scalar, 1032),
+			parameter("C8", ParameterType::Scalar, 1033),
+			parameter("C9", ParameterType::Scalar, 1034),
+			parameter("C10", ParameterType::Scalar, 1035) });
 
 		MathTransformGenerics::Register<MP::LambertAzimuthalEqualArea>({
 			mathTransform("Lambert_Azimuthal_Equal_Area"), authorityOperation("EPSG", 9820),

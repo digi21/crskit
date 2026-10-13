@@ -33,6 +33,8 @@ namespace
 			return { AxisOrientationEnum::West, AxisOrientationEnum::South };
 		if (0 == CrsKit::compareNoCase(className.c_str(), "Lambert_Conformal_Conic_West_Orientated"))
 			return { AxisOrientationEnum::West, AxisOrientationEnum::North };
+		if (0 == CrsKit::compareNoCase(className.c_str(), "Krovak") || 0 == CrsKit::compareNoCase(className.c_str(), "Krovak_Modified"))
+			return { AxisOrientationEnum::South, AxisOrientationEnum::West };
 		return { AxisOrientationEnum::East, AxisOrientationEnum::North };
 	}
 
@@ -48,17 +50,17 @@ namespace
 		}
 	}
 
-	// For a projected CRS with a west or south axis, the matrix that takes the formula output to the CRS axes
-	// (EPSG 8044, Cassini-Soldner with axes X south, Y west, is (-N, -E)). Empty for any other CRS.
+	// When the CRS or the formula has a west or south axis, the matrix that takes the formula output to the CRS axes
+	// (EPSG 8044, Cassini-Soldner with axes X south, Y west, is (-N, -E); EPSG 5514, Krovak with axes east and north, is
+	// (-W, -S)). Empty otherwise.
 	auto AxesFromFormula(ProjectedCoordinateSystem const& pcs) -> std::optional<std::array<double, 4>>
 	{
 		auto const a0 = pcs.GetAxis(0).GetOrientation();
 		auto const a1 = pcs.GetAxis(1).GetOrientation();
 		auto const westOrSouth = [](AxisOrientationEnum o) { return o == AxisOrientationEnum::West || o == AxisOrientationEnum::South; };
-		if (!westOrSouth(a0) && !westOrSouth(a1))
-			return std::nullopt;
-
 		auto const [f0, f1] = FormulaAxes(pcs.GetProjection()->GetClassName());
+		if (!westOrSouth(a0) && !westOrSouth(a1) && !westOrSouth(f0) && !westOrSouth(f1))
+			return std::nullopt;
 		auto const row = [&](AxisOrientationEnum axis) -> std::optional<std::pair<double, double>>
 		{
 			if (axis == f0) return std::pair{ 1.0, 0.0 };
