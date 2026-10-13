@@ -100,17 +100,17 @@ TEST(CatalogueSweep, EveryCrsOfASupportedKindIsCreatedOrRejectedAsUnsupported)
 	std::cout << "[ created  ] " << created << " of " << codes.size() << " CRS, " << total << " rejected\n";
 }
 
-// The transform of a projection with no math transform behind it reports the method.
+// The transform of a projection with no math transform behind it reports the projection name.
 TEST(CatalogueSweep, TransformOfAnUnimplementedProjectionIsUnsupported)
 {
 	try
 	{
-		(void)GetMathTransformFactory()->CreateParameterizedTransform("Krovak", {});
+		(void)GetMathTransformFactory()->CreateParameterizedTransform("No_Such_Projection", {});
 		FAIL() << "no exception";
 	}
 	catch (UnsupportedFormatException const& e)
 	{
-		EXPECT_TRUE(std::string{ e.what() }.contains("Krovak")) << e.what();
+		EXPECT_TRUE(std::string{ e.what() }.contains("No_Such_Projection")) << e.what();
 	}
 }
 
