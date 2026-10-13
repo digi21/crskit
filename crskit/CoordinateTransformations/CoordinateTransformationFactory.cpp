@@ -31,6 +31,8 @@ namespace
 	{
 		if (0 == CrsKit::compareNoCase(className.c_str(), "Transverse_Mercator_South_Orientated"))
 			return { AxisOrientationEnum::West, AxisOrientationEnum::South };
+		if (0 == CrsKit::compareNoCase(className.c_str(), "Lambert_Conformal_Conic_West_Orientated"))
+			return { AxisOrientationEnum::West, AxisOrientationEnum::North };
 		return { AxisOrientationEnum::East, AxisOrientationEnum::North };
 	}
 

@@ -21,6 +21,7 @@
 #include "Algorithms/LambertAzimuthalEqualArea.h"
 #include "Algorithms/LambertConformalConic1SP.h"
 #include "Algorithms/LambertConformalConic2SP.h"
+#include "Algorithms/LambertConicConformalVariants.h"
 #include "Algorithms/LongitudeRotation.h"
 #include "Algorithms/Mercator1Sp.h"
 #include "Algorithms/Mercator2Sp.h"
@@ -126,8 +127,43 @@ namespace CrsKit
 			parameter("false_easting", ParameterType::Length, 8826),
 			parameter("false_northing", ParameterType::Length, 8827) });
 
-		MathTransformGenerics::Register<MP::Mercator1Sp>({
-			mathTransform("Mercator_1SP"), authorityOperation("EPSG", 9804),
+		MathTransformGenerics::Register<MP::LambertConicConformalWestOrientated>({
+			mathTransform("Lambert_Conformal_Conic_West_Orientated"), authorityOperation("EPSG", 9826),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LambertConicConformal1SPVariantB>({
+			mathTransform("Lambert_Conformal_Conic_1SP_Variant_B"), authorityOperation("EPSG", 1102),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("latitude_of_false_origin", ParameterType::Angular, 8821),
+			parameter("central_meridian", ParameterType::Angular, 8822),
+			parameter("false_easting", ParameterType::Length, 8826),
+			parameter("false_northing", ParameterType::Length, 8827) });
+
+		MathTransformGenerics::Register<MP::LambertConicConformal2SPMichigan>({
+			mathTransform("Lambert_Conformal_Conic_2SP_Michigan"), authorityOperation("EPSG", 1051),
+			parameter("latitude_of_origin", ParameterType::Angular, 8821),
+			parameter("central_meridian", ParameterType::Angular, 8822),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("standard_parallel2", ParameterType::Angular, 8824),
+			parameter("false_easting", ParameterType::Length, 8826),
+			parameter("false_northing", ParameterType::Length, 8827),
+			parameter("ellipsoid_scaling_factor", ParameterType::Scalar, 1038) });
+
+		MathTransformGenerics::Register<MP::LambertConicConformal2SPBelgium>({
+			mathTransform("Lambert_Conformal_Conic_2SP_Belgium"), authorityOperation("EPSG", 9803),
+			parameter("latitude_of_origin", ParameterType::Angular, 8821),
+			parameter("central_meridian", ParameterType::Angular, 8822),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("standard_parallel2", ParameterType::Angular, 8824),
+			parameter("false_easting", ParameterType::Length, 8826),
+			parameter("false_northing", ParameterType::Length, 8827) });
+
+		MathTransformGenerics::Register<MP::Mercator1Sp>({			mathTransform("Mercator_1SP"), authorityOperation("EPSG", 9804),
 			parameter("latitude_of_origin", ParameterType::Angular, 8801),
 			parameter("central_meridian", ParameterType::Angular, 8802),
 			parameter("scale_factor", ParameterType::Scalar, 8805),
