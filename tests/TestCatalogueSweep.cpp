@@ -92,3 +92,11 @@ TEST(CatalogueSweep, ProjectedCrsWithThreeAxesIsUnsupported)
 	threeAxes.emplace_back("h", CoordinateSystems::AxisOrientationEnum::Up);
 	EXPECT_THROW((void)factory->CreateProjectedCoordinateSystem(25830, threeAxes), UnsupportedFormatException);
 }
+// A derived vertical CRS whose base is derived too inherits the datum two levels up.
+TEST(CatalogueSweep, VerticalCrsDerivedFromADerivedCrsGetsItsDatum)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	EXPECT_EQ(5103, std::dynamic_pointer_cast<CoordinateSystems::VerticalDatum>(factory->CreateVerticalCoordinateSystem(6358)->GetVerticalDatum())->GetAuthorityCode());
+	EXPECT_EQ(5187, std::dynamic_pointer_cast<CoordinateSystems::VerticalDatum>(factory->CreateVerticalCoordinateSystem(5614)->GetVerticalDatum())->GetAuthorityCode());
+	EXPECT_EQ("KOC WD depth (ft)", GetUtilities()->GetCoordinateReferenceSystemName(5614));
+}
