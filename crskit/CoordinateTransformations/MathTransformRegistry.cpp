@@ -173,6 +173,15 @@ namespace CrsKit
 			parameter("false_easting", ParameterType::Length, 8826),
 			parameter("false_northing", ParameterType::Length, 8827) });
 
+		MathTransformGenerics::Register<MP::LabordeObliqueMercator>({
+			mathTransform("Laborde_Oblique_Mercator"), authorityOperation("EPSG", 9813),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8812),
+			parameter("azimuth", ParameterType::Angular, 8813),
+			parameter("scale_factor", ParameterType::Scalar, 8815),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
 		MathTransformGenerics::Register<MP::CassiniSoldner>({
 			mathTransform("Cassini_Soldner"), authorityOperation("EPSG", 9806),
 			parameter("latitude_of_origin", ParameterType::Angular, 8801),

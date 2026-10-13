@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <complex>
 #include <memory>
 
 #include "../../CoordinateSystems/IProjection.h"
@@ -105,6 +106,24 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 	public:
 		TunisiaMiningGrid(std::shared_ptr<CoordinateSystems::IProjection> const& parameters, bool inverse);
+		auto Geo2Proj(double lambda, double phi, double& x, double& y) const -> void override;
+		auto Proj2Geo(double x, double y, double& lambda, double& phi) const -> void override;
+		auto GetInverse() -> std::shared_ptr<IMathTransform> override;
+	};
+
+	// Laborde Oblique Mercator, 9813 (Madagascar): IGN NT/G 74 as transcribed in GN7-2.
+	class LabordeObliqueMercator final : public SimpleProjection
+	{
+		double _b;
+		double _phiS;
+		double _r;
+		double _c;
+		std::complex<double> _g;
+
+		auto IsometricLatitude(double phi) const -> double;
+
+	public:
+		LabordeObliqueMercator(std::shared_ptr<CoordinateSystems::IProjection> const& parameters, bool inverse);
 		auto Geo2Proj(double lambda, double phi, double& x, double& y) const -> void override;
 		auto Proj2Geo(double x, double y, double& lambda, double& phi) const -> void override;
 		auto GetInverse() -> std::shared_ptr<IMathTransform> override;

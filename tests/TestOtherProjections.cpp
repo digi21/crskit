@@ -5,6 +5,8 @@
 // References: PROJ 9.8.1 for 9833 and 9811; for the methods PROJ does not implement, PROJ's Bonne with W = 2 FE - E and
 // S = 2 FN - N (9828), UTM zone 30N plus 30 * 10^6 (9824), and the GN7-2 examples (9817, 9816).
 
+#include <tuple>
+
 #include "TestBase.h"
 
 using namespace CrsKit;
@@ -56,3 +58,24 @@ INSTANTIATE_TEST_SUITE_P(EveryMethod, OtherProjections, ::testing::Values(
 	// Carthage (Paris) / Tunisia Mining Grid, GN7-2 example: grid reference 302598, latitude and longitude in grads
 	// from Paris, coordinates in kilometres
 	OtherCase{ 22300, 4816, 38.97997, 8.22437, 302.0, 598.0, 1e-3 }));
+// Laborde Oblique Mercator (9813), Tananarive (Paris) / Laborde Grid, latitude and longitude in grads from Paris. EPSG gives
+// the IGN NT/G 74 closed form, implemented here; PROJ implements Laborde's series in the longitude difference, and the two
+// differ by up to 8 cm over Madagascar (PROJ's series is truncated), so PROJ 9.8.1 is the reference to 0.1 m. The axes are X
+// north, Y east, which crskit returns as (E, N) (see CreateProjectionTransforms). The reverse conversion is checked exactly.
+TEST(LabordeObliqueMercator, ForwardNearProjAndExactReverse)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+		factory->CreateCoordinateSystem(4810), factory->CreateCoordinateSystem(29701))->GetMathTransform();
+	for (auto const [latitude, longitude, north, east] : { std::tuple{ -20.0 / 0.9, 47.0 / 0.9, 675695.2470687085, 703472.1649924335 },
+		std::tuple{ -14.0 / 0.9, 49.5 / 0.9, 1334765.4523260922, 983517.0957908602 } })
+	{
+		auto const projected = forward->Transform({ latitude, longitude });
+		EXPECT_NEAR(east, projected[0], 0.1);
+		EXPECT_NEAR(north, projected[1], 0.1);
+
+		auto const geographic = forward->GetInverse()->Transform({ projected[0], projected[1] });
+		EXPECT_NEAR(latitude, geographic[0], 1e-10);
+		EXPECT_NEAR(longitude, geographic[1], 1e-10);
+	}
+}

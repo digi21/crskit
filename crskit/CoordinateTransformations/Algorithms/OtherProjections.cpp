@@ -346,4 +346,82 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		return _inverseTransformation;
 	}
 #pragma endregion
+
+#pragma region Laborde Oblique Mercator
+	LabordeObliqueMercator::LabordeObliqueMercator(std::shared_ptr<IProjection> const& parameters, bool inverse)
+		: SimpleProjection{parameters, inverse}
+	{
+		auto const e2 = _e * _e;
+		auto const phiC = DEGREES_TO_RADIANS(Value("latitude_of_center"));
+		auto const alphaC = DEGREES_TO_RADIANS(Value("azimuth"));
+		_b = sqrt(1 + e2 * pow(cos(phiC), 4) / (1 - e2));
+		_phiS = asin(sin(phiC) / _b);
+		_r = _a * Value("scale_factor") * sqrt(1 - e2) / (1 - e2 * sin(phiC) * sin(phiC));
+		_c = log(tan(M_PI / 4 + _phiS / 2)) - _b * IsometricLatitude(phiC);
+		_g = std::complex<double>{ 1 - cos(2 * alphaC), sin(2 * alphaC) } / 12.0;
+	}
+
+	auto LabordeObliqueMercator::IsometricLatitude(double phi) const -> double
+	{
+		return log(tan(M_PI / 4 + phi / 2) * pow((1 - _e * sin(phi)) / (1 + _e * sin(phi)), _e / 2));
+	}
+
+	auto LabordeObliqueMercator::Geo2Proj(double lambda, double phi, double& x, double& y) const -> void
+	{
+		auto const l = _b * LongitudeFromOrigin(lambda, _longitudeOfOrigin);
+		auto const q = _c + _b * IsometricLatitude(phi);
+		auto const p = 2 * atan(exp(q)) - M_PI / 2;
+		auto const u = cos(p) * cos(l) * cos(_phiS) + sin(p) * sin(_phiS);
+		auto const v = cos(p) * cos(l) * sin(_phiS) - sin(p) * cos(_phiS);
+		auto const w = cos(p) * sin(l);
+		auto const d = hypot(u, v);
+		auto const lPrime = 0.0 == d ? 0.0 : 2 * atan(v / (u + d));
+		auto const pPrime = 0.0 == d ? (w < 0 ? -M_PI / 2 : M_PI / 2) : atan(w / d);
+		std::complex<double> const h{ -lPrime, log(tan(M_PI / 4 + pPrime / 2)) };
+		auto const result = h + _g * h * h * h;
+		x = _falseEasting + _r * result.imag();
+		y = _falseNorthing + _r * result.real();
+	}
+
+	auto LabordeObliqueMercator::Proj2Geo(double x, double y, double& lambda, double& phi) const -> void
+	{
+		std::complex<double> const h0{ (y - _falseNorthing) / _r, (x - _falseEasting) / _r };
+		auto h = h0;
+		for (auto i = 0; i < 20; ++i)
+		{
+			auto const next = (h0 + 2.0 * _g * h * h * h) / (3.0 * _g * h * h + 1.0);
+			auto const delta = std::abs(next - h);
+			h = next;
+			if (delta < 1e-14)
+				break;
+		}
+		auto const lPrime = -h.real();
+		auto const pPrime = 2 * atan(exp(h.imag())) - M_PI / 2;
+		auto const u = cos(pPrime) * cos(lPrime) * cos(_phiS) + cos(pPrime) * sin(lPrime) * sin(_phiS);
+		auto const v = sin(pPrime);
+		auto const w = cos(pPrime) * cos(lPrime) * sin(_phiS) - cos(pPrime) * sin(lPrime) * cos(_phiS);
+		auto const d = hypot(u, v);
+		auto const l = 0.0 == d ? 0.0 : 2 * atan(v / (u + d));
+		auto const p = 0.0 == d ? (w < 0 ? -M_PI / 2 : M_PI / 2) : atan(w / d);
+		lambda = _longitudeOfOrigin + l / _b;
+		auto const q = (log(tan(M_PI / 4 + p / 2)) - _c) / _b;
+		phi = 2 * atan(exp(q)) - M_PI / 2;
+		for (auto i = 0; i < 20; ++i)
+		{
+			auto const next = 2 * atan(pow((1 + _e * sin(phi)) / (1 - _e * sin(phi)), _e / 2) * exp(q)) - M_PI / 2;
+			auto const delta = fabs(next - phi);
+			phi = next;
+			if (delta < 1e-14)
+				break;
+		}
+		RefineReverse(x, y, lambda, phi);
+	}
+
+	auto LabordeObliqueMercator::GetInverse() -> std::shared_ptr<IMathTransform>
+	{
+		if (nullptr == _inverseTransformation)
+			_inverseTransformation = make_shared<LabordeObliqueMercator>(_parameters, !_inverse);
+		return _inverseTransformation;
+	}
+#pragma endregion
 }

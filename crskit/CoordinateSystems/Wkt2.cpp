@@ -502,6 +502,13 @@ namespace CrsKit::Wkt
 					{"central_meridian", "Longitude of false origin", 8822, U::Angular},
 					{"false_easting", "Easting at false origin", 8826, U::Length},
 					{"false_northing", "Northing at false origin", 8827, U::Length}}},
+				{"Laborde_Oblique_Mercator", "Laborde Oblique Mercator", 9813, {
+					{"latitude_of_center", "Latitude of projection centre", 8811, U::Angular},
+					{"longitude_of_center", "Longitude of projection centre", 8812, U::Angular},
+					{"azimuth", "Azimuth at projection centre", 8813, U::Angular},
+					{"scale_factor", "Scale factor at projection centre", 8815, U::Scale},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
 				{"Cassini_Soldner", "Cassini-Soldner", 9806, {
 					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
