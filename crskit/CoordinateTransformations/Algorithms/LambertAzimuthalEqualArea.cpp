@@ -28,7 +28,9 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		_qp = (1 - pow(_e, 2)) * (1 / (1 - pow(_e, 2)) - (1 / (2 * _e)) * (log((1 - _e) / (1 + _e))));
 		_beta0 = asin(_q0 / _qp);
 		_rq = _semiMajorAxis * sqrt(_qp / 2);
-		_d = _semiMajorAxis * (cos(_latitude0) / sqrt(1 - pow(_e, 2) * pow(_sinlat0, 2))) / (_rq * cos(_beta0));
+		// The polar aspect has its own formulas: D divides by cos(betaO), which is 0 at a pole.
+		_polar = fabs(fabs(_latitude0) - M_PI / 2) < 1e-10;
+		_d = _polar ? 1.0 : _semiMajorAxis * (cos(_latitude0) / sqrt(1 - pow(_e, 2) * pow(_sinlat0, 2))) / (_rq * cos(_beta0));
 	}
 
 #pragma region MapProjectionBase members
@@ -42,7 +44,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const radicand = 2 / (1 + sin(_beta0) * sin(beta) + cos(_beta0) * cos(beta) * cos(LongitudeFromOrigin(lambda, _longitude0)));
 		auto const B = _rq * (radicand > 0 ? sqrt(radicand) : 0.0);
 
-		if (fabs(_latitude0) == M_PI / 2)
+		if (_polar)
 		{
 			if (_latitude0 > 0)
 			{
@@ -66,15 +68,44 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 	auto LambertAzimuthalEqualArea::Proj2Geo(double x, double y, double& lambda, double& phi) const -> void
 	{
-		auto const p = sqrt(pow((x - _falseEasting) / _d, 2) + (pow(_d * (y - _falseNorthing), 2)));
-		auto const C = 2 * asin(clampToUnit(p / (2 * _rq)));
+		double betaPrime;
+		if (_polar)
+		{
+			auto const rho = hypot(x - _falseEasting, y - _falseNorthing);
+			betaPrime = (_latitude0 > 0 ? 1.0 : -1.0) * asin(clampToUnit(1 - rho * rho / (_semiMajorAxis * _semiMajorAxis * _qp)));
+			lambda = _longitude0 + atan2(x - _falseEasting, _latitude0 > 0 ? -(y - _falseNorthing) : y - _falseNorthing);
+		}
+		else
+		{
+			auto const p = sqrt(pow((x - _falseEasting) / _d, 2) + (pow(_d * (y - _falseNorthing), 2)));
+			if (p == 0.0)
+			{
+				lambda = _longitude0;
+				phi = _latitude0;
+				return;
+			}
+			auto const C = 2 * asin(clampToUnit(p / (2 * _rq)));
 
-		auto const betaPrime = asin(clampToUnit(cos(C) * sin(_beta0) + _d * (y - _falseNorthing) * sin(C) * cos(_beta0) / p));
-		lambda = _longitude0 + atan((x - _falseEasting) * sin(C) / (_d * p * cos(_beta0) * cos(C) - pow(_d, 2) * (y - _falseNorthing) * sin(_beta0) * sin(C)));
+			betaPrime = asin(clampToUnit(cos(C) * sin(_beta0) + _d * (y - _falseNorthing) * sin(C) * cos(_beta0) / p));
+			lambda = _longitude0 + atan2((x - _falseEasting) * sin(C), _d * p * cos(_beta0) * cos(C) - pow(_d, 2) * (y - _falseNorthing) * sin(_beta0) * sin(C));
+		}
 
 		phi = betaPrime + ((pow(_e, 2) / 3 + 31 * pow(_e, 4) / 180 + 517 * pow(_e, 6) / 5040) * sin(2 * betaPrime))
 		+ (23 * pow(_e, 4) / 360 + 251 * pow(_e, 6) / 3780) * sin(4 * betaPrime)
 		+ (761 * pow(_e, 6) / 45360) * sin(6 * betaPrime);
+
+		// The series stops at e^6 (about 1.5 mm); Newton on q = qP sin(beta') (Snyder 3-16) refines it to the last bit.
+		auto const q = _qp * sin(betaPrime);
+		auto const e2 = _e * _e;
+		for (auto i = 0; i < 4 && fabs(cos(phi)) > 1e-12; ++i)
+		{
+			auto const sinPhi = sin(phi);
+			auto const w = 1 - e2 * sinPhi * sinPhi;
+			auto const delta = w * w / (2 * cos(phi)) * (q / (1 - e2) - sinPhi / w + log((1 - _e * sinPhi) / (1 + _e * sinPhi)) / (2 * _e));
+			phi += delta;
+			if (fabs(delta) < 1e-15)
+				break;
+		}
 	}
 #pragma endregion
 

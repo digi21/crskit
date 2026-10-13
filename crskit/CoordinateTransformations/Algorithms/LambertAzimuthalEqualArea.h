@@ -31,6 +31,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		double _beta0;
 		double _rq;
 		double _d;
+		bool _polar;
 #pragma endregion
 
 #pragma region Constructor
