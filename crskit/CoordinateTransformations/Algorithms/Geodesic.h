@@ -8,7 +8,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 {
 	// Direct and inverse geodesic problems on an ellipsoid (Vincenty 1975). Angles in radians, distance in the unit of a.
 	// Within 0.1 mm of Karney's algorithms. Near the antipode, where Vincenty's inverse iteration does not converge, the
-	// inverse is solved with Newton on the direct problem.
+	// inverse takes the shortest of the geodesics found by a scan of the initial azimuth.
 	class Geodesic
 	{
 		double _a;
@@ -70,7 +70,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 
 			if (!converged || std::fabs(lambda) > 3.141592653589793)
 			{
-				InverseByNewton(lat1, lon1, lat2, lon2, u1, u2, s, azimuth);
+				InverseByScan(lon1, lon2, u1, u2, s, azimuth);
 				return;
 			}
 
@@ -81,53 +81,80 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		}
 
 	private:
-		// Newton on Direct(azimuth, s) = (lat2, lon2). Near the antipode several geodesics join the points, so Newton starts
-		// from the great circle on the sphere of reduced latitudes and from eight more azimuths, and the shortest wins.
-		auto InverseByNewton(double lat1, double lon1, double lat2, double lon2, double u1, double u2, double& s, double& azimuth) const -> void
+		// Every geodesic from (lat1, lon1) with azimuth alpha reaches the reduced latitude u2 at two arc lengths sigma on the
+		// auxiliary sphere, in closed form; the longitude it has there, minus lon2, is a function of alpha whose roots are
+		// the geodesics to the point. Near the antipode there are several: they are bracketed on a 720-step scan of alpha,
+		// refined by bisection, and the shortest is kept.
+		auto InverseByScan(double lon1, double lon2, double u1, double u2, double& s, double& azimuth) const -> void
 		{
 			constexpr double pi = 3.141592653589793;
 			auto const dl = std::remainder(lon2 - lon1, 2 * pi);
-			auto const sphereAzimuth = std::atan2(std::cos(u2) * std::sin(dl), std::cos(u1) * std::sin(u2) - std::sin(u1) * std::cos(u2) * std::cos(dl));
-			auto const sphereDistance = _a * std::acos(std::clamp(std::sin(u1) * std::sin(u2) + std::cos(u1) * std::cos(u2) * std::cos(dl), -1.0, 1.0));
-			auto const residual = [&](double az, double dist, double& dPhi, double& dLambda)
+			auto const sinU1 = std::sin(u1), cosU1 = std::cos(u1), sinU2 = std::sin(u2);
+
+			// Longitude mismatch and distance of the geodesic with azimuth alpha at its branch-th crossing of u2.
+			auto const evaluate = [&](double alpha, int branch, double& mismatch, double& distance) -> bool
 			{
-				double p, l;
-				Direct(lat1, lon1, az, dist, p, l);
-				dPhi = p - lat2;
-				dLambda = std::remainder(l - lon2, 2 * pi) * std::cos(lat2);
+				auto const bigA = sinU1, bigB = cosU1 * std::cos(alpha);
+				auto const r = std::hypot(bigA, bigB);
+				if (r < std::fabs(sinU2))
+					return false;
+				auto const phase = std::atan2(bigB, bigA);
+				auto sigma = phase + (0 == branch ? 1 : -1) * std::acos(std::clamp(sinU2 / r, -1.0, 1.0));
+				sigma = sigma - 2 * pi * std::floor(sigma / (2 * pi));	// 0 <= sigma < 2 pi
+				auto const sinAlpha0 = cosU1 * std::sin(alpha);
+				auto const cos2Alpha = 1 - sinAlpha0 * sinAlpha0;
+				auto const sigma1 = std::atan2(std::tan(u1), std::cos(alpha));
+				auto const cos2SigmaM = std::cos(2 * sigma1 + sigma);
+				auto const omega = std::atan2(std::sin(sigma) * std::sin(alpha), cosU1 * std::cos(sigma) - sinU1 * std::sin(sigma) * std::cos(alpha));
+				auto const c = _f / 16 * cos2Alpha * (4 + _f * (4 - 3 * cos2Alpha));
+				auto const l = omega - (1 - c) * _f * sinAlpha0 * (sigma + c * std::sin(sigma) * (cos2SigmaM + c * std::cos(sigma) * (-1 + 2 * cos2SigmaM * cos2SigmaM)));
+				mismatch = std::remainder(l - dl, 2 * pi);
+				double bigAcoef, bigBcoef;
+				Coefficients(cos2Alpha, bigAcoef, bigBcoef);
+				distance = _b * bigAcoef * (sigma - DeltaSigma(bigBcoef, std::sin(sigma), std::cos(sigma), cos2SigmaM));
+				return true;
 			};
 
+			constexpr int steps = 720;
 			auto best = std::numeric_limits<double>::infinity();
-			for (auto start = 0; start < 9; ++start)
+			for (auto branch = 0; branch < 2; ++branch)
 			{
-				auto az = 0 == start ? sphereAzimuth : (start - 1) * pi / 4;
-				auto dist = sphereDistance;
-				for (auto i = 0; i < 40; ++i)
+				double previousMismatch{};
+				auto previousValid = false;
+				for (auto i = 0; i <= steps; ++i)
 				{
-					double f0, g0;
-					residual(az, dist, f0, g0);
-					if (std::hypot(f0, g0) < 1e-14)
+					auto const alpha = -pi + 2 * pi * i / steps;
+					double mismatch, distance;
+					auto const valid = evaluate(alpha, branch, mismatch, distance);
+					if (valid && previousValid && (mismatch == 0.0 || (mismatch > 0) != (previousMismatch > 0)) && std::fabs(mismatch - previousMismatch) < pi)
 					{
-						if (dist >= 0 && dist < best)
+						auto lo = alpha - 2 * pi / steps, hi = alpha;
+						auto loMismatch = previousMismatch;
+						for (auto k = 0; k < 60; ++k)
 						{
-							best = dist;
-							s = dist;
-							azimuth = az;
+							auto const mid = (lo + hi) / 2;
+							double midMismatch, midDistance;
+							if (!evaluate(mid, branch, midMismatch, midDistance))
+								break;
+							if ((midMismatch > 0) == (loMismatch > 0))
+							{
+								lo = mid;
+								loMismatch = midMismatch;
+							}
+							else
+								hi = mid;
 						}
-						break;
+						double rootMismatch, rootDistance;
+						auto const root = (lo + hi) / 2;
+						if (evaluate(root, branch, rootMismatch, rootDistance) && std::fabs(rootMismatch) < 1e-9 && rootDistance < best)
+						{
+							best = rootDistance;
+							s = rootDistance;
+							azimuth = root;
+						}
 					}
-					constexpr double hAzimuth = 1e-9;
-					auto const hDistance = 1e-9 * _a;
-					double f1, g1, f2, g2;
-					residual(az + hAzimuth, dist, f1, g1);
-					residual(az, dist + hDistance, f2, g2);
-					auto const a11 = (f1 - f0) / hAzimuth, a12 = (f2 - f0) / hDistance;
-					auto const a21 = (g1 - g0) / hAzimuth, a22 = (g2 - g0) / hDistance;
-					auto const det = a11 * a22 - a12 * a21;
-					if (!std::isfinite(det) || det == 0.0)
-						break;
-					az -= (a22 * f0 - a12 * g0) / det;
-					dist -= (a11 * g0 - a21 * f0) / det;
+					previousValid = valid;
+					previousMismatch = mismatch;
 				}
 			}
 		}

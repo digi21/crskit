@@ -51,15 +51,16 @@ INSTANTIATE_TEST_SUITE_P(EveryMethod, AzimuthalProjections, ::testing::Values(
 	AzimuthalCase{ 3993, 4675, 13.544, 144.881, 64315.325855007795, 57917.52846426578, 1e-3 }, // Guam 1963 / Guam SPCS
 	AzimuthalCase{ 10622, 6318, 37.636, -122.36, 7500.23451790547, 6849.49005909679, 1e-3 })); // Local Orthographic
 // Near the antipode of the Equi7 Europe origin Vincenty's inverse does not converge: the projection still takes the shortest
-// geodesic and agrees with PROJ 9.8.1 (Karney) to 1 cm, the precision of Vincenty's series over 20000 km, and the reverse
-// conversion returns the point.
+// of the geodesics that join the points and agrees with PROJ 9.8.1 (Karney) to 1 cm (over 20000 km, 2e-10 rad of azimuth is
+// 4 mm), and the reverse conversion returns the point.
 TEST(AzimuthalEquidistantAntipode, NearTheAntipodeOfTheOrigin)
 {
 	auto const factory = GetCoordinateSystemAuthorityFactory();
 	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
 		factory->CreateCoordinateSystem(4326), factory->CreateCoordinateSystem(27704))->GetMathTransform();
 	for (auto const [latitude, longitude, easting, northing] : { std::tuple{ -52.99, -155.99, 5311243.3116746405, 22117307.169501957 },
-		std::tuple{ -52.0, -157.0, 14949317.799027141, 19786276.790247254 }, std::tuple{ -53.0, -156.5, 25819851.469355024, 2102445.086687106 } })
+		std::tuple{ -52.0, -157.0, 14949317.799027141, 19786276.790247254 }, std::tuple{ -53.0, -156.5, 25819851.469355024, 2102445.086687106 },
+		std::tuple{ -53.14, -156.26, 14214964.867927521, -16022440.729670966 } })
 	{
 		auto const projected = forward->Transform({ latitude, longitude });
 		EXPECT_NEAR(easting, projected[0], 0.01) << latitude << " " << longitude;
