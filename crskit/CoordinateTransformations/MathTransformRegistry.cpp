@@ -9,6 +9,7 @@
 // All built-in algorithms.
 #include "Algorithms/AlbersConicEqualArea.h"
 #include "Algorithms/AmericanPolyconic.h"
+#include "Algorithms/AzimuthalProjections.h"
 #include "Algorithms/CassiniSoldner.h"
 #include "Algorithms/CoordinateFrameRotation.h"
 #include "Algorithms/CylindricalProjections.h"
@@ -87,6 +88,44 @@ namespace CrsKit
 			parameter("central_meridian", ParameterType::Angular, 8802),
 			parameter("false_easting", ParameterType::Length, 8806),
 			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::ColombiaUrban>({
+			mathTransform("Colombia_Urban"), authorityOperation("EPSG", 1052),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807),
+			parameter("projection_plane_origin_height", ParameterType::Length, 1039) });
+
+		MathTransformGenerics::Register<MP::AzimuthalEquidistant>({
+			mathTransform("Azimuthal_Equidistant"), authorityOperation("EPSG", 1125),
+			parameter("latitude_of_center", ParameterType::Angular, 8801),
+			parameter("longitude_of_center", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::ModifiedAzimuthalEquidistant>({
+			mathTransform("Modified_Azimuthal_Equidistant"), authorityOperation("EPSG", 9832),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::GuamProjection>({
+			mathTransform("Guam_Projection"), authorityOperation("EPSG", 9831),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LocalOrthographic>({
+			mathTransform("Local_Orthographic"), authorityOperation("EPSG", 1130),
+			parameter("latitude_of_center", ParameterType::Angular, 8811),
+			parameter("longitude_of_center", ParameterType::Angular, 8812),
+			parameter("azimuth", ParameterType::Angular, 8813),
+			parameter("scale_factor", ParameterType::Scalar, 8815),
+			parameter("false_easting", ParameterType::Length, 8816),
+			parameter("false_northing", ParameterType::Length, 8817) });
 
 		MathTransformGenerics::Register<MP::CassiniSoldner>({
 			mathTransform("Cassini_Soldner"), authorityOperation("EPSG", 9806),

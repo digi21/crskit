@@ -441,6 +441,34 @@ namespace CrsKit::Wkt
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
 					{"false_easting", "False easting", 8806, U::Length},
 					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Colombia_Urban", "Colombia Urban", 1052, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length},
+					{"projection_plane_origin_height", "Projection plane origin height", 1039, U::Length}}},
+				{"Azimuthal_Equidistant", "Azimuthal Equidistant", 1125, {
+					{"latitude_of_center", "Latitude of natural origin", 8801, U::Angular},
+					{"longitude_of_center", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Modified_Azimuthal_Equidistant", "Modified Azimuthal Equidistant", 9832, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Guam_Projection", "Guam Projection", 9831, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Local_Orthographic", "Local Orthographic", 1130, {
+					{"latitude_of_center", "Latitude of projection centre", 8811, U::Angular},
+					{"longitude_of_center", "Longitude of projection centre", 8812, U::Angular},
+					{"azimuth", "Azimuth at projection centre", 8813, U::Angular},
+					{"scale_factor", "Scale factor at projection centre", 8815, U::Scale},
+					{"false_easting", "Easting at projection centre", 8816, U::Length},
+					{"false_northing", "Northing at projection centre", 8817, U::Length}}},
 				{"Cassini_Soldner", "Cassini-Soldner", 9806, {
 					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
