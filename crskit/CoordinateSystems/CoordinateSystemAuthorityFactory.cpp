@@ -60,7 +60,12 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int code) const -> std::shared_ptr<ProjectedCoordinateSystem>
 	{
-		return CreateProjectedCoordinateSystem(code, CreateAxisInformation(code));
+		// ProjectedCoordinateSystem holds two axes: a projected 3D CRS (EPSG 9895, with ellipsoidal height) is rejected.
+		auto const axis = CreateAxisInformation(code);
+		if (axis.size() > 2)
+			throw UnsupportedFormatException(std::format("The projected coordinate system {} has {} axes; only projected systems with 2 axes are supported.", code, axis.size()));
+
+		return CreateProjectedCoordinateSystem(code, axis);
 	}
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int code, std::vector<AxisInfo> const& axis) const -> std::shared_ptr<ProjectedCoordinateSystem>
@@ -73,10 +78,12 @@ namespace CrsKit::Epsg
 		if (0 != compareNoCase(coordinateSystemType.c_str(), "projected"))
 			throw runtime_error( std::format("The {} coordinate system is not projected.", code) );
 
-		assert(axis.size() == 2);
+		if (axis.size() != 2)
+			throw UnsupportedFormatException(std::format("A projected coordinate system takes 2 axes, not {}.", axis.size()));
 
 		auto const units = CreateUnitsInformation(code);
-		assert(units.size() == 2);
+		if (units.empty())
+			throw OpenGisException(std::format("The coordinate system of the projected CRS {} has no axis unit.", code));
 
 		auto geographicCoordinateSystem = CreateGeographicCoordinateSystem(_provider->GetGeographicCrsCodeForProjectedCrs(code));
 		auto const operationCode = _provider->GetOperationCodeForCrs(code);

@@ -77,3 +77,18 @@ TEST(CatalogueSweep, UnitlessParameterKeepsItsValue)
 	EXPECT_EQ("ED50 to WGS 84 (15)", std::get<std::string>(parameters[2]));
 	EXPECT_EQ("ED50 to WGS 84 (14)", std::get<std::string>(parameters[3]));
 }
+
+// EPSG 9895 (LUREF / Luxembourg TM (3D)) is a projected CRS with 3 axes: rejected without an assert.
+TEST(CatalogueSweep, ProjectedCrsWithThreeAxesIsUnsupported)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	EXPECT_THROW((void)factory->CreateCoordinateSystem(9895), UnsupportedFormatException);
+	EXPECT_THROW((void)GetUtilities()->GetCoordinateReferenceSystemName(9895), UnsupportedFormatException);
+
+	std::vector<CoordinateSystems::AxisInfo> const twoAxes{
+		{ "X", CoordinateSystems::AxisOrientationEnum::East },
+		{ "Y", CoordinateSystems::AxisOrientationEnum::North } };
+	auto threeAxes = twoAxes;
+	threeAxes.emplace_back("h", CoordinateSystems::AxisOrientationEnum::Up);
+	EXPECT_THROW((void)factory->CreateProjectedCoordinateSystem(25830, threeAxes), UnsupportedFormatException);
+}
