@@ -96,3 +96,15 @@ TEST(WktParameterNames, EquivalenceIgnoresUnderscoresAndOrder)
 		R"(PARAMETER["standard_parallel2",44],PARAMETER["false_easting",700000],PARAMETER["false_northing",6600000],UNIT["metre",1]])");
 	EXPECT_TRUE(CoordinateSystems::AreEquivalent(gdal, crskit));
 }
+// A projection with a parameter repeated in place of another is not equivalent to the complete one, in either order.
+TEST(WktParameterNames, RepeatedParameterIsNotEquivalent)
+{
+	auto const head = std::string{ R"(PROJCS["a",GEOGCS["g",DATUM["d",SPHEROID["GRS 1980",6378137,298.257222101]],PRIMEM["Greenwich",0],)"
+		R"(UNIT["degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["latitude_of_origin",46.5],)"
+		R"(PARAMETER["central_meridian",3],PARAMETER["standard_parallel_1",49],)" };
+	auto const tail = std::string{ R"(PARAMETER["false_easting",700000],PARAMETER["false_northing",6600000],UNIT["metre",1]])" };
+	auto const complete = GetCoordinateSystemFactory()->CreateFromWkt(head + R"(PARAMETER["standard_parallel_2",44],)" + tail);
+	auto const repeated = GetCoordinateSystemFactory()->CreateFromWkt(head + R"(PARAMETER["standard_parallel_1",49],)" + tail);
+	EXPECT_FALSE(CoordinateSystems::AreEquivalent(repeated, complete));
+	EXPECT_FALSE(CoordinateSystems::AreEquivalent(complete, repeated));
+}

@@ -59,13 +59,18 @@ namespace CrsKit::CoordinateSystems
 			auto const& pb = b->GetParameters();
 			if (pa.size() != pb.size())
 				return false;
-			// Each parameter of a has one with the same name in b (ParameterNamesMatch: GDAL writes standard_parallel_1, the
-			// registry standard_parallel1), whatever the order.
-			return std::ranges::all_of(pa, [&](Parameter const& p)
+			// Each parameter of one has one with the same name and value in the other, both ways (a repeated name must not
+			// stand for a missing one), whatever the order; ParameterNamesMatch: GDAL writes standard_parallel_1, the registry
+			// standard_parallel1.
+			auto const allIn = [](std::vector<Parameter> const& from, std::vector<Parameter> const& in)
 			{
-				auto const it = std::ranges::find_if(pb, [&](Parameter const& q) { return ParameterNamesMatch(p.GetName(), q.GetName()); });
-				return it != pb.end() && sameValue(p, *it);
-			});
+				return std::ranges::all_of(from, [&](Parameter const& p)
+				{
+					auto const it = std::ranges::find_if(in, [&](Parameter const& q) { return ParameterNamesMatch(p.GetName(), q.GetName()); });
+					return it != in.end() && sameValue(p, *it);
+				});
+			};
+			return allIn(pa, pb) && allIn(pb, pa);
 		}
 	}
 
