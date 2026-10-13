@@ -11,6 +11,8 @@ namespace CrsKit::Wkt
 
 		size_t i = 0, j = 0;
 		RellenaArbol(nullptr, i, j, text.data());
+		if (!root)
+			throw WktParseException("Not a valid Wkt string");
 	}
 
 	auto WktDeserializer::RellenaArbol(TokenWkt* node, size_t& i, size_t& j, char* text) -> void
@@ -73,7 +75,8 @@ namespace CrsKit::Wkt
 			}
 
 			// Era un parameter
-			assert(nullptr != node);
+			if (nullptr == node)
+				throw WktParseException("Not a valid Wkt string");
 
 			text[j] = 0;
 			node->AddChild(std::make_unique<TokenWkt>(text + i));
