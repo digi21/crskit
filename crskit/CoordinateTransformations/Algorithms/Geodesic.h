@@ -1,11 +1,14 @@
 ﻿#pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace CrsKit::CoordinateTransformations::Algorithms
 {
 	// Direct and inverse geodesic problems on an ellipsoid (Vincenty 1975). Angles in radians, distance in the unit of a.
-	// Within 0.1 mm of Karney's algorithms except near the antipode, where the inverse iteration may not converge.
+	// Within 0.1 mm of Karney's algorithms. Near the antipode, where Vincenty's inverse iteration does not converge, the
+	// inverse is solved with Newton on the direct problem.
 	class Geodesic
 	{
 		double _a;
@@ -39,6 +42,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 
 			auto lambda = l;
 			double sinSigma{}, cosSigma{}, sigma{}, cos2Alpha{}, cos2SigmaM{};
+			auto converged = false;
 			for (auto i = 0; i < 200; ++i)
 			{
 				auto const sinLambda = std::sin(lambda), cosLambda = std::cos(lambda);
@@ -58,7 +62,16 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 				auto const previous = lambda;
 				lambda = l + (1 - c) * _f * sinAlpha * (sigma + c * sinSigma * (cos2SigmaM + c * cosSigma * (-1 + 2 * cos2SigmaM * cos2SigmaM)));
 				if (std::fabs(lambda - previous) < 1e-14)
+				{
+					converged = true;
 					break;
+				}
+			}
+
+			if (!converged || std::fabs(lambda) > 3.141592653589793)
+			{
+				InverseByNewton(lat1, lon1, lat2, lon2, u1, u2, s, azimuth);
+				return;
 			}
 
 			double bigA, bigB;
@@ -66,6 +79,59 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			s = _b * bigA * (sigma - DeltaSigma(bigB, sinSigma, cosSigma, cos2SigmaM));
 			azimuth = std::atan2(cosU2 * std::sin(lambda), cosU1 * sinU2 - sinU1 * cosU2 * std::cos(lambda));
 		}
+
+	private:
+		// Newton on Direct(azimuth, s) = (lat2, lon2). Near the antipode several geodesics join the points, so Newton starts
+		// from the great circle on the sphere of reduced latitudes and from eight more azimuths, and the shortest wins.
+		auto InverseByNewton(double lat1, double lon1, double lat2, double lon2, double u1, double u2, double& s, double& azimuth) const -> void
+		{
+			constexpr double pi = 3.141592653589793;
+			auto const dl = std::remainder(lon2 - lon1, 2 * pi);
+			auto const sphereAzimuth = std::atan2(std::cos(u2) * std::sin(dl), std::cos(u1) * std::sin(u2) - std::sin(u1) * std::cos(u2) * std::cos(dl));
+			auto const sphereDistance = _a * std::acos(std::clamp(std::sin(u1) * std::sin(u2) + std::cos(u1) * std::cos(u2) * std::cos(dl), -1.0, 1.0));
+			auto const residual = [&](double az, double dist, double& dPhi, double& dLambda)
+			{
+				double p, l;
+				Direct(lat1, lon1, az, dist, p, l);
+				dPhi = p - lat2;
+				dLambda = std::remainder(l - lon2, 2 * pi) * std::cos(lat2);
+			};
+
+			auto best = std::numeric_limits<double>::infinity();
+			for (auto start = 0; start < 9; ++start)
+			{
+				auto az = 0 == start ? sphereAzimuth : (start - 1) * pi / 4;
+				auto dist = sphereDistance;
+				for (auto i = 0; i < 40; ++i)
+				{
+					double f0, g0;
+					residual(az, dist, f0, g0);
+					if (std::hypot(f0, g0) < 1e-14)
+					{
+						if (dist >= 0 && dist < best)
+						{
+							best = dist;
+							s = dist;
+							azimuth = az;
+						}
+						break;
+					}
+					constexpr double hAzimuth = 1e-9;
+					auto const hDistance = 1e-9 * _a;
+					double f1, g1, f2, g2;
+					residual(az + hAzimuth, dist, f1, g1);
+					residual(az, dist + hDistance, f2, g2);
+					auto const a11 = (f1 - f0) / hAzimuth, a12 = (f2 - f0) / hDistance;
+					auto const a21 = (g1 - g0) / hAzimuth, a22 = (g2 - g0) / hDistance;
+					auto const det = a11 * a22 - a12 * a21;
+					if (!std::isfinite(det) || det == 0.0)
+						break;
+					az -= (a22 * f0 - a12 * g0) / det;
+					dist -= (a11 * g0 - a21 * f0) / det;
+				}
+			}
+		}
+	public:
 
 		// The point at distance s and forward azimuth from (lat1, lon1).
 		auto Direct(double lat1, double lon1, double azimuth, double s, double& lat2, double& lon2) const -> void
