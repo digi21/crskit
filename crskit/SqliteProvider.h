@@ -709,21 +709,37 @@ namespace CrsKit::Epsg
 			while (stmt.Step())
 			{
 				auto const data = stmt.GetData();
-				if (std::holds_alternative<nullptr_t>(data.at("PARAMETER_VALUE")))
-				{
-					parameterList.push_back(std::get<std::string>(data.at("PARAM_VALUE_FILE_REF")));
-				}
-				else
-				{
-					auto const unit = std::get<int>(data.at("UOM_CODE"));
-					auto value = std::get<double>(data.at("PARAMETER_VALUE"));
+				auto const parameterCode = TypeOrDefaultValue<int>(data.at("PARAMETER_CODE")).value_or(0);
+				auto const& field = data.at("PARAMETER_VALUE");
 
-					if (GetUnitIsLength(unit))
-						value = GetFactorToStandardUnit(unit) * value;
-					else if (GetUnitIsAngle(unit))
-						value = GetUtilities()->ToSexagesimal(unit, GetFactorToStandardUnit(unit), value);
-					parameterList.push_back(value);
+				// No numeric value: a file name or, in some methods, the name of another operation.
+				if (std::holds_alternative<nullptr_t>(field))
+				{
+					auto const& reference = data.at("PARAM_VALUE_FILE_REF");
+					if (!std::holds_alternative<std::string>(reference))
+						throw OpenGisException(std::format("Parameter {} of operation {} has neither a value nor a file reference.", parameterCode, operationCode));
+					parameterList.push_back(std::get<std::string>(reference));
+					continue;
 				}
+
+				auto value = TypeOrDefaultValue<double>(field);
+				if (!value)
+					throw OpenGisException(std::format("Parameter {} of operation {} has a value that is not a number.", parameterCode, operationCode));
+
+				// A value without unit (an EPSG code, a count) is returned as stored.
+				auto const& unitField = data.at("UOM_CODE");
+				if (!std::holds_alternative<nullptr_t>(unitField))
+				{
+					auto const unit = TypeOrDefaultValue<int>(unitField);
+					if (!unit)
+						throw OpenGisException(std::format("Parameter {} of operation {} has a unit code that is not an integer.", parameterCode, operationCode));
+
+					if (GetUnitIsLength(*unit))
+						*value = GetFactorToStandardUnit(*unit) * *value;
+					else if (GetUnitIsAngle(*unit))
+						*value = GetUtilities()->ToSexagesimal(*unit, GetFactorToStandardUnit(*unit), *value);
+				}
+				parameterList.push_back(*value);
 			}
 
 			return parameterList;
