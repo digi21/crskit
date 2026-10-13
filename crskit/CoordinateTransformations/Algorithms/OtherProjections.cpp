@@ -208,9 +208,11 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 	auto TransverseMercatorZonedGrid::Zone(double longitudeDegrees) const -> int
 	{
-		auto const zones = 360.0 / _zoneWidth;
-		auto const index = floor((longitudeDegrees - _initialLongitude) / _zoneWidth);
-		return static_cast<int>(index - floor(index / zones) * zones) + 1;
+		// The zone width and initial longitude arrive through a degree conversion (6 may be 5.999...), so the index is
+		// rounded before the floor: a point on a zone boundary belongs to the zone to its east.
+		auto const zones = std::lround(360.0 / _zoneWidth);
+		auto const index = std::llround(std::floor((longitudeDegrees - _initialLongitude) / _zoneWidth + 1e-9));
+		return static_cast<int>(((index % zones) + zones) % zones) + 1;
 	}
 
 	auto TransverseMercatorZonedGrid::Geo2Proj(double lambda, double phi, double& x, double& y) const -> void

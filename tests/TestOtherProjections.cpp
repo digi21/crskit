@@ -5,6 +5,7 @@
 // References: PROJ 9.8.1 for 9833 and 9811; for the methods PROJ does not implement, PROJ's Bonne with W = 2 FE - E and
 // S = 2 FN - N (9828), UTM zone 30N plus 30 * 10^6 (9824), and the GN7-2 examples (9817, 9816).
 
+#include <cmath>
 #include <tuple>
 
 #include "TestBase.h"
@@ -77,5 +78,20 @@ TEST(LabordeObliqueMercator, ForwardNearProjAndExactReverse)
 		auto const geographic = forward->GetInverse()->Transform({ projected[0], projected[1] });
 		EXPECT_NEAR(latitude, geographic[0], 1e-10);
 		EXPECT_NEAR(longitude, geographic[1], 1e-10);
+	}
+}
+// The zone of the zoned grid at its boundaries: lon 0 is zone 31, lon -6 zone 30, lon 6 zone 32, lon 180 zone 1.
+TEST(TransverseMercatorZonedGrid, ZoneAtTheBoundaries)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+		factory->CreateCoordinateSystem(4326), factory->CreateCoordinateSystem(32600))->GetMathTransform();
+	for (auto const [longitude, zone] : { std::pair{ 0.0, 31 }, std::pair{ -6.0, 30 }, std::pair{ 6.0, 32 }, std::pair{ 180.0, 1 }, std::pair{ -180.0, 1 }, std::pair{ 179.9, 60 } })
+	{
+		auto const projected = forward->Transform({ 10.0, longitude });
+		EXPECT_EQ(zone, static_cast<int>(std::floor(projected[0] / 1e6))) << longitude << ": " << projected[0];
+		auto const geographic = forward->GetInverse()->Transform({ projected[0], projected[1] });
+		EXPECT_NEAR(10.0, geographic[0], 1e-9) << longitude;
+		EXPECT_NEAR(0.0, std::remainder(longitude - geographic[1], 360.0), 1e-9) << longitude;
 	}
 }
