@@ -30,6 +30,7 @@
 #include "Algorithms/ObliqueMercator.h"
 #include "Algorithms/ObliqueStereographic.h"
 #include "Algorithms/P6.h"
+#include "Algorithms/PolarStereographic.h"
 #include "Algorithms/PopularVisualisationPseudoMercator.h"
 #include "Algorithms/PositionVectorTransformation.h"
 #include "Algorithms/TransverseMercator.h"
@@ -157,6 +158,30 @@ namespace CrsKit
 			parameter("scale_factor", ParameterType::Scalar, 8805),
 			parameter("false_easting", ParameterType::Length, 8806),
 			parameter("false_northing", ParameterType::Length, 8807) });
+
+		// Variants A and B share the WKT1 name Polar_Stereographic, as GDAL writes them. Whichever of the two types the name
+		// resolves to, the variant is chosen from the parameters.
+		MathTransformGenerics::Register<MP::PolarStereographic>({
+			mathTransform("Polar_Stereographic"), authorityOperation("EPSG", 9810),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::PolarStereographicVariantB>({
+			mathTransform("Polar_Stereographic"), authorityOperation("EPSG", 9829),
+			parameter("latitude_of_origin", ParameterType::Angular, 8832),
+			parameter("central_meridian", ParameterType::Angular, 8833),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::PolarStereographicVariantC>({
+			mathTransform("Polar_Stereographic_Variant_C"), authorityOperation("EPSG", 9830),
+			parameter("latitude_of_origin", ParameterType::Angular, 8832),
+			parameter("central_meridian", ParameterType::Angular, 8833),
+			parameter("false_easting", ParameterType::Length, 8826),
+			parameter("false_northing", ParameterType::Length, 8827) });
 
 		MathTransformGenerics::Register<MP::PopularVisualisationPseudoMercator>({
 			mathTransform("Popular_Visualisation_Pseudo_Mercator"), authorityOperation("EPSG", 1024),

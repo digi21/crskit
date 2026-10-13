@@ -404,6 +404,22 @@ namespace CrsKit::Wkt
 					{"longitude_of_center", "Longitude of natural origin", 8802, U::Angular},
 					{"false_easting", "False easting", 8806, U::Length},
 					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Polar_Stereographic", "Polar Stereographic (variant A)", 9810, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"scale_factor", "Scale factor at natural origin", 8805, U::Scale},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Polar_Stereographic", "Polar Stereographic (variant B)", 9829, {
+					{"latitude_of_origin", "Latitude of standard parallel", 8832, U::Angular},
+					{"central_meridian", "Longitude of origin", 8833, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Polar_Stereographic_Variant_C", "Polar Stereographic (variant C)", 9830, {
+					{"latitude_of_origin", "Latitude of standard parallel", 8832, U::Angular},
+					{"central_meridian", "Longitude of origin", 8833, U::Angular},
+					{"false_easting", "Easting at false origin", 8826, U::Length},
+					{"false_northing", "Northing at false origin", 8827, U::Length}}},
 				{"Popular_Visualisation_Pseudo_Mercator", "Popular Visualisation Pseudo Mercator", 1024, {
 					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
@@ -413,11 +429,24 @@ namespace CrsKit::Wkt
 			return methods;
 		}
 
-		auto FindMethodByOgcClass(std::string const& className) -> Wkt2Method const*
+		// The method of a projection: the first with its class name whose parameters the projection all has. Polar Stereographic
+		// variants A and B share the class name; variant A also needs a latitude of origin at a pole.
+		auto FindMethodOfProjection(IProjection const& projection) -> Wkt2Method const*
 		{
+			auto const has = [&](char const* name)
+			{
+				return std::ranges::any_of(projection.GetParameters(), [name](auto const& p) { return 0 == compareNoCase(p.GetName().c_str(), name); });
+			};
 			for (auto const& m : Methods())
-				if (0 == compareNoCase(m.ogcClass, className.c_str()))
-					return &m;
+			{
+				if (0 != compareNoCase(m.ogcClass, projection.GetClassName().c_str()))
+					continue;
+				if (!std::ranges::all_of(m.parameters, [&](auto const& p) { return has(p.ogcName); }))
+					continue;
+				if (9810 == m.epsgCode && fabs(fabs(std::get<double>(projection.GetParameter("latitude_of_origin").GetValue())) - 90.0) > 1e-10)
+					continue;
+				return &m;
+			}
 			return nullptr;
 		}
 
@@ -690,7 +719,7 @@ namespace CrsKit::Wkt
 	auto ToWkt2(ProjectedCoordinateSystem const& pcs, WktVersion version) -> std::string
 	{
 		auto const projection = pcs.GetProjection();
-		auto const* method = FindMethodByOgcClass(projection->GetClassName());
+		auto const* method = FindMethodOfProjection(*projection);
 		if (!method)
 			throw UnsupportedFormatException(std::format("WKT2 emission: projection method '{}' is not supported yet.",
 				static_cast<const char*>(projection->GetClassName().c_str())));
