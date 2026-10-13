@@ -80,13 +80,14 @@ TEST(LabordeObliqueMercator, ForwardNearProjAndExactReverse)
 		EXPECT_NEAR(longitude, geographic[1], 1e-10);
 	}
 }
-// The zone of the zoned grid at its boundaries: lon 0 is zone 31, lon -6 zone 30, lon 6 zone 32, lon 180 zone 1.
+// The zone of the zoned grid at its boundaries: lon 0 is zone 31, lon -6 zone 30, lon 6 zone 32, lon 180 zone 1; just west of a
+// boundary is the zone to the west.
 TEST(TransverseMercatorZonedGrid, ZoneAtTheBoundaries)
 {
 	auto const factory = GetCoordinateSystemAuthorityFactory();
 	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
 		factory->CreateCoordinateSystem(4326), factory->CreateCoordinateSystem(32600))->GetMathTransform();
-	for (auto const [longitude, zone] : { std::pair{ 0.0, 31 }, std::pair{ -6.0, 30 }, std::pair{ 6.0, 32 }, std::pair{ 180.0, 1 }, std::pair{ -180.0, 1 }, std::pair{ 179.9, 60 } })
+	for (auto const [longitude, zone] : { std::pair{ 0.0, 31 }, std::pair{ -6.0, 30 }, std::pair{ 6.0, 32 }, std::pair{ 180.0, 1 }, std::pair{ -180.0, 1 }, std::pair{ 179.9, 60 }, std::pair{ 179.999999999, 60 }, std::pair{ -0.000000001, 30 } })
 	{
 		auto const projected = forward->Transform({ 10.0, longitude });
 		EXPECT_EQ(zone, static_cast<int>(std::floor(projected[0] / 1e6))) << longitude << ": " << projected[0];

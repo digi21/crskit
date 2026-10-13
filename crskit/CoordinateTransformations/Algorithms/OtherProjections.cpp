@@ -191,8 +191,10 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 #pragma region Transverse Mercator Zoned Grid System
 	TransverseMercatorZonedGrid::TransverseMercatorZonedGrid(std::shared_ptr<IProjection> const& parameters, bool inverse)
 		: MapProjectionBase{parameters, inverse}
-		, _initialLongitude{std::get<double>(parameters->GetParameter("initial_longitude").GetValue())}
-		, _zoneWidth{std::get<double>(parameters->GetParameter("zone_width").GetValue())}
+		// Rounded to 1e-9 deg: they arrive through a degree conversion (6 may be 5.999...), and the zone boundaries are
+		// multiples of them.
+		, _initialLongitude{std::round(std::get<double>(parameters->GetParameter("initial_longitude").GetValue()) * 1e9) / 1e9}
+		, _zoneWidth{std::round(std::get<double>(parameters->GetParameter("zone_width").GetValue()) * 1e9) / 1e9}
 		, _falseEasting{std::get<double>(parameters->GetParameter("false_easting").GetValue())}
 	{
 		std::vector<Parameter> values{
@@ -208,10 +210,9 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 	auto TransverseMercatorZonedGrid::Zone(double longitudeDegrees) const -> int
 	{
-		// The zone width and initial longitude arrive through a degree conversion (6 may be 5.999...), so the index is
-		// rounded before the floor: a point on a zone boundary belongs to the zone to its east.
+		// A point on a zone boundary belongs to the zone to its east.
 		auto const zones = std::lround(360.0 / _zoneWidth);
-		auto const index = std::llround(std::floor((longitudeDegrees - _initialLongitude) / _zoneWidth + 1e-9));
+		auto const index = static_cast<long long>(std::floor((longitudeDegrees - _initialLongitude) / _zoneWidth));
 		return static_cast<int>(((index % zones) + zones) % zones) + 1;
 	}
 
