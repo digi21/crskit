@@ -469,6 +469,39 @@ namespace CrsKit::Wkt
 					{"scale_factor", "Scale factor at projection centre", 8815, U::Scale},
 					{"false_easting", "Easting at projection centre", 8816, U::Length},
 					{"false_northing", "Northing at projection centre", 8817, U::Length}}},
+				{"Bonne_South_Orientated", "Bonne (South Orientated)", 9828, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Hyperbolic_Cassini_Soldner", "Hyperbolic Cassini-Soldner", 9833, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Lambert_Conic_Near_Conformal", "Lambert Conic Near-Conformal", 9817, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"scale_factor", "Scale factor at natural origin", 8805, U::Scale},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Transverse_Mercator_Zoned_Grid_System", "Transverse Mercator Zoned Grid System", 9824, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"initial_longitude", "Initial longitude", 8830, U::Angular},
+					{"zone_width", "Zone width", 8831, U::Angular},
+					{"scale_factor", "Scale factor at natural origin", 8805, U::Scale},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"New_Zealand_Map_Grid", "New Zealand Map Grid", 9811, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Tunisia_Mining_Grid", "Tunisia Mining Grid", 9816, {
+					{"latitude_of_origin", "Latitude of false origin", 8821, U::Angular},
+					{"central_meridian", "Longitude of false origin", 8822, U::Angular},
+					{"false_easting", "Easting at false origin", 8826, U::Length},
+					{"false_northing", "Northing at false origin", 8827, U::Length}}},
 				{"Cassini_Soldner", "Cassini-Soldner", 9806, {
 					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},

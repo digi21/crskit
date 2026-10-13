@@ -29,7 +29,7 @@ namespace
 	// Directions of the two values the projection formula yields: (easting, northing) for most methods.
 	auto FormulaAxes(std::string const& className) -> std::pair<AxisOrientationEnum, AxisOrientationEnum>
 	{
-		if (0 == CrsKit::compareNoCase(className.c_str(), "Transverse_Mercator_South_Orientated"))
+		if (0 == CrsKit::compareNoCase(className.c_str(), "Transverse_Mercator_South_Orientated") || 0 == CrsKit::compareNoCase(className.c_str(), "Bonne_South_Orientated"))
 			return { AxisOrientationEnum::West, AxisOrientationEnum::South };
 		if (0 == CrsKit::compareNoCase(className.c_str(), "Lambert_Conformal_Conic_West_Orientated"))
 			return { AxisOrientationEnum::West, AxisOrientationEnum::North };

@@ -33,6 +33,7 @@
 #include "Algorithms/Ntv2.h"
 #include "Algorithms/ObliqueMercator.h"
 #include "Algorithms/ObliqueStereographic.h"
+#include "Algorithms/OtherProjections.h"
 #include "Algorithms/P6.h"
 #include "Algorithms/PolarStereographic.h"
 #include "Algorithms/PopularVisualisationPseudoMercator.h"
@@ -126,6 +127,51 @@ namespace CrsKit
 			parameter("scale_factor", ParameterType::Scalar, 8815),
 			parameter("false_easting", ParameterType::Length, 8816),
 			parameter("false_northing", ParameterType::Length, 8817) });
+
+		MathTransformGenerics::Register<MP::BonneSouthOrientated>({
+			mathTransform("Bonne_South_Orientated"), authorityOperation("EPSG", 9828),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::HyperbolicCassiniSoldner>({
+			mathTransform("Hyperbolic_Cassini_Soldner"), authorityOperation("EPSG", 9833),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LambertConicNearConformal>({
+			mathTransform("Lambert_Conic_Near_Conformal"), authorityOperation("EPSG", 9817),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::TransverseMercatorZonedGrid>({
+			mathTransform("Transverse_Mercator_Zoned_Grid_System"), authorityOperation("EPSG", 9824),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("initial_longitude", ParameterType::Angular, 8830),
+			parameter("zone_width", ParameterType::Angular, 8831),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::NewZealandMapGrid>({
+			mathTransform("New_Zealand_Map_Grid"), authorityOperation("EPSG", 9811),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::TunisiaMiningGrid>({
+			mathTransform("Tunisia_Mining_Grid"), authorityOperation("EPSG", 9816),
+			parameter("latitude_of_origin", ParameterType::Angular, 8821),
+			parameter("central_meridian", ParameterType::Angular, 8822),
+			parameter("false_easting", ParameterType::Length, 8826),
+			parameter("false_northing", ParameterType::Length, 8827) });
 
 		MathTransformGenerics::Register<MP::CassiniSoldner>({
 			mathTransform("Cassini_Soldner"), authorityOperation("EPSG", 9806),
