@@ -1,6 +1,8 @@
 // Hotine Oblique Mercator (variant B) with an azimuth of 90 deg, against PROJ 9.8.1. Not part of the GIGS suite
 // (no "Test5xxx" prefix).
 
+#include <tuple>
+
 #include "TestBase.h"
 
 using namespace CrsKit;
@@ -52,5 +54,24 @@ TEST(ObliqueMercatorCentre, CentreMapsToTheFalseOrigin)
 		auto const centre = transform->Transform({ 10.0, latitude });
 		EXPECT_NEAR(500000.0, centre[0], 1e-6) << latitude << ", " << azimuth;
 		EXPECT_NEAR(200000.0, centre[1], 1e-6) << latitude << ", " << azimuth;
+	}
+}
+// Hotine Oblique Mercator (variant A) with an azimuth near 90 deg: points where cos(B (lon - lonO)) is negative. Reference
+// values from PROJ 9.8.1 (+proj=omerc +no_uoff).
+TEST(HotineObliqueMercatorVariantA, AzimuthNear90)
+{
+	for (auto const [azimuth, longitude, easting, northing] : {
+		std::tuple{ 89.5, 30.0, 11264255.931285735, 411587.34667890833 }, std::tuple{ 89.5, 40.0, 12356222.240082344, 460988.314668218 },
+		std::tuple{ -89.5, 5.0, -10810403.997885274, 432236.17142322357 }, std::tuple{ 89.5, 5.0, 8532271.082392711, 431928.0085141351 } })
+	{
+		auto const transform = GetMathTransformFactory()->CreateParameterizedTransform("hotine_oblique_mercator", {
+			{ "semi_major", 6378137.0 }, { "semi_minor", 6356752.314245179 }, { "latitude_of_center", 10.0 }, { "longitude_of_center", 20.0 },
+			{ "azimuth", azimuth }, { "rectified_grid_angle", azimuth }, { "scale_factor", 1.0 }, { "false_easting", 500000.0 }, { "false_northing", 200000.0 } });
+		auto const p = transform->Transform({ longitude, 11.0 });
+		EXPECT_NEAR(easting, p[0], 1e-3) << azimuth << " " << longitude;
+		EXPECT_NEAR(northing, p[1], 1e-3) << azimuth << " " << longitude;
+		auto const g = transform->GetInverse()->Transform({ p[0], p[1] });
+		EXPECT_NEAR(longitude, g[0], 1e-9) << azimuth << " " << longitude;
+		EXPECT_NEAR(11.0, g[1], 1e-9) << azimuth << " " << longitude;
 	}
 }

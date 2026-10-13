@@ -62,8 +62,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const U = (-V * cos(_gamma0) + S * sin(_gamma0)) / T;
 		auto const v = _a * log((1 - U) / (1 + U)) / (2 * _b);
 
-		//Oblique Mercator
-		auto const u = (_a * atan((S * cos(_gamma0) + V * sin(_gamma0)) / cos(_b * (LongitudeFromOrigin(lambda, _longitude0)))) / _b);
+		// atan2, as GN7-2 gives it: with an azimuth near 90 deg, cos(B (lon - lonO)) changes sign inside the area of use.
+		auto const u = _a * atan2(S * cos(_gamma0) + V * sin(_gamma0), cos(_b * LongitudeFromOrigin(lambda, _longitude0))) / _b;
 
 		x = v * cos(_rectifiedGridAngle) + u * sin(_rectifiedGridAngle) + _falseEasting;
 		y = u * cos(_rectifiedGridAngle) - v * sin(_rectifiedGridAngle) + _falseNorthing;
