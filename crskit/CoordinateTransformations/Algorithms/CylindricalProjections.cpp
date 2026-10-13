@@ -38,7 +38,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		, _a{std::get<double>(parameters->GetParameter("semi_major").GetValue())}
 		, _e{Eccentricity(_a, std::get<double>(parameters->GetParameter("semi_minor").GetValue()))}
 		, _longitudeOfOrigin{DEGREES_TO_RADIANS(std::get<double>(parameters->GetParameter(
-			std::ranges::any_of(parameters->GetParameters(), [](auto const& p) { return 0 == compareNoCase(p.GetName().c_str(), "longitude_of_center"); })
+			std::ranges::any_of(parameters->GetParameters(), [](auto const& p) { return ParameterNamesMatch(p.GetName(), "longitude_of_center"); })
 				? "longitude_of_center" : "central_meridian").GetValue()))}
 		, _falseEasting{std::get<double>(parameters->GetParameter("false_easting").GetValue())}
 		, _falseNorthing{std::get<double>(parameters->GetParameter("false_northing").GetValue())}

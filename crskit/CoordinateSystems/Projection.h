@@ -1,7 +1,9 @@
 #pragma once
 
 #include <memory>
+#include <cctype>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "../CrsKitExport.h"
@@ -11,6 +13,25 @@
 
 namespace CrsKit::CoordinateSystems
 {
+	// WKT1 parameter names compared without case and without underscores: GDAL and OGC 01-009 write standard_parallel_1,
+	// the crskit registry standard_parallel1.
+	[[nodiscard]] inline auto ParameterNamesMatch(std::string_view a, std::string_view b) -> bool
+	{
+		auto const next = [](std::string_view s, size_t& i) { while (i < s.size() && '_' == s[i]) ++i; return i < s.size(); };
+		size_t i = 0, j = 0;
+		while (true)
+		{
+			auto const hasA = next(a, i);
+			auto const hasB = next(b, j);
+			if (!hasA || !hasB)
+				return hasA == hasB;
+			if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[j])))
+				return false;
+			++i;
+			++j;
+		}
+	}
+
 	class _modeCrsKit Projection final : public IProjection
 	{
 		std::string _methodName;

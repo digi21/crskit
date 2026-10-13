@@ -554,7 +554,7 @@ namespace CrsKit::Wkt
 		{
 			auto const has = [&](char const* name)
 			{
-				return std::ranges::any_of(projection.GetParameters(), [name](auto const& p) { return 0 == compareNoCase(p.GetName().c_str(), name); });
+				return std::ranges::any_of(projection.GetParameters(), [name](auto const& p) { return ParameterNamesMatch(p.GetName(), name); });
 			};
 			for (auto const& m : Methods())
 			{

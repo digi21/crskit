@@ -56,7 +56,7 @@ namespace CrsKit::CoordinateSystems
 	auto Projection::GetParameter(std::string const& name) const -> Parameter
 	{
 		auto const it = std::ranges::find_if(_parameters,
-			[&](auto const& parameter) { return 0 == compareNoCase(name.c_str(), parameter.GetName().c_str()); });
+			[&](auto const& parameter) { return ParameterNamesMatch(name, parameter.GetName()); });
 		if (it != _parameters.end())
 			return *it;
 

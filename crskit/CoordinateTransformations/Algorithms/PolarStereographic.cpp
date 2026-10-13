@@ -18,7 +18,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 		auto HasParameter(std::shared_ptr<IProjection> const& parameters, char const* name) -> bool
 		{
-			return std::ranges::any_of(parameters->GetParameters(), [name](auto const& p) { return 0 == compareNoCase(p.GetName().c_str(), name); });
+			return std::ranges::any_of(parameters->GetParameters(), [name](auto const& p) { return ParameterNamesMatch(p.GetName(), name); });
 		}
 	}
 
