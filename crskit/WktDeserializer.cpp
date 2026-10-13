@@ -20,7 +20,18 @@ namespace CrsKit::Wkt
 		while (true)
 		{
 			while (text[j] != 0 && text[j] != ']' && text[j] != '[' && text[j] != ',')
+			{
+				// Commas and brackets inside a quoted name ("WGS 84 / UPS North (N,E)") are text. A doubled quote is a quote.
+				if ('"' == text[j])
+				{
+					for (++j; text[j] != 0 && !('"' == text[j] && '"' != text[j + 1]); ++j)
+						if ('"' == text[j])
+							++j;
+					if (0 == text[j])
+						break;
+				}
 				++j;
+			}
 
 			if (0 == text[j] || ']' == text[j])
 			{
