@@ -1,7 +1,8 @@
-﻿#pragma once
+#pragma once
 
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -78,5 +79,15 @@ namespace CrsKit::Epsg
 		[[nodiscard]] virtual auto GetTransformationParameters(int operationCode, int algorithmCode) -> std::vector<std::variant<std::string, double>> = 0;
 		[[nodiscard]] virtual auto GetProjectedCrsCountFromProjConvCodeAndBaseCrsCode(int projectionCode, int geographicCrsCode) const -> int = 0;
 		[[nodiscard]] virtual auto GetCrsCodeFromProjConvCodeAndBaseCrsCode(int projectionCode, int geographicCrsCode) const -> int = 0;
+
+		// GetTransformationParameters with the EPSG parameter code of each value, in the same order. The default
+		// implementation, for a provider without parameter codes, returns code 0 for every value.
+		[[nodiscard]] virtual auto GetOperationParameters(int operationCode, int algorithmCode) -> std::vector<std::pair<int, std::variant<std::string, double>>>
+		{
+			std::vector<std::pair<int, std::variant<std::string, double>>> parameters;
+			for (auto& value : GetTransformationParameters(operationCode, algorithmCode))
+				parameters.emplace_back(0, std::move(value));
+			return parameters;
+		}
 	};
 }

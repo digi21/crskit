@@ -169,3 +169,53 @@ TEST(CatalogueSweep, VerticalCrsDerivedFromADerivedCrsGetsItsDatum)
 	EXPECT_EQ(5187, std::dynamic_pointer_cast<CoordinateSystems::VerticalDatum>(factory->CreateVerticalCoordinateSystem(5614)->GetVerticalDatum())->GetAuthorityCode());
 	EXPECT_EQ("KOC WD depth (ft)", GetUtilities()->GetCoordinateReferenceSystemName(5614));
 }
+// Every operation of the catalogue whose method is implemented builds its projection, with a number in every
+// numeric parameter, or is rejected with OpenGisException naming the parameter. The deprecated 1076 and 1077
+// (Molodensky-Badekas) have no parameter values in the EPSG dataset.
+TEST(CatalogueSweep, EveryOperationBuildsItsProjectionOrSaysWhy)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const operations = IntegerRows("SELECT COORD_OP_CODE, COORD_OP_METHOD_CODE FROM epsg_coordoperation "
+		"WHERE COORD_OP_METHOD_CODE IS NOT NULL ORDER BY COORD_OP_CODE");
+
+	auto built = 0;
+	for (auto const& row : operations)
+	{
+		try
+		{
+			auto const projection = factory->CreateProjection(row[0], row[1]);
+			for (auto const& parameter : projection->GetParameters())
+				EXPECT_FALSE(parameter.GetName().empty()) << "operation " << row[0] << " has a parameter without name";
+			++built;
+		}
+		catch (UnsupportedFormatException const&)
+		{
+		}
+		catch (OpenGisException const& e)
+		{
+			EXPECT_TRUE(std::string{ e.what() }.contains("parameter")) << "operation " << row[0] << ": " << e.what();
+			std::cout << "[ rejected ] operation " << row[0] << ": " << e.what() << '\n';
+		}
+		catch (std::exception const& e)
+		{
+			ADD_FAILURE() << "operation " << row[0] << " (method " << row[1] << "): " << typeid(e).name() << ": " << e.what();
+		}
+	}
+	std::cout << "[ built    ] " << built << " of " << operations.size() << " operations\n";
+}
+
+TEST(CatalogueSweep, OperationWithoutParameterValuesIsRejected)
+{
+	for (auto const code : { 1076, 1077 })
+	{
+		try
+		{
+			(void)GetCoordinateSystemAuthorityFactory()->CreateProjection(code, 9636);
+			ADD_FAILURE() << code << ": no exception";
+		}
+		catch (OpenGisException const& e)
+		{
+			EXPECT_TRUE(std::string{ e.what() }.contains("has no numeric value")) << code << ": " << e.what();
+		}
+	}
+}

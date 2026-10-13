@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 using namespace CrsKit::Math;
 #include "../MathTransformBase.h"
 #include "MapProjectionBase.h"
@@ -15,7 +15,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		, _latitudeOfNaturalOrigin{DEGREES_TO_RADIANS(std::get<double>(parameters->GetParameter("latitude_of_origin").GetValue()))}
 		, _longitudeOfNaturalOrigin{DEGREES_TO_RADIANS(std::get<double>(parameters->GetParameter("central_meridian").GetValue()))}
 		, _falseEasting{std::get<double>(parameters->GetParameter("false_easting").GetValue())}
-		, _falseNorthing{std::get<double>(parameters->GetParameter("scale_factor").GetValue())}
+		, _falseNorthing{std::get<double>(parameters->GetParameter("false_northing").GetValue())}
 	{
 	}
 

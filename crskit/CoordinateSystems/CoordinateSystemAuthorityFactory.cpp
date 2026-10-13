@@ -605,13 +605,25 @@ namespace CrsKit::Epsg
 			}
 		}();
 		auto const classParameters = ExtensionManager::GetMathOperationParameters(clase);
-		auto const parameterValues = _provider->GetTransformationParameters(operationCode, algorithmCode);
+		auto const parameterValues = _provider->GetOperationParameters(operationCode, algorithmCode);
 
+		// Each value goes to the class parameter with its EPSG code. A provider without codes (code 0) is mapped by
+		// position, which relies on the class declaring its parameters in EPSG sort order.
 		vector<CrsKit::Parameter> parameters;
-		parameters.resize(classParameters.size());
-
 		for (auto i = 0u; i < parameterValues.size(); i++)
-			parameters[i] = CrsKit::Parameter{ classParameters[i]->Name, parameterValues[i] };
+		{
+			auto const& [code, value] = parameterValues[i];
+			auto const it = 0 == code
+				? (i < classParameters.size() ? classParameters.begin() + i : classParameters.end())
+				: std::ranges::find_if(classParameters, [code](auto const& p) { return p->EpsgCode == code; });
+			if (it == classParameters.end())
+				throw OpenGisException(std::format("The operation {} has a parameter (EPSG:{}) that the method EPSG:{} does not take.", operationCode, code, algorithmCode));
+
+			if (ParameterType::String != (*it)->Type && !std::holds_alternative<double>(value))
+				throw OpenGisException(std::format("The parameter '{}' of the operation {} has no numeric value.", (*it)->Name, operationCode));
+
+			parameters.emplace_back((*it)->Name, value);
+		}
 
 		return make_shared<Projection>(
 			ExtensionManager::GetClassificationName(clase),

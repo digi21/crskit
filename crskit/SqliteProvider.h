@@ -702,7 +702,15 @@ namespace CrsKit::Epsg
 
 		auto GetTransformationParameters(int operationCode, int algorithmCode) -> std::vector<std::variant<std::string, double>> override
 		{
-			std::vector<std::variant<std::string, double>> parameterList;
+			std::vector<std::variant<std::string, double>> values;
+			for (auto& [code, value] : GetOperationParameters(operationCode, algorithmCode))
+				values.push_back(std::move(value));
+			return values;
+		}
+
+		auto GetOperationParameters(int operationCode, int algorithmCode) -> std::vector<std::pair<int, std::variant<std::string, double>>> override
+		{
+			std::vector<std::pair<int, std::variant<std::string, double>>> parameterList;
 
 			auto sql = std::format(
 				"SELECT a.PARAMETER_VALUE, a.PARAM_VALUE_FILE_REF, a.UOM_CODE, a.PARAMETER_CODE, b.SORT_ORDER FROM epsg_coordoperationparamvalue AS a INNER JOIN epsg_coordoperationparamusage AS b ON a.PARAMETER_CODE = b.PARAMETER_CODE and a.COORD_OP_METHOD_CODE=b.COORD_OP_METHOD_CODE WHERE a.COORD_OP_CODE={} AND a.COORD_OP_METHOD_CODE={} ORDER BY b.SORT_ORDER",
@@ -721,7 +729,7 @@ namespace CrsKit::Epsg
 					auto const& reference = data.at("PARAM_VALUE_FILE_REF");
 					if (!std::holds_alternative<std::string>(reference))
 						throw OpenGisException(std::format("Parameter {} of operation {} has neither a value nor a file reference.", parameterCode, operationCode));
-					parameterList.push_back(std::get<std::string>(reference));
+					parameterList.emplace_back(parameterCode, std::get<std::string>(reference));
 					continue;
 				}
 
@@ -742,7 +750,7 @@ namespace CrsKit::Epsg
 					else if (GetUnitIsAngle(*unit))
 						*value = GetUtilities()->ToSexagesimal(*unit, GetFactorToStandardUnit(*unit), *value);
 				}
-				parameterList.push_back(*value);
+				parameterList.emplace_back(parameterCode, *value);
 			}
 
 			return parameterList;

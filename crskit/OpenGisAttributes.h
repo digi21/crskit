@@ -38,10 +38,12 @@ struct WktParameterAttribute : Attribute
 {
 	std::string Name;
 	ParameterType Type;
+	int EpsgCode;	// EPSG parameter code; 0 when the parameter is not an EPSG one (e.g. semi_major).
 
-	WktParameterAttribute(std::string const& name, ParameterType const& type)
+	WktParameterAttribute(std::string const& name, ParameterType const& type, int epsgCode = 0)
 		: Name{ name }
 		, Type{ type }
+		, EpsgCode{ epsgCode }
 	{
 	}
 };
