@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <cassert>
 #include <cstddef>
@@ -188,7 +188,9 @@ namespace CrsKit::Epsg
 		std::shared_ptr<sqlite3> _db;
 
 	public:
-		explicit SQliteProvider(std::string const& connectionString)
+		// busyTimeoutMilliseconds: how long a query waits for a lock held by another connection before it throws
+		// "database is locked". 0 throws at once.
+		explicit SQliteProvider(std::string const& connectionString, int busyTimeoutMilliseconds = 5000)
 		{
 			// The single connection is shared across threads (the provider lives in the Environment), so we
 			// open it in serialized mode (SQLITE_OPEN_FULLMUTEX): SQLite then guards the connection with its
@@ -211,6 +213,7 @@ namespace CrsKit::Epsg
 				{
 					sqlite3_close(db);
 				});
+			sqlite3_busy_timeout(db, busyTimeoutMilliseconds);
 		}
 
 		virtual ~SQliteProvider() = default;

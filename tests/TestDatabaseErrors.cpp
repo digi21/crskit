@@ -1,11 +1,13 @@
 // A failure of the EPSG database (locked, I/O error) must reach the caller as an exception, never read
 // as "the code does not exist". Not part of the GIGS suite (no "Test5xxx" prefix).
 
+#include <chrono>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include "TestBase.h"
 #include "../crskit/SqliteProvider.h"
@@ -41,7 +43,7 @@ namespace
 			std::filesystem::copy_file(EpsgDatabasePath(), _copy, std::filesystem::copy_options::overwrite_existing);
 			std::filesystem::permissions(_copy, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
 
-			_provider = std::make_shared<Epsg::SQliteProvider>(_copy.string());
+			_provider = std::make_shared<Epsg::SQliteProvider>(_copy.string(), 0);
 			ASSERT_TRUE(Initialize(_provider));
 			ASSERT_EQ("geographic 2D", GetCoordinateSystemAuthorityFactory()->GetKindOfCoordinateSystem(4258));
 
@@ -156,7 +158,7 @@ TEST_F(LockedDatabase, UtilitiesThrowInsteadOfReturningEmpty)
 // A provider that has run no query yet fails in sqlite3_prepare_v2 (the schema is locked): same exception type.
 TEST_F(LockedDatabase, FreshProviderThrowsFromPrepare)
 {
-	auto const fresh = std::make_shared<Epsg::SQliteProvider>(_copy.string());
+	auto const fresh = std::make_shared<Epsg::SQliteProvider>(_copy.string(), 0);
 	EXPECT_THROW((void)fresh->GetEpsgVersion(), OpenGisException);
 	EXPECT_THROW((void)fresh->GetUnitIsLength(9001), OpenGisException);
 	EXPECT_THROW((void)fresh->GetCoordinateSystemType(4258), OpenGisException);
@@ -268,4 +270,18 @@ TEST_F(DatabaseWithoutTable, TransformationMetadataPropagatesTheDatabaseError)
 	{
 		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
 	}
+}
+// A lock held by another connection for less than the busy timeout makes the query wait instead of throwing.
+TEST_F(LockedDatabase, QueryWaitsForAShortLock)
+{
+	auto const patient = std::make_shared<Epsg::SQliteProvider>(_copy.string(), 5000);
+	std::thread releaser{ [this]
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds{ 300 });
+		sqlite3_exec(_locker, "ROLLBACK;", nullptr, nullptr, nullptr);
+	} };
+	std::string kind;
+	EXPECT_NO_THROW(kind = patient->GetCoordinateSystemType(4258));
+	releaser.join();
+	EXPECT_EQ("geographic 2D", kind);
 }
