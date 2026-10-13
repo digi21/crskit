@@ -465,6 +465,16 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 
 		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
 	}
+
+	auto Affine::Affine2D(double m00, double m01, double m10, double m11) -> std::shared_ptr<Affine>
+	{
+		std::vector<Parameter> parameters{
+			{ "num_row", 3.0 }, { "num_col", 3.0 },
+			{ "elt_0_0", m00 }, { "elt_0_1", m01 }, { "elt_0_2", 0.0 },
+			{ "elt_1_0", m10 }, { "elt_1_1", m11 }, { "elt_1_2", 0.0 },
+			{ "elt_2_0", 0.0 }, { "elt_2_1", 0.0 }, { "elt_2_2", 1.0 } };
+		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
+	}
 #pragma endregion
 
 	auto Affine::GetWkt() const -> std::string

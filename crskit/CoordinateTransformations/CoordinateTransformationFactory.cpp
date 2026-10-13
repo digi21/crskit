@@ -15,11 +15,63 @@ using namespace CrsKit::Math;
 #include "../CoordinateSystems/HorizontalDatum.h"
 #include "../ExtensionManager.h"
 
+#include <array>
+#include <optional>
+#include <utility>
+
 using namespace CrsKit::CoordinateSystems;
 using namespace CrsKit::CoordinateTransformations;
 using namespace Algorithms;
 using namespace std;
 
+namespace
+{
+	// Directions of the two values the projection formula yields: (easting, northing) for most methods.
+	auto FormulaAxes(std::string const& className) -> std::pair<AxisOrientationEnum, AxisOrientationEnum>
+	{
+		if (0 == CrsKit::compareNoCase(className.c_str(), "Transverse_Mercator_South_Orientated"))
+			return { AxisOrientationEnum::West, AxisOrientationEnum::South };
+		return { AxisOrientationEnum::East, AxisOrientationEnum::North };
+	}
+
+	auto Opposite(AxisOrientationEnum orientation) -> AxisOrientationEnum
+	{
+		switch (orientation)
+		{
+		case AxisOrientationEnum::East: return AxisOrientationEnum::West;
+		case AxisOrientationEnum::West: return AxisOrientationEnum::East;
+		case AxisOrientationEnum::North: return AxisOrientationEnum::South;
+		case AxisOrientationEnum::South: return AxisOrientationEnum::North;
+		default: return orientation;
+		}
+	}
+
+	// For a projected CRS with a west or south axis, the matrix that takes the formula output to the CRS axes
+	// (EPSG 8044, Cassini-Soldner with axes X south, Y west, is (-N, -E)). Empty for any other CRS.
+	auto AxesFromFormula(ProjectedCoordinateSystem const& pcs) -> std::optional<std::array<double, 4>>
+	{
+		auto const a0 = pcs.GetAxis(0).GetOrientation();
+		auto const a1 = pcs.GetAxis(1).GetOrientation();
+		auto const westOrSouth = [](AxisOrientationEnum o) { return o == AxisOrientationEnum::West || o == AxisOrientationEnum::South; };
+		if (!westOrSouth(a0) && !westOrSouth(a1))
+			return std::nullopt;
+
+		auto const [f0, f1] = FormulaAxes(pcs.GetProjection()->GetClassName());
+		auto const row = [&](AxisOrientationEnum axis) -> std::optional<std::pair<double, double>>
+		{
+			if (axis == f0) return std::pair{ 1.0, 0.0 };
+			if (axis == Opposite(f0)) return std::pair{ -1.0, 0.0 };
+			if (axis == f1) return std::pair{ 0.0, 1.0 };
+			if (axis == Opposite(f1)) return std::pair{ 0.0, -1.0 };
+			return std::nullopt;
+		};
+		auto const r0 = row(a0);
+		auto const r1 = row(a1);
+		if (!r0 || !r1)
+			return std::nullopt;
+		return std::array{ r0->first, r0->second, r1->first, r1->second };
+	}
+}
 namespace CrsKit::CoordinateTransformations
 {
 	auto CoordinateTransformationFactory::CreateFromCoordinateSystems(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS) const->std::shared_ptr<ICoordinateTransformation>
@@ -60,6 +112,13 @@ namespace CrsKit::CoordinateTransformations
 
 		if (fabs(pcs->GetLinearUnit().GetMetersPerUnit() - 1.0) > 1E-15)
 			transformations.push_back(Affine::AffineMainDiagonalTransform(1.0 / pcs->GetLinearUnit().GetMetersPerUnit(), 2));
+
+		if (auto const m = AxesFromFormula(*pcs))
+		{
+			if ((*m)[0] != 1.0 || (*m)[3] != 1.0)
+				transformations.push_back(Affine::Affine2D((*m)[0], (*m)[1], (*m)[2], (*m)[3]));
+			return make_shared<ConcatenatedTransform>(transformations);
+		}
 
 		//  Coordinate swap depending on the axes:
 		//
