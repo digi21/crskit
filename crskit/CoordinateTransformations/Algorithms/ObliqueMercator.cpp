@@ -37,14 +37,16 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		_h = _f * pow(_t0, _b);
 		_g = (_f - 1 / _f) / 2;
 		_gamma0 = asin(sin(_initialLineAzimuth) / _d);
-		_longitude0 = _projectionCenterLongitude - asin(_g * tan(_gamma0)) / _b;
+		// asin(G tan(gammaO)) as atan2 (G^2 = D^2 - 1 when D >= 1): with an azimuth of 90 deg the asin argument is 1 and
+		// asin loses 1e-8 rad, 0.1 m in Switzerland.
+		_longitude0 = _projectionCenterLongitude - (_d >= 1
+			? atan2(_g * sin(_initialLineAzimuth), _d * fabs(cos(_initialLineAzimuth)))
+			: asin(_g * tan(_gamma0))) / _b;
 
 		_vc = 0.0;
 
-		if (fabs(_initialLineAzimuth - M_PI / 2) < 1E-10)
-			_uc = _a * (_projectionCenterLongitude - _longitude0);
-		else
-			_uc = (_a / _b) * atan(sqrt(pow(_d, 2) - 1) / cos(_initialLineAzimuth)) * SIGN(_projectionCenterLatitude);
+		// atan2 keeps the azimuth of 90 deg (Switzerland, Hungary) inside the general formula: uc = (A / B) pi / 2.
+		_uc = (_a / _b) * atan2(sqrt(pow(_d, 2) - 1), cos(_initialLineAzimuth)) * SIGN(_projectionCenterLatitude);
 	}
 
 #pragma region MapProjectionBase members
@@ -61,19 +63,9 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const v = _a * log((1 - U) / (1 + U)) / (2 * _b);
 
 		//Oblique Mercator
-		auto u = (_a * atan((S * cos(_gamma0) + V * sin(_gamma0)) / cos(_b * (LongitudeFromOrigin(lambda, _longitude0)))) / _b);
-
-		if (fabs(_initialLineAzimuth - M_PI / 2) < 1E-10)
-		{
-			if (lambda == _longitude0)
-				u = 0.0;
-			else
-				u = u - (fabs(_uc) * SIGN(_projectionCenterLatitude) * SIGN(_projectionCenterLongitude - lambda));
-		}
-		else
-		{
-			u = u - (fabs(_uc) * SIGN(_projectionCenterLatitude));
-		}
+		// atan2: with an azimuth near 90 deg, cos(B (lon - lonO)) changes sign inside the area of use.
+		auto const u = _a * atan2(S * cos(_gamma0) + V * sin(_gamma0), cos(_b * LongitudeFromOrigin(lambda, _longitude0))) / _b
+			- fabs(_uc) * SIGN(_projectionCenterLatitude);
 
 		x = v * cos(_rectifiedGridAngle) + u * sin(_rectifiedGridAngle) + _eastingAtProjectionCenter;
 		y = u * cos(_rectifiedGridAngle) - v * sin(_rectifiedGridAngle) + _northingAtProjectionCenter;

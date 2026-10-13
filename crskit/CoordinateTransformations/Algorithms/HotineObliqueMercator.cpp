@@ -37,7 +37,11 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		_h = _f * pow(_t0, _b);
 		_g = (_f - 1 / _f) / 2;
 		_gamma0 = asin(sin(_initialLineAzimuth) / _d);
-		_longitude0 = _projectionCenterLongitude - asin(_g * tan(_gamma0)) / _b;
+		// asin(G tan(gammaO)) as atan2 (G^2 = D^2 - 1 when D >= 1): with an azimuth of 90 deg the asin argument is 1 and
+		// asin loses 1e-8 rad, 0.1 m in Switzerland.
+		_longitude0 = _projectionCenterLongitude - (_d >= 1
+			? atan2(_g * sin(_initialLineAzimuth), _d * fabs(cos(_initialLineAzimuth)))
+			: asin(_g * tan(_gamma0))) / _b;
 
 		_vc = 0.0;
 
