@@ -147,9 +147,9 @@ namespace CrsKit::Epsg
 				return CreateLinearUnit(code);
 			return CreateAngularUnit(code);
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the unit with authority code: {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the unit with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -192,9 +192,9 @@ namespace CrsKit::Epsg
 				axis,
 				units);
 		}
-		catch (CrsKit::OpenGisException const&)
+		catch (OpenGisException const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the coordinate system {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the coordinate system {}: {}", code, e.what()));
 		}
 	}
 
@@ -227,9 +227,9 @@ namespace CrsKit::Epsg
 				CreateEllipsoid(_provider->GetEllipsoidCodeForDatum(code)),
 				ResolveWgs84ConversionInfo(code));
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the datum with authority code: {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the datum with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -313,9 +313,9 @@ namespace CrsKit::Epsg
 				_provider->GetSemiMinorAxis(code),
 				CreateLinearUnit(_provider->GetEllipsoidLinearUnit(code)));
 		}
-		catch (CrsKit::OpenGisException const&)
+		catch (OpenGisException const& e)
 		{
-			throw runtime_error( std::format("An error was found when creating the ellipsoid with authority code: {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the ellipsoid with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -336,9 +336,9 @@ namespace CrsKit::Epsg
 				CreateAngularUnit(_provider->GetMeridianAngularUnit(code)),
 				_provider->GetMeridianLongitude(code)};
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the meridian with authority code: {}", code));
+			throw OpenGisException(std::format("An error was found when creating the meridian with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -358,9 +358,9 @@ namespace CrsKit::Epsg
 				_provider->GetUnitInfo(code),
 				_provider->GetFactorToStandardUnit(code)};
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the linear unit with authority code: {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the linear unit with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -380,9 +380,9 @@ namespace CrsKit::Epsg
 				_provider->GetUnitInfo(code),
 				_provider->GetFactorToStandardUnit(code)};
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the angular unit with authority code: {}", code) );
+			throw OpenGisException(std::format("An error was found when creating the angular unit with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -402,9 +402,9 @@ namespace CrsKit::Epsg
 				_provider->GetInfoDatum(code),
 				DatumType::VD_GeoidModelDerived);
 		}
-		catch (...)
+		catch (std::exception const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the datum with authority code: {}", code));
+			throw OpenGisException(std::format("An error was found when creating the datum with authority code {}: {}", code, e.what()));
 		}
 	}
 
@@ -444,9 +444,9 @@ namespace CrsKit::Epsg
 				dynamic_pointer_cast<VerticalDatum>(verticalDatum),
 				axis[0]);
 		}
-		catch (CrsKit::OpenGisException const&)
+		catch (OpenGisException const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the coordinate system {}", code));
+			throw OpenGisException(std::format("An error was found when creating the coordinate system {}: {}", code, e.what()));
 		}
 	}
 
@@ -481,9 +481,9 @@ namespace CrsKit::Epsg
 				axis[1],
 				axis[2]);
 		}
-		catch (CrsKit::OpenGisException const&)
+		catch (OpenGisException const& e)
 		{
-			throw runtime_error(std::format("An error was found when creating the coordinate system {}", code));
+			throw OpenGisException(std::format("An error was found when creating the coordinate system {}: {}", code, e.what()));
 		}
 	}
 

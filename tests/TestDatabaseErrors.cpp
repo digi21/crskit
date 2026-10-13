@@ -63,6 +63,42 @@ namespace
 			std::filesystem::remove(_copy, ignored);
 		}
 	};
+
+	// A copy of the EPSG database without one table, made the current environment: every query on that table
+	// fails in sqlite3_prepare_v2 with "no such table", and the rest of the catalogue still answers.
+	class DatabaseWithoutTable : public ::testing::Test
+	{
+	protected:
+		std::shared_ptr<Environment> _original;
+		std::filesystem::path _copy;
+
+		void UseCopyWithout(std::string const& table)
+		{
+			_original = GetCurrentEnvironment();
+
+			auto const test = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+			_copy = std::filesystem::temp_directory_path() / std::format("crskit-without-table-{}.sqlite", test);
+			std::filesystem::copy_file(EpsgDatabasePath(), _copy, std::filesystem::copy_options::overwrite_existing);
+			std::filesystem::permissions(_copy, std::filesystem::perms::owner_write, std::filesystem::perm_options::add);
+
+			sqlite3* db{};
+			ASSERT_EQ(SQLITE_OK, sqlite3_open_v2(_copy.string().c_str(), &db, SQLITE_OPEN_READWRITE, nullptr));
+			auto const dropped = sqlite3_exec(db, std::format("DROP TABLE {};", table).c_str(), nullptr, nullptr, nullptr);
+			sqlite3_close(db);
+			ASSERT_EQ(SQLITE_OK, dropped);
+
+			ASSERT_TRUE(Initialize(std::make_shared<Epsg::SQliteProvider>(_copy.string())));
+		}
+
+		void TearDown() override
+		{
+			if (_original)
+				SetCurrentEnvironment(_original);
+
+			std::error_code ignored;
+			std::filesystem::remove(_copy, ignored);
+		}
+	};
 }
 
 // An existing code on a locked database throws the SQLite error instead of AuthorityCodeNotFoundException.
@@ -144,4 +180,20 @@ TEST(DatabaseNotFound, MissingUnitIsNeitherLengthNorAngle)
 	EXPECT_FALSE(provider->GetUnitIsAngle(999999));
 	EXPECT_TRUE(provider->GetUnitIsLength(9001));
 	EXPECT_TRUE(provider->GetUnitIsAngle(9102));
+}
+
+// The creation wrappers of the factory keep a database failure as OpenGisException: without epsg_ellipsoid the
+// datum of ED50 cannot be created.
+TEST_F(DatabaseWithoutTable, DatumFailureReachesTheCallerAsOpenGisException)
+{
+	UseCopyWithout("epsg_ellipsoid");
+	try
+	{
+		(void)GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4230);
+		FAIL() << "CreateCoordinateSystem(4230) did not throw without epsg_ellipsoid";
+	}
+	catch (OpenGisException const& e)
+	{
+		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
+	}
 }
