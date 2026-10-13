@@ -2,6 +2,7 @@
 
 #include "VerticalDatum.h"
 #include "LocalDatum.h"
+#include "Projection.h"
 
 // Structural equivalence of coordinate systems: two systems are equivalent when their mathematical
 // definition matches (datum, prime meridian, projection + parameters, units), ignoring name,
@@ -36,11 +37,8 @@ namespace CrsKit::CoordinateSystems
 			                   b.GetLongitude() * b.GetAngularUnit().GetRadiansPerUnit());
 		}
 
-		auto sameParameter(Parameter const& a, Parameter const& b) -> bool
+		auto sameValue(Parameter const& a, Parameter const& b) -> bool
 		{
-			if (0 != compareNoCase(a.GetName().c_str(), b.GetName().c_str()))
-				return false;
-
 			auto const va = a.GetValue();
 			auto const vb = b.GetValue();
 			if (va.index() != vb.index())
@@ -61,10 +59,13 @@ namespace CrsKit::CoordinateSystems
 			auto const& pb = b->GetParameters();
 			if (pa.size() != pb.size())
 				return false;
-			for (std::size_t i = 0; i < pa.size(); ++i)
-				if (!sameParameter(pa[i], pb[i]))
-					return false;
-			return true;
+			// Each parameter of a has one with the same name in b (ParameterNamesMatch: GDAL writes standard_parallel_1, the
+			// registry standard_parallel1), whatever the order.
+			return std::ranges::all_of(pa, [&](Parameter const& p)
+			{
+				auto const it = std::ranges::find_if(pb, [&](Parameter const& q) { return ParameterNamesMatch(p.GetName(), q.GetName()); });
+				return it != pb.end() && sameValue(p, *it);
+			});
 		}
 	}
 

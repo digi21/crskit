@@ -82,3 +82,17 @@ TEST(WktParameterNames, CatalogueSphereWritesZero)
 	EXPECT_EQ(std::string::npos, wkt.find("inf")) << wkt;
 	EXPECT_NE(std::string::npos, wkt.find(",0,AUTHORITY")) << wkt;
 }
+// Two projections that differ only in the spelling standard_parallel_1 / standard_parallel1, or in the order of their
+// parameters, are equivalent.
+TEST(WktParameterNames, EquivalenceIgnoresUnderscoresAndOrder)
+{
+	auto const gdal = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"(PROJCS["a",GEOGCS["g",DATUM["d",SPHEROID["GRS 1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],)"
+		R"(PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["standard_parallel_1",49],PARAMETER["standard_parallel_2",44],)"
+		R"(PARAMETER["latitude_of_origin",46.5],PARAMETER["central_meridian",3],PARAMETER["false_easting",700000],PARAMETER["false_northing",6600000],UNIT["metre",1]])");
+	auto const crskit = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"(PROJCS["a",GEOGCS["g",DATUM["d",SPHEROID["GRS 1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],)"
+		R"(PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["latitude_of_origin",46.5],PARAMETER["central_meridian",3],PARAMETER["standard_parallel1",49],)"
+		R"(PARAMETER["standard_parallel2",44],PARAMETER["false_easting",700000],PARAMETER["false_northing",6600000],UNIT["metre",1]])");
+	EXPECT_TRUE(CoordinateSystems::AreEquivalent(gdal, crskit));
+}
