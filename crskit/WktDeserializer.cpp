@@ -22,6 +22,7 @@ namespace CrsKit::Wkt
 
 			if (0 == text[j] || ']' == text[j])
 			{
+				auto const endOfText = 0 == text[j];
 				if (i != j)
 				{
 					if (nullptr == node)
@@ -31,7 +32,9 @@ namespace CrsKit::Wkt
 					node->AddChild(std::make_unique<TokenWkt>(text + i));
 				}
 
-				j++;
+				// At the terminator j stays put, so the enclosing levels stop too instead of reading past the buffer.
+				if (!endOfText)
+					j++;
 				i = j;
 				return;
 			}
