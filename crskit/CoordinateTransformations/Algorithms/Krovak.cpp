@@ -109,7 +109,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const d = theta / _n;
 		auto const t = 2 * (atan(pow(_r0 / r, 1 / _n) * tan(M_PI / 4 + _latitudeP / 2)) - M_PI / 4);
 		auto const u = asin(cos(_alphaC) * sin(t) - sin(_alphaC) * cos(t) * cos(d));
-		auto const v = asin(cos(t) * sin(d) / cos(u));
+		// atan2 form of V', the reverse of the atan2 form of D: valid beyond 90 deg of pseudo-longitude.
+		auto const v = atan2(cos(t) * sin(d), sin(_alphaC) * sin(t) + cos(_alphaC) * cos(t) * cos(d));
 
 		phi = u;
 		for (auto i = 0; i < 20; ++i)

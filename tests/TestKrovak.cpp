@@ -53,3 +53,17 @@ INSTANTIATE_TEST_SUITE_P(Variants, KrovakMethods, ::testing::Values(
 	KrovakCase{ 5224, 5229, kExampleLatitude, kExampleLongitudeFerro, 6050538.71, 5568990.91, 0.01 },
 	// S-JTSK/05 (Ferro) / Modified Krovak East North: the same point with E = -W and N = -S
 	KrovakCase{ 5225, 5229, kExampleLatitude, kExampleLongitudeFerro, -5568990.91, -6050538.71, 0.01 }));
+// Far outside Czechia and Slovakia (pseudo-longitude beyond 90 deg) the reverse conversion still returns the point.
+TEST(KrovakFarAway, ReverseBeyondNinetyDegrees)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const forward = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(
+		factory->CreateCoordinateSystem(4156), factory->CreateCoordinateSystem(5514))->GetMathTransform();
+	for (auto const [latitude, longitude] : { std::pair{ 49.5, -100.0 }, std::pair{ 80.0, -150.0 }, std::pair{ 49.7, 18.4 } })
+	{
+		auto const projected = forward->Transform({ latitude, longitude });
+		auto const geographic = forward->GetInverse()->Transform({ projected[0], projected[1] });
+		EXPECT_NEAR(latitude, geographic[0], 1e-9) << latitude << " " << longitude;
+		EXPECT_NEAR(longitude, geographic[1], 1e-9) << latitude << " " << longitude;
+	}
+}
