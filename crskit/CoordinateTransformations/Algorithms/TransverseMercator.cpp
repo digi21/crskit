@@ -101,7 +101,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const Q = asinh(tan(phi)) - (_e * atanh(_e * sin(phi)));
 		auto const beta = atan(sinh(Q));
 
-		auto const eta0 = atanh(cos(beta) * sin(lambda - _lambdaO));
+		auto const eta0 = atanh(cos(beta) * sin(LongitudeFromOrigin(lambda, _lambdaO)));
 		auto const xi0 = asin(clampToUnit(sin(beta) * cosh(eta0)));
 
 		auto const xi1 = _h1 * sin(2 * xi0) * cosh(2 * eta0);

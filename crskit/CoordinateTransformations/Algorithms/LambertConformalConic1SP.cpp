@@ -36,7 +36,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const t = tan(M_PI / 4.0 - phi / 2.0) / pow((1.0 - _e * sin(phi)) / (1.0 + _e * sin(phi)), _e / 2.0);
 		auto const R = _semiMajorAxis * _f * pow(t, _n) * _scaleFactorAtNaturalOrigin;
 
-		auto const theta = _n * (lambda - _longitudeOfNaturalOrigin);
+		auto const theta = _n * (LongitudeFromOrigin(lambda, _longitudeOfNaturalOrigin));
 
 		x = _falseEasting + R * sin(theta);
 		y = _falseNorthing + _r0 - R * cos(theta);

@@ -1,6 +1,8 @@
 ﻿#pragma once
 
+#include <cmath>
 #include <memory>
+#include <numbers>
 #include <vector>
 
 #include "../../CoordinateSystems/IProjection.h"
@@ -13,6 +15,13 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	[[nodiscard]] inline auto clampToUnit(double value) -> double
 	{
 		return value < -1.0 ? -1.0 : (value > 1.0 ? 1.0 : value);
+	}
+
+	// lambda - lambdaO wrapped to [-pi, pi]. A CRS whose area crosses the antimeridian (central meridian -176 deg, point at
+	// 177 deg) gives 353 deg by plain subtraction.
+	[[nodiscard]] inline auto LongitudeFromOrigin(double lambda, double lambdaO) -> double
+	{
+		return std::remainder(lambda - lambdaO, 2 * std::numbers::pi);
 	}
 
 	class MapProjectionBase : public MathTransformBase

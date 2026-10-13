@@ -37,7 +37,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	{
 		auto const sinPhi = sin(phi);
 
-		x = _falseEasting + _semiMajorAxis * _k0 * (lambda - _longitude0);
+		x = _falseEasting + _semiMajorAxis * _k0 * (LongitudeFromOrigin(lambda, _longitude0));
 		y = _falseNorthing + _semiMajorAxis * _k0 * log(tan(M_PI / 4 + phi / 2) * pow((1 - _e * sinPhi) / (1 + _e * sinPhi), (_e / 2)));
 	}
 

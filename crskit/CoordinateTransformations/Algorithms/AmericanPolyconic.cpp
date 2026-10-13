@@ -32,12 +32,12 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	{
 		if (fabs(phi) < 1e-10)
 		{
-			x = _falseEasting + _semiMajorAxis * (lambda - _falseOriginLongitude);
+			x = _falseEasting + _semiMajorAxis * (LongitudeFromOrigin(lambda, _falseOriginLongitude));
 			y = _falseNorthing - _m0;
 		}
 		else
 		{
-			auto const L = (lambda - _falseOriginLongitude) * sin(phi);
+			auto const L = (LongitudeFromOrigin(lambda, _falseOriginLongitude)) * sin(phi);
 
 			auto const M = _semiMajorAxis * ((1 - pow(_e, 2) / 4 - 3 * pow(_e, 4) / 64 - 5 * pow(_e, 6) / 256) * phi
 				- (3 * pow(_e, 2) / 8 + 3 * pow(_e, 4) / 32 + 45 * pow(_e, 6) / 1024) * sin(2 * phi)

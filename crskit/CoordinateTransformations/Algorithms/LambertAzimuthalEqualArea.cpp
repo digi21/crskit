@@ -39,7 +39,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const beta = asin(clampToUnit(q / _qp));
 		// Near the antipode the denominator -> 0 (then 2/denominator -> +inf, fine) or slightly negative
 		// by rounding; guard the sqrt so an out-of-domain point yields a finite result, never NaN.
-		auto const radicand = 2 / (1 + sin(_beta0) * sin(beta) + cos(_beta0) * cos(beta) * cos(lambda - _longitude0));
+		auto const radicand = 2 / (1 + sin(_beta0) * sin(beta) + cos(_beta0) * cos(beta) * cos(LongitudeFromOrigin(lambda, _longitude0)));
 		auto const B = _rq * (radicand > 0 ? sqrt(radicand) : 0.0);
 
 		if (fabs(_latitude0) == M_PI / 2)
@@ -47,20 +47,20 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 			if (_latitude0 > 0)
 			{
 				auto const p = _semiMajorAxis * sqrt(_qp - q);
-				x = _falseEasting + (p * sin(lambda - _longitude0));
-				y = _falseNorthing - (p * cos(lambda - _longitude0));
+				x = _falseEasting + (p * sin(LongitudeFromOrigin(lambda, _longitude0)));
+				y = _falseNorthing - (p * cos(LongitudeFromOrigin(lambda, _longitude0)));
 			}
 			else
 			{
 				auto const p = _semiMajorAxis * sqrt(_qp + q);
-				x = _falseEasting + (p * sin(lambda - _longitude0));
-				y = _falseNorthing + (p * cos(lambda - _longitude0));
+				x = _falseEasting + (p * sin(LongitudeFromOrigin(lambda, _longitude0)));
+				y = _falseNorthing + (p * cos(LongitudeFromOrigin(lambda, _longitude0)));
 			}
 		}
 		else
 		{
-			x = _falseEasting + (B * _d) * (cos(beta) * sin(lambda - _longitude0));
-			y = _falseNorthing + (B / _d) * ((cos(_beta0) * sin(beta)) - (sin(_beta0) * cos(beta) * cos(lambda - _longitude0)));
+			x = _falseEasting + (B * _d) * (cos(beta) * sin(LongitudeFromOrigin(lambda, _longitude0)));
+			y = _falseNorthing + (B / _d) * ((cos(_beta0) * sin(beta)) - (sin(_beta0) * cos(beta) * cos(LongitudeFromOrigin(lambda, _longitude0))));
 		}
 	}
 

@@ -71,7 +71,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	{
 		auto const sinPhi = sin(phi);
 
-		auto const L = _n * (lambda - _l0) + _l0;
+		auto const L = _n * (LongitudeFromOrigin(lambda, _l0)) + _l0;
 		auto const Sa = (1 + sinPhi) / (1 - sinPhi);
 		auto const Sb = (1 - _e * sinPhi) / (1 + _e * sinPhi);
 		auto const w = _c * pow(Sa * pow(Sb, _e), _n);

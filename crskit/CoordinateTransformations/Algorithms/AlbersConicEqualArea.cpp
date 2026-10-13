@@ -62,7 +62,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 		auto const alfa = (1 - _e2) * (sinlat / (1 - _e2 * pow(sinlat, 2)) - (1 / (2 * _e)) * log((1 - _e * sinlat) / (1 + _e * sinlat)));
 
-		auto const teta = _n * (lambda - _longitude0);
+		auto const teta = _n * (LongitudeFromOrigin(lambda, _longitude0));
 		auto const radicand = _c - _n * alfa; // can go slightly negative past the standard parallels (rounding)
 		auto const p = _semiMajorAxis * (radicand > 0 ? sqrt(radicand) : 0.0) / _n;
 

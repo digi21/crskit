@@ -36,7 +36,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 #pragma region MapProjectionBase members
 	auto Mercator1Sp::Geo2Proj(double lambda, double phi, double& x, double& y) const -> void
 	{
-		x = _falseEasting + _semiMajorAxis * _k0 * (lambda - _longitude0);
+		x = _falseEasting + _semiMajorAxis * _k0 * (LongitudeFromOrigin(lambda, _longitude0));
 		y = _falseNorthing + _semiMajorAxis * _k0 * log(tan(M_PI / 4 + phi / 2) * pow((1 - _e * sin(phi)) / (1 + _e * sin(phi)), (_e / 2)));
 	}
 

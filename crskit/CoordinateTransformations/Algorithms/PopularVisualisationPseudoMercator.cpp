@@ -22,7 +22,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 #pragma region MapProjectionBase members
 	auto PopularVisualisationPseudoMercator::Geo2Proj(double lambda, double phi, double& x, double& y) const -> void
 	{
-		x = _falseEasting + _semiMajorAxis * (lambda - _longitudeOfNaturalOrigin);
+		x = _falseEasting + _semiMajorAxis * (LongitudeFromOrigin(lambda, _longitudeOfNaturalOrigin));
 		y = _falseNorthing + _semiMajorAxis * log(tan(M_PI / 4 + phi / 2));
 	}
 

@@ -48,7 +48,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 	{
 		auto const T = pow(tan(phi), 2.0);
 		auto const C = _e2 * pow(cos(phi), 2.0) / (1.0 - _e2);
-		auto const A = (lambda - _longitudeOfNaturalOrigin) * cos(phi);
+		auto const A = (LongitudeFromOrigin(lambda, _longitudeOfNaturalOrigin)) * cos(phi);
 		auto const v = _a / sqrt(1.0 - _e2 * pow(sin(phi), 2.0));
 
 		auto const M = _a * ((1.0 - _e2 / 4 - 3.0 * _e4 / 64 - 5 * _e6 / 256) * phi

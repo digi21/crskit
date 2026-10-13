@@ -38,7 +38,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const v = _semiMajorAxis / sqrt(1 - pow(_e, 2) * pow(sin(phi), 2));
 		auto const C = pow(_e, 2) * pow(cos(phi), 2) / (1 - pow(_e, 2));
 		auto const T = pow(tan(phi), 2);
-		auto const A = (lambda - _falseOriginLongitude) * cos(phi);
+		auto const A = (LongitudeFromOrigin(lambda, _falseOriginLongitude)) * cos(phi);
 		auto const X = M - _m0 + v * tan(phi) * (pow(A, 2) / 2 + (5 - T + 6 * C) * pow(A, 4) / 24);
 
 		x = _falseEasting + v * (A - T * pow(A, 3) / 6 - (8 - T + 8 * C) * T * pow(A, 5) / 120);

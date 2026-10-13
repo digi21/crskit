@@ -54,12 +54,12 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 		auto const Q = _h / pow(t, _b);
 		auto const S = (Q - 1 / Q) / 2;
 		auto const T = (Q + 1 / Q) / 2;
-		auto const V = sin(_b * (lambda - _longitude0));
+		auto const V = sin(_b * (LongitudeFromOrigin(lambda, _longitude0)));
 		auto const U = (-V * cos(_gamma0) + S * sin(_gamma0)) / T;
 		auto const v = _a * log((1 - U) / (1 + U)) / (2 * _b);
 
 		//Oblique Mercator
-		auto const u = (_a * atan((S * cos(_gamma0) + V * sin(_gamma0)) / cos(_b * (lambda - _longitude0))) / _b);
+		auto const u = (_a * atan((S * cos(_gamma0) + V * sin(_gamma0)) / cos(_b * (LongitudeFromOrigin(lambda, _longitude0)))) / _b);
 
 		x = v * cos(_rectifiedGridAngle) + u * sin(_rectifiedGridAngle) + _falseEasting;
 		y = u * cos(_rectifiedGridAngle) - v * sin(_rectifiedGridAngle) + _falseNorthing;
