@@ -43,9 +43,12 @@ namespace CrsKit::CoordinateTransformations::Algorithms::MapProjections
 
 		auto const root = sqrt(pow(1 + _e, 1 + _e) * pow(1 - _e, 1 - _e));
 		auto const isPole = fabs(fabs(latitude) - M_PI / 2) < 1e-10;
-		if (variant == Variant::AOrB && isPole && HasParameter(parameters, "scale_factor"))
+		if (isPole)
 		{
-			_k = 2 * a * Value(parameters, "scale_factor") / root;	// variant A
+			// Variant A. A standard parallel at the pole (variants B and C) is variant A with k0 = 1: mF / tF is 0 / 0 there,
+			// and rhoF = 0 leaves the false origin at the pole.
+			auto const k0 = variant == Variant::AOrB && HasParameter(parameters, "scale_factor") ? Value(parameters, "scale_factor") : 1.0;
+			_k = 2 * a * k0 / root;
 			return;
 		}
 

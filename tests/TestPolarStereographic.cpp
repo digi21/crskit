@@ -4,6 +4,7 @@
 
 #include <regex>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "TestBase.h"
@@ -94,3 +95,19 @@ INSTANTIATE_TEST_SUITE_P(Variants, PolarStereographic, ::testing::Values(
 	PolarCase{ 32661, 4326, 73.0, 44.0, 3320416.747359853, 632668.4312721284, 1e-3 },     // A, WGS 84 / UPS North (GN7-2 example)
 	PolarCase{ 3031, 4326, -75.0, 120.0, 1419227.9157567972, -819391.6192036179, 1e-3 },  // B, WGS 84 / Antarctic Polar Stereographic
 	PolarCase{ 3413, 4326, 70.0, -30.0, 566277.3449397993, -2113375.8224905375, 1e-3 })); // B, WGS 84 / NSIDC Sea Ice Polar Stereographic North
+// A standard parallel at the pole (variant B, or variant C) is variant A with k0 = 1. Reference values from PROJ 9.8.1
+// (+proj=stere +lat_ts=+-90).
+TEST(PolarStereographicPole, StandardParallelAtThePole)
+{
+	for (auto const [className, latitude, northing] : { std::tuple{ "Polar_Stereographic", 72.0, -1755021.0559552882 }, std::tuple{ "Polar_Stereographic", -72.0, 1755021.0559552882 },
+		std::tuple{ "Polar_Stereographic_Variant_C", 72.0, -1755021.0559552882 } })
+	{
+		auto const pole = latitude > 0 ? 90.0 : -90.0;
+		auto const transform = GetMathTransformFactory()->CreateParameterizedTransform(className, {
+			{ "semi_major", 6378137.0 }, { "semi_minor", 6356752.314245179 },
+			{ "latitude_of_origin", pole }, { "central_meridian", 0.0 }, { "false_easting", 0.0 }, { "false_northing", 0.0 } });
+		auto const projected = transform->Transform({ 30.0, latitude });
+		EXPECT_NEAR(1013261.8790892467, projected[0], 1e-3) << className << " " << latitude;
+		EXPECT_NEAR(northing, projected[1], 1e-3) << className << " " << latitude;
+	}
+}
