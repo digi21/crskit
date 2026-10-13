@@ -249,3 +249,23 @@ TEST(DatabaseNotFound, CompoundVerticalStepWithoutOperationAsksResolveTransform)
 	EXPECT_TRUE(called);
 	EXPECT_NE(nullptr, transformation);
 }
+// The metadata of an EPSG transformation (description, area) propagates a database failure instead of reporting
+// that the transformation code does not exist. 4441 (NZVD2009 height to One Tree Point 1964 height) joins two vertical
+// CRS, so epsg_extent is first read for the area of the transformation.
+TEST_F(DatabaseWithoutTable, TransformationMetadataPropagatesTheDatabaseError)
+{
+	UseCopyWithout("epsg_extent");
+	try
+	{
+		(void)GetCoordinateTransformationAuthorityFactory()->CreateFromTransformationCode(4441);
+		FAIL() << "no exception";
+	}
+	catch (AuthorityCodeNotFoundException const& e)
+	{
+		FAIL() << "a database failure was reported as a missing transformation: " << e.what();
+	}
+	catch (OpenGisException const& e)
+	{
+		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
+	}
+}

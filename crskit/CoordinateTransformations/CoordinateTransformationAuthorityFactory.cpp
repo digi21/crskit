@@ -88,21 +88,14 @@ namespace CrsKit::Epsg
 		if (nullptr == transformation)
 			throw runtime_error(std::format("An error was found when instantiating the transformation with authority code: {}", code));
 
-		try
-		{
-			return make_shared<CoordinateTransformation>(
-				transformationName,
-				_provider->GetCoordinateOperationDescription(code),
-				_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(code)),
-				source,
-				target,
-				inverse ? transformation->GetInverse() : transformation,
-				code);
-		}
-		catch (...)
-		{
-			throw AuthorityCodeNotFoundException(std::format("Could not locate the transformation with authority code: {}", code));
-		}
+		return make_shared<CoordinateTransformation>(
+			transformationName,
+			_provider->GetCoordinateOperationDescription(code),
+			_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(code)),
+			source,
+			target,
+			inverse ? transformation->GetInverse() : transformation,
+			code);
 	}
 
 	auto CoordinateTransformationAuthorityFactory::StaticCreateFromTransformationCode(int code) const -> std::shared_ptr<ICoordinateTransformation>
