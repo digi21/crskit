@@ -244,40 +244,41 @@ namespace CrsKit::Epsg
 		constexpr int kPositionVector = 9606;
 		constexpr int kCoordinateFrame = 9607;
 
-		// Best effort: a missing relationship to WGS 84 is normal and must never break datum creation.
-		try
-		{
-			auto const geographicCrs = _provider->GetGeographicCrsCodeForDatum(datumCode);
-			if (0 == geographicCrs || kWgs84GeographicCrs == geographicCrs)
-				return nullptr;  // No geographic CRS for the datum, or the datum is WGS 84 itself.
+		// nullptr when the datum has no Helmert transformation to WGS 84. A database failure throws.
+		auto const geographicCrs = _provider->GetGeographicCrsCodeForDatum(datumCode);
+		if (0 == geographicCrs || kWgs84GeographicCrs == geographicCrs)
+			return nullptr;  // No geographic CRS for the datum, or the datum is WGS 84 itself.
 
-			// Candidates are already ordered by accuracy (best first) and exclude deprecated operations.
-			for (auto const& operation : _provider->OperationCodesToTransformSystemAtoB(geographicCrs, kWgs84GeographicCrs))
+		// Candidates are already ordered by accuracy (best first) and exclude deprecated operations.
+		for (auto const& operation : _provider->OperationCodesToTransformSystemAtoB(geographicCrs, kWgs84GeographicCrs))
+		{
+			if (kGeocentricTranslations != operation.MethodCode && kPositionVector != operation.MethodCode && kCoordinateFrame != operation.MethodCode)
+				continue;  // Grid- or Molodensky-based transformations cannot be written as TOWGS84.
+
+			auto const parameters = _provider->GetTransformationParameters(operation.Code, operation.MethodCode);
+			auto const value = [&](size_t i)
 			{
-				if (kGeocentricTranslations != operation.MethodCode && kPositionVector != operation.MethodCode && kCoordinateFrame != operation.MethodCode)
-					continue;  // Grid- or Molodensky-based transformations cannot be written as TOWGS84.
+				if (i >= parameters.size())
+					return 0.0;
+				if (!std::holds_alternative<double>(parameters[i]))
+					throw OpenGisException(std::format("Parameter {} of the transformation {} is not a number.", i, operation.Code));
+				return std::get<double>(parameters[i]);
+			};
 
-				auto const parameters = _provider->GetTransformationParameters(operation.Code, operation.MethodCode);
-				auto const value = [&parameters](size_t i) { return i < parameters.size() ? std::get<double>(parameters[i]) : 0.0; };
+			if (kGeocentricTranslations == operation.MethodCode)
+				return std::make_shared<Wgs84ConversionInfo>(value(0), value(1), value(2), 0.0, 0.0, 0.0, 0.0);
 
-				if (kGeocentricTranslations == operation.MethodCode)
-					return std::make_shared<Wgs84ConversionInfo>(value(0), value(1), value(2), 0.0, 0.0, 0.0, 0.0);
-
-				// The provider returns rotations in decimal degrees, but TOWGS84 (Wgs84ConversionInfo)
-				// expresses them in arc-seconds, so we scale them up. 9606 is already Position Vector;
-				// 9607 (Coordinate Frame) is the same shift with the opposite rotation sign, so we also
-				// negate the rotations to emit Position Vector, the convention WKT 1 TOWGS84 follows in
-				// GDAL/PROJ. Translations (metres) and scale (ppm) need no conversion.
-				constexpr double kDegreesToArcSeconds = 3600.0;
-				auto const rotationFactor = ((kCoordinateFrame == operation.MethodCode) ? -1.0 : 1.0) * kDegreesToArcSeconds;
-				return std::make_shared<Wgs84ConversionInfo>(
-					value(0), value(1), value(2),
-					rotationFactor * value(3), rotationFactor * value(4), rotationFactor * value(5),
-					value(6));
-			}
-		}
-		catch (...)
-		{
+			// The provider returns rotations in decimal degrees, but TOWGS84 (Wgs84ConversionInfo)
+			// expresses them in arc-seconds, so we scale them up. 9606 is already Position Vector;
+			// 9607 (Coordinate Frame) is the same shift with the opposite rotation sign, so we also
+			// negate the rotations to emit Position Vector, the convention WKT 1 TOWGS84 follows in
+			// GDAL/PROJ. Translations (metres) and scale (ppm) need no conversion.
+			constexpr double kDegreesToArcSeconds = 3600.0;
+			auto const rotationFactor = ((kCoordinateFrame == operation.MethodCode) ? -1.0 : 1.0) * kDegreesToArcSeconds;
+			return std::make_shared<Wgs84ConversionInfo>(
+				value(0), value(1), value(2),
+				rotationFactor * value(3), rotationFactor * value(4), rotationFactor * value(5),
+				value(6));
 		}
 
 		return nullptr;

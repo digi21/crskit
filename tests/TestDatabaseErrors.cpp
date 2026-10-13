@@ -197,3 +197,18 @@ TEST_F(DatabaseWithoutTable, DatumFailureReachesTheCallerAsOpenGisException)
 		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
 	}
 }
+// The TOWGS84 lookup of a datum propagates a database failure instead of building the datum without TOWGS84.
+TEST_F(DatabaseWithoutTable, Towgs84LookupPropagatesTheDatabaseError)
+{
+	UseCopyWithout("epsg_coordoperation");
+	try
+	{
+		(void)GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4230);
+		FAIL() << "ED50 was created without its TOWGS84 on a database without epsg_coordoperation";
+	}
+	catch (OpenGisException const& e)
+	{
+		EXPECT_NE(std::string::npos, std::string{ e.what() }.find("no such table")) << e.what();
+	}
+}
+
