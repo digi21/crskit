@@ -2,6 +2,8 @@
 // provider. Not part of the GIGS suite (no "Test5xxx" prefix).
 
 #include <cstdlib>
+#include <iostream>
+#include <map>
 #include <string>
 #include <typeinfo>
 #include <vector>
@@ -42,6 +44,73 @@ namespace
 		}
 		sqlite3_close(db);
 		return rows;
+	}
+
+	// Kinds CreateCoordinateSystem builds from the code alone.
+	auto SupportedCrsCodes() -> std::vector<int>
+	{
+		std::vector<int> codes;
+		for (auto const& row : IntegerRows("SELECT COORD_REF_SYS_CODE FROM epsg_coordinatereferencesystem WHERE COORD_REF_SYS_KIND IN "
+			"('projected','geographic 2D','geographic 3D','vertical','geocentric') ORDER BY COORD_REF_SYS_CODE"))
+			codes.push_back(row[0]);
+		return codes;
+	}
+}
+
+// A CRS of a supported kind is either created, with a WKT and, in a sample, the name GetCoordinateReferenceSystemName
+// returns, or rejected with UnsupportedFormatException naming what is missing. Any other exception fails.
+TEST(CatalogueSweep, EveryCrsOfASupportedKindIsCreatedOrRejectedAsUnsupported)
+{
+	auto const factory = GetCoordinateSystemAuthorityFactory();
+	auto const utilities = GetUtilities();
+	auto const codes = SupportedCrsCodes();
+	ASSERT_GT(codes.size(), 7000u);
+
+	auto created = 0;
+	std::map<std::string, std::vector<int>> rejected;
+	for (auto const code : codes)
+	{
+		try
+		{
+			auto const crs = factory->CreateCoordinateSystem(code);
+			EXPECT_FALSE(crs->GetWkt().empty()) << code;
+			if (0 == created % 25)  // GetCoordinateReferenceSystemName creates the CRS again: a sample is enough.
+				EXPECT_EQ(crs->GetName(), utilities->GetCoordinateReferenceSystemName(code)) << code;
+			++created;
+		}
+		catch (UnsupportedFormatException const& e)
+		{
+			std::string const message{ e.what() };
+			EXPECT_TRUE(message.contains("is not implemented") || message.contains("axes")) << code << ": " << message;
+			EXPECT_THROW((void)utilities->GetCoordinateReferenceSystemName(code), UnsupportedFormatException) << code;
+			rejected[message.substr(0, message.find(" of the conversion"))].push_back(code);
+		}
+		catch (std::exception const& e)
+		{
+			ADD_FAILURE() << "EPSG " << code << ": " << typeid(e).name() << ": " << e.what();
+		}
+	}
+
+	auto total = 0u;
+	for (auto const& [message, list] : rejected)
+	{
+		std::cout << "[ rejected ] " << list.size() << " CRS, first EPSG " << list.front() << ": " << message << '\n';
+		total += static_cast<unsigned>(list.size());
+	}
+	std::cout << "[ created  ] " << created << " of " << codes.size() << " CRS, " << total << " rejected\n";
+}
+
+// The transform of a projection with no math transform behind it reports the method.
+TEST(CatalogueSweep, TransformOfAnUnimplementedProjectionIsUnsupported)
+{
+	try
+	{
+		(void)GetMathTransformFactory()->CreateParameterizedTransform("Krovak", {});
+		FAIL() << "no exception";
+	}
+	catch (UnsupportedFormatException const& e)
+	{
+		EXPECT_TRUE(std::string{ e.what() }.contains("Krovak")) << e.what();
 	}
 }
 

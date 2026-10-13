@@ -592,7 +592,17 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateProjection(int operationCode, int algorithmCode) const -> std::shared_ptr<IProjection>
 	{
-		auto const clase = ExtensionManager::FindMathematicalOperation("EPSG", algorithmCode);
+		auto const clase = [&]
+		{
+			try
+			{
+				return ExtensionManager::FindMathematicalOperation("EPSG", algorithmCode);
+			}
+			catch (UnsupportedFormatException const&)
+			{
+				throw UnsupportedFormatException(std::format("The projection method EPSG:{} '{}' of the conversion {} is not implemented.", algorithmCode, _provider->GetAlgorithmName(algorithmCode), operationCode));
+			}
+		}();
 		auto const classParameters = ExtensionManager::GetMathOperationParameters(clase);
 		auto const parameterValues = _provider->GetTransformationParameters(operationCode, algorithmCode);
 

@@ -56,7 +56,7 @@ namespace CrsKit
 
 		auto const it = gCodeIndex.find(codeKey(authority, code));
 		if (it == gCodeIndex.end())
-			throw std::runtime_error("Object not found");
+			throw UnsupportedFormatException(std::format("No math transform implements the operation method {}:{}.", authority, code));
 
 		return it->second;
 	}
@@ -81,7 +81,7 @@ namespace CrsKit
 
 		auto const it = gNameIndex.find(toLower(projectionParameters->GetClassName()));
 		if (it == gNameIndex.end())
-			throw std::runtime_error("Object not found");
+			throw UnsupportedFormatException(std::format("No math transform implements the projection '{}'.", projectionParameters->GetClassName()));
 		auto const clase = it->second;
 
 		vector<Parameter> parameters;
