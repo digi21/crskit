@@ -11,6 +11,7 @@
 #include "Algorithms/AmericanPolyconic.h"
 #include "Algorithms/CassiniSoldner.h"
 #include "Algorithms/CoordinateFrameRotation.h"
+#include "Algorithms/CylindricalProjections.h"
 #include "Algorithms/GeocentricToTopocentric.h"
 #include "Algorithms/GeocentricTranslations.h"
 #include "Algorithms/Geographic2D2Geocentric.h"
@@ -162,6 +163,70 @@ namespace CrsKit
 			parameter("standard_parallel2", ParameterType::Angular, 8824),
 			parameter("false_easting", ParameterType::Length, 8826),
 			parameter("false_northing", ParameterType::Length, 8827) });
+
+		MathTransformGenerics::Register<MP::MercatorSpherical>({
+			mathTransform("Mercator_1SP_Spherical"), authorityOperation("EPSG", 9841),
+			parameter("latitude_of_origin", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("scale_factor", ParameterType::Scalar, 8805),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::EqualEarth>({
+			mathTransform("Equal_Earth"), authorityOperation("EPSG", 1078),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LambertCylindricalEqualArea>({
+			mathTransform("Cylindrical_Equal_Area"), authorityOperation("EPSG", 9835),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LambertCylindricalEqualAreaSpherical>({
+			mathTransform("Cylindrical_Equal_Area_Spherical"), authorityOperation("EPSG", 9834),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		// 1028 and its deprecated code 9842 share the WKT1 name and the computation, as do 1029 and 9823.
+		MathTransformGenerics::Register<MP::EquidistantCylindrical>({
+			mathTransform("Equirectangular"), authorityOperation("EPSG", 1028),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::EquidistantCylindricalDeprecated>({
+			mathTransform("Equirectangular"), authorityOperation("EPSG", 9842),
+			parameter("standard_parallel1", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8822),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::EquidistantCylindricalSpherical>({
+			mathTransform("Equirectangular_Spherical"), authorityOperation("EPSG", 1029),
+			parameter("standard_parallel1", ParameterType::Angular, 8823),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::EquidistantCylindricalSphericalDeprecated>({
+			mathTransform("Equirectangular_Spherical"), authorityOperation("EPSG", 9823),
+			parameter("standard_parallel1", ParameterType::Angular, 8801),
+			parameter("central_meridian", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
+
+		MathTransformGenerics::Register<MP::LambertAzimuthalEqualAreaSpherical>({
+			mathTransform("Lambert_Azimuthal_Equal_Area_Spherical"), authorityOperation("EPSG", 1027),
+			parameter("latitude_of_center", ParameterType::Angular, 8801),
+			parameter("longitude_of_center", ParameterType::Angular, 8802),
+			parameter("false_easting", ParameterType::Length, 8806),
+			parameter("false_northing", ParameterType::Length, 8807) });
 
 		MathTransformGenerics::Register<MP::Mercator1Sp>({
 			mathTransform("Mercator_1SP"), authorityOperation("EPSG", 9804),

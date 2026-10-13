@@ -377,6 +377,41 @@ namespace CrsKit::Wkt
 					{"standard_parallel2", "Latitude of 2nd standard parallel", 8824, U::Angular},
 					{"false_easting", "Easting at false origin", 8826, U::Length},
 					{"false_northing", "Northing at false origin", 8827, U::Length}}},
+				{"Mercator_1SP_Spherical", "Mercator (1SP) (Spherical)", 9841, {
+					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"scale_factor", "Scale factor at natural origin", 8805, U::Scale},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Equal_Earth", "Equal Earth", 1078, {
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Cylindrical_Equal_Area", "Lambert Cylindrical Equal Area", 9835, {
+					{"standard_parallel1", "Latitude of 1st standard parallel", 8823, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Cylindrical_Equal_Area_Spherical", "Lambert Cylindrical Equal Area (Spherical)", 9834, {
+					{"standard_parallel1", "Latitude of 1st standard parallel", 8823, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Equirectangular", "Equidistant Cylindrical", 1028, {
+					{"standard_parallel1", "Latitude of 1st standard parallel", 8823, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Equirectangular_Spherical", "Equidistant Cylindrical (Spherical)", 1029, {
+					{"standard_parallel1", "Latitude of 1st standard parallel", 8823, U::Angular},
+					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
+				{"Lambert_Azimuthal_Equal_Area_Spherical", "Lambert Azimuthal Equal Area (Spherical)", 1027, {
+					{"latitude_of_center", "Latitude of natural origin", 8801, U::Angular},
+					{"longitude_of_center", "Longitude of natural origin", 8802, U::Angular},
+					{"false_easting", "False easting", 8806, U::Length},
+					{"false_northing", "False northing", 8807, U::Length}}},
 				{"Mercator_1SP", "Mercator (variant A)", 9804, {
 					{"latitude_of_origin", "Latitude of natural origin", 8801, U::Angular},
 					{"central_meridian", "Longitude of natural origin", 8802, U::Angular},
