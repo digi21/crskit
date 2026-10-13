@@ -40,6 +40,7 @@ namespace CrsKit::CoordinateSystems
 
 		[[nodiscard]] auto GetSemiMajorAxis() const noexcept -> double { return _semiMajorAxis; }
 		[[nodiscard]] auto GetSemiMinorAxis() const -> double;
+		// 0 for a sphere.
 		[[nodiscard]] auto GetInverseFlattening() const noexcept -> double { return _inverseFlattening; }
 		[[nodiscard]] auto GetIvfDefinitive() const noexcept -> bool { return !_computedInverseFlattening; }
 		[[nodiscard]] auto GetLinearUnit() const noexcept -> LinearUnit const& { return _linearUnit; }

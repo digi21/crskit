@@ -39,7 +39,8 @@ namespace CrsKit::CoordinateSystems
 		Ellipsoid ellipsoid{ name, authority, code, "", "", linearUnit };
 
 		ellipsoid._semiMajorAxis = semiMajorAxis;
-		ellipsoid._inverseFlattening = semiMajorAxis / (semiMajorAxis - semiMinorAxis);
+		// A sphere has an inverse flattening of 0, as WKT writes it.
+		ellipsoid._inverseFlattening = semiMajorAxis == semiMinorAxis ? 0.0 : semiMajorAxis / (semiMajorAxis - semiMinorAxis);
 		ellipsoid._computedInverseFlattening = true;
 
 		return ellipsoid;
@@ -58,12 +59,12 @@ namespace CrsKit::CoordinateSystems
 
 	auto Ellipsoid::GetSemiMinorAxis() const -> double
 	{
-		return _semiMajorAxis - _semiMajorAxis / _inverseFlattening;
+		return 0.0 == _inverseFlattening ? _semiMajorAxis : _semiMajorAxis - _semiMajorAxis / _inverseFlattening;
 	}
 
 	auto Ellipsoid::GetFlattening() const -> double
 	{
-		return 1.0 / _inverseFlattening;
+		return 0.0 == _inverseFlattening ? 0.0 : 1.0 / _inverseFlattening;	// 0: a sphere
 	}
 
 	auto Ellipsoid::GetEccentricity() const -> double
@@ -92,6 +93,8 @@ namespace CrsKit::CoordinateSystems
 	auto Ellipsoid::GetRadiusOfAuthalicSphere() const -> double
 	{
 		auto const e = GetEccentricity();
+		if (0.0 == e)
+			return _semiMajorAxis;
 		auto const e2 = pow(e, 2.0);
 		return _semiMajorAxis * sqrt((1.0 - ((1.0 - e2) / (2 * e)) * (log((1.0 - e) / (1.0 + e)))) * 0.5);
 	}

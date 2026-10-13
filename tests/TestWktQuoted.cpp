@@ -57,3 +57,28 @@ TEST(WktParameterNames, GdalLambertConformalConic2SP)
 	EXPECT_NEAR(857581.8993196681, p[0], 1e-3);
 	EXPECT_NEAR(6435414.7478354, p[1], 1e-3);
 }
+// SPHEROID[name, a, 0] is a sphere in WKT1 (inverse flattening 0). The WKT1 GDAL writes for EPSG 3410 (NSIDC EASE-Grid
+// Global), without identifiers, projects like PROJ 9.8.1.
+TEST(WktParameterNames, SphereWithInverseFlatteningZero)
+{
+	auto const projected = std::dynamic_pointer_cast<CoordinateSystems::ProjectedCoordinateSystem>(GetCoordinateSystemFactory()->CreateFromWkt(
+		R"(PROJCS["NSIDC EASE-Grid Global",GEOGCS["NSIDC Authalic Sphere",DATUM["NSIDC_International_1924_Authalic_Sphere",)"
+		R"(SPHEROID["International 1924 Authalic Sphere",6371228,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],)"
+		R"(PROJECTION["Cylindrical_Equal_Area"],PARAMETER["standard_parallel_1",30],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],)"
+		R"(PARAMETER["false_northing",0],UNIT["metre",1],AXIS["Easting",EAST],AXIS["Northing",NORTH]])"));
+	ASSERT_NE(nullptr, projected);
+	auto const geographic = std::dynamic_pointer_cast<CoordinateSystems::CoordinateSystem>(projected->GetGeographicCoordinateSystem());
+	auto const transform = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(geographic, projected)->GetMathTransform();
+	auto const latitudeFirst = geographic->GetAxis(0).GetOrientation() == CoordinateSystems::AxisOrientationEnum::North;
+	auto const p = transform->Transform(latitudeFirst ? std::vector{ 34.4, 72.0 } : std::vector{ 72.0, 34.4 });
+	EXPECT_NEAR(6933677.577474749, p[0], 1e-3);
+	EXPECT_NEAR(4156383.375784916, p[1], 1e-3);
+}
+
+// A sphere of the catalogue writes an inverse flattening of 0, not inf.
+TEST(WktParameterNames, CatalogueSphereWritesZero)
+{
+	auto const wkt = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4047)->GetWkt();
+	EXPECT_EQ(std::string::npos, wkt.find("inf")) << wkt;
+	EXPECT_NE(std::string::npos, wkt.find(",0,AUTHORITY")) << wkt;
+}
