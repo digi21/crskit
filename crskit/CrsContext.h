@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "CrsAliases.h"
+
 namespace CrsKit
 {
 	// The Well-Known Text flavour GetWkt() emits. A single selector for the five effective formats: the
@@ -61,5 +63,8 @@ namespace CrsKit
 		std::string dataDirectory{};
 		// Emit a horizontal-only WKT for a compound CRS whose vertical component is local/unknown.
 		bool createHorizontalWktIfVerticalLocal{};
+		// Caller-supplied CRS and operation equivalences, applied before the catalogue under both parse
+		// policies (see CrsAliases). Read ambiently by the factories and the WKT readers, like parsePolicy.
+		CrsAliases aliases{};
 	};
 }
