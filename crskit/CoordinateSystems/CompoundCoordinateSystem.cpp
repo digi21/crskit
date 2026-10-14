@@ -28,16 +28,18 @@ namespace CrsKit::CoordinateSystems
 
 	auto CompoundCoordinateSystem::FromWkt(Wkt::TokenWkt const& token) -> std::shared_ptr<CompoundCoordinateSystem>
 	{
-		// Preserve the compound CRS authority if the WKT declares one.
+		// Preserve the compound CRS authority if the WKT declares one, unless an alias replaced a component:
+		// the code then no longer describes the compound.
 		auto const [authority, authorityCode] = Wkt::ReadAuthority(token);
+		auto const componentAliased = FindCrsAlias(token.GetChild(1)).has_value() || FindCrsAlias(token.GetChild(2)).has_value();
 
 		auto const head = CoordinateSystemFactory::CreateFrom(token.GetChild(1));
 		auto const tail = CoordinateSystemFactory::CreateFrom(token.GetChild(2));
 
 		return make_shared<CompoundCoordinateSystem>(
 			head->GetName() + " + " + tail->GetName(),
-			authority,
-			authorityCode,
+			componentAliased ? std::string{} : authority,
+			componentAliased ? 0 : authorityCode,
 			"",
 			"",
 			head,

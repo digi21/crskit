@@ -38,6 +38,9 @@ namespace CrsKit::CoordinateSystems
 			axis[1] = AxisInfo("Y", AxisOrientationEnum::North);
 		}
 
+		if (auto const alias = FindCrsAlias(tokenPROJCS))
+			return GetCoordinateSystemAuthorityFactory()->CreateProjectedCoordinateSystem(*alias, axis);
+
 		if (!authority.empty())
 		{
 			if (CatalogWins() && 0 == compareNoCase(authority.c_str(), "EPSG"))

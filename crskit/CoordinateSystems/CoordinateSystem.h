@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,6 +13,11 @@
 #include "BaseInfo.h"
 #include "ICoordinateSystem.h"
 #include "Unit.h"
+
+namespace CrsKit::Wkt
+{
+	class TokenWkt;
+}
 
 namespace CrsKit::CoordinateSystems
 {
@@ -59,6 +65,10 @@ namespace CrsKit::CoordinateSystems
 	// True when the current parse policy (CrsContext::parsePolicy) snaps a WKT carrying an EPSG AUTHORITY to
 	// the catalogue instead of building it from the pieces. Shared by the FromWkt readers.
 	[[nodiscard]] auto CatalogWins() -> bool;
+
+	// The EPSG code a WKT1/WKT2 CRS node resolves to through CrsContext::aliases: by its ID/AUTHORITY
+	// first, by its name second. nullopt when no alias matches.
+	[[nodiscard]] auto FindCrsAlias(Wkt::TokenWkt const& node) -> std::optional<int>;
 
 	// Graded structural similarity of two CRS, 0..100. Walks the same mathematical components as
 	// AreEquivalent (datum, prime meridian, projection + parameters, units), but scores how many of them

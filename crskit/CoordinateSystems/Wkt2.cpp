@@ -229,6 +229,15 @@ namespace CrsKit::Wkt
 
 		auto FromGeographicWkt2(TokenWkt const& root) -> std::shared_ptr<GeographicCoordinateSystem>
 		{
+			// An alias builds the catalogue CRS; the WKT axes, when present, are kept because the coordinates follow them.
+			if (auto const alias = FindCrsAlias(root))
+			{
+				auto const axes = AxisInfo::FromWkt(root);
+				if (axes.empty())
+					return GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(*alias);
+				return GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(*alias, axes);
+			}
+
 			auto const name = root.GetChild(0).GetString();
 
 			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF"});
@@ -670,6 +679,14 @@ namespace CrsKit::Wkt
 
 		auto FromProjectedWkt2(TokenWkt const& root) -> std::shared_ptr<ProjectedCoordinateSystem>
 		{
+			if (auto const alias = FindCrsAlias(root))
+			{
+				auto const axes = AxisInfo::FromWkt(root);
+				if (axes.size() < 2)
+					return GetCoordinateSystemAuthorityFactory()->CreateProjectedCoordinateSystem(*alias);
+				return GetCoordinateSystemAuthorityFactory()->CreateProjectedCoordinateSystem(*alias, axes);
+			}
+
 			auto const name = root.GetChild(0).GetString();
 
 			auto const* baseNode = FindChild(root, {"BASEGEOGCRS", "BASEGEOGRAPHICCRS", "BASEGEODCRS", "BASEGEODETICCRS"});
@@ -737,6 +754,9 @@ namespace CrsKit::Wkt
 
 		auto FromGeocentricWkt2(TokenWkt const& root) -> std::shared_ptr<GeocentricCoordinateSystem>
 		{
+			if (auto const alias = FindCrsAlias(root))
+				return GetCoordinateSystemAuthorityFactory()->CreateGeocentricCoordinateSystem(*alias);
+
 			auto const name = root.GetChild(0).GetString();
 
 			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF"});
@@ -786,6 +806,9 @@ namespace CrsKit::Wkt
 
 		auto FromVerticalWkt2(TokenWkt const& root) -> std::shared_ptr<VerticalCoordinateSystem>
 		{
+			if (auto const alias = FindCrsAlias(root))
+				return GetCoordinateSystemAuthorityFactory()->CreateVerticalCoordinateSystem(*alias);
+
 			auto const name = root.GetChild(0).GetString();
 
 			auto const* datumNode = FindChild(root, {"VDATUM", "VERTICALDATUM", "VERT_DATUM"});
@@ -842,15 +865,18 @@ namespace CrsKit::Wkt
 		}
 
 		// Compound CRS: parses each component CRS (themselves WKT2) recursively through the public FromWkt2.
+		// When an alias replaced a component, the name is rebuilt from the components and the ID dropped.
 		auto FromCompoundWkt2(TokenWkt const& root) -> std::shared_ptr<CompoundCoordinateSystem>
 		{
-			auto const name = root.GetChild(0).GetString();
+			auto const componentAliased = FindCrsAlias(root.GetChild(1)).has_value() || FindCrsAlias(root.GetChild(2)).has_value();
 			auto const head = FromWkt2(root.GetChild(1));
 			auto const tail = FromWkt2(root.GetChild(2));
 
 			std::string authority;
 			int code{};
-			ParseId(root, authority, code);
+			if (!componentAliased)
+				ParseId(root, authority, code);
+			auto const name = componentAliased ? head->GetName() + " + " + tail->GetName() : root.GetChild(0).GetString();
 
 			return std::make_shared<CompoundCoordinateSystem>(name, authority, code, "", "", head, tail);
 		}

@@ -22,6 +22,9 @@ namespace CrsKit::CoordinateSystems
 
 	auto GeocentricCoordinateSystem::FromWkt(Wkt::TokenWkt const& tokenGEOCCS) -> std::shared_ptr<GeocentricCoordinateSystem>
 	{
+		if (auto const alias = FindCrsAlias(tokenGEOCCS))
+			return GetCoordinateSystemAuthorityFactory()->CreateGeocentricCoordinateSystem(*alias);
+
 		auto const [authority, authorityCode] = Wkt::ReadAuthority(tokenGEOCCS);
 
 		if (CatalogWins() && 0 == compareNoCase(authority.c_str(), "EPSG"))

@@ -22,6 +22,9 @@ namespace CrsKit::CoordinateSystems
 
 	auto VerticalCoordinateSystem::FromWkt(Wkt::TokenWkt const& tokenVERTCS) -> std::shared_ptr<VerticalCoordinateSystem>
 	{
+		if (auto const alias = FindCrsAlias(tokenVERTCS))
+			return GetCoordinateSystemAuthorityFactory()->CreateVerticalCoordinateSystem(*alias);
+
 		auto const [authority, authorityCode] = Wkt::ReadAuthority(tokenVERTCS);
 
 		if (!authority.empty())

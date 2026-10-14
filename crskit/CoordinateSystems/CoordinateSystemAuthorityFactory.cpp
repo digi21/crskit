@@ -26,6 +26,15 @@ using namespace std;
 
 namespace CrsKit::Epsg
 {
+	namespace
+	{
+		// The EPSG code a CRS code resolves to through CrsContext::aliases (itself when it has no alias).
+		auto ResolveCrsAlias(int code) -> int
+		{
+			return GetDefaultContext()->aliases.ResolveCrs(code);
+		}
+	}
+
 	CoordinateSystemAuthorityFactory::CoordinateSystemAuthorityFactory(std::shared_ptr<Epsg::IAuthorityProvider> const& authorityProvider)
 		: _provider{ authorityProvider }
 	{
@@ -38,6 +47,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateCoordinateSystem(int code) const->std::shared_ptr<CoordinateSystems::CoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		auto const coordinateSystemType = _provider->GetCoordinateSystemType(code);
 		if (0 == compareNoCase(coordinateSystemType.c_str(), "projected"))
 			return CreateProjectedCoordinateSystem(code);
@@ -60,6 +70,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int code) const -> std::shared_ptr<ProjectedCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		// ProjectedCoordinateSystem holds two axes: a projected 3D CRS (EPSG 9895, with ellipsoidal height) is rejected.
 		auto const axis = CreateAxisInformation(code);
 		if (axis.size() > 2)
@@ -70,6 +81,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int code, std::vector<AxisInfo> const& axis) const -> std::shared_ptr<ProjectedCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		auto const coordinateSystemName = _provider->GetCoordinateReferenceSystemName(code, IsEsri(GetDefaultContext()->wktVersion));
 		if (coordinateSystemName.empty())
 			throw AuthorityCodeNotFoundException(std::format("Could not locate the coordinate system with code: {}", code) );
@@ -105,6 +117,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateProjectedCoordinateSystem(int projectionCode, int geographicCrsCode) const -> std::shared_ptr<ProjectedCoordinateSystem>
 	{
+		geographicCrsCode = ResolveCrsAlias(geographicCrsCode);
 		auto const maximum = _provider->GetProjectedCrsCountFromProjConvCodeAndBaseCrsCode(projectionCode, geographicCrsCode);
 		if (0 == maximum)
 			throw runtime_error("No projected coordinate system with the specified parameters has been located." );
@@ -155,11 +168,13 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateGeographicCoordinateSystem(int code) const -> std::shared_ptr<GeographicCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		return CreateGeographicCoordinateSystem(code, CreateAxisInformation(code));
 	}
 
 	auto CoordinateSystemAuthorityFactory::CreateGeographicCoordinateSystem(int code, std::vector<AxisInfo> const& axis) const -> std::shared_ptr<GeographicCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		auto const coordinateSystemName = _provider->GetCoordinateReferenceSystemName(code, IsEsri(GetDefaultContext()->wktVersion));
 		if (coordinateSystemName.empty())
 			throw AuthorityCodeNotFoundException(std::format("Unable to locate coordinate system with authority code: {}", code) );
@@ -411,6 +426,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateVerticalCoordinateSystem(int code) const -> std::shared_ptr<VerticalCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		auto const coordinateSystemName = _provider->GetCoordinateReferenceSystemName(code, IsEsri(GetDefaultContext()->wktVersion));
 		if (coordinateSystemName.empty())
 			throw AuthorityCodeNotFoundException(std::format("Unable to locate coordinate system with authority code: {}", code));
@@ -453,6 +469,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateGeocentricCoordinateSystem(int code) const -> std::shared_ptr<GeocentricCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		auto const coordinateSystemName = _provider->GetCoordinateReferenceSystemName(code, IsEsri(GetDefaultContext()->wktVersion));
 		if (coordinateSystemName.empty())
 			throw AuthorityCodeNotFoundException(std::format("Unable to locate coordinate system with authority code: {}", code));
@@ -490,6 +507,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateHorizontalCoordinateSystem(int code) const -> std::shared_ptr<HorizontalCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 		// We check whether it is projected or geographic
 		auto const coordinateSystemType = _provider->GetCoordinateSystemType(code);
 		if (0 == compareNoCase(coordinateSystemType.c_str(), "projected"))
@@ -512,16 +530,19 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::GetKindOfCoordinateSystem(int code) const->std::string
 	{
+		code = ResolveCrsAlias(code);
 		return _provider->GetCoordinateSystemType(code);
 	}
 
 	auto CoordinateSystemAuthorityFactory::GetDescriptionAreaApplicationCrs(int code) const -> std::string
 	{
+		code = ResolveCrsAlias(code);
 		return _provider->GetApplicationAreaDescription(code);
 	}
 
 	auto CoordinateSystemAuthorityFactory::GetCodeOfCoordinateSystemAssociatedWithCrs(int code) const -> int
 	{
+		code = ResolveCrsAlias(code);
 		return _provider->GetCoordinateSystemCodeForCrs(code);
 	}
 
@@ -547,6 +568,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::GetCodeOfDatumAssociatedWithCrs(int code) const -> int
 	{
+		code = ResolveCrsAlias(code);
 		return _provider->GetDatumCodeForCrs(code);
 	}
 
@@ -632,6 +654,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::CreateGeographic2DSystemForGeographic3DSystem(int code, AxisInfo const& axisX, AxisInfo const& axisY) const -> std::shared_ptr<GeographicCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 #ifdef _DEBUG
 		auto const coordinateSystemType = _provider->GetCoordinateSystemType(code);
 		assert(0 == compareNoCase(coordinateSystemType.c_str(), "geographic 3D"));
@@ -644,6 +667,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::FindGeographicSystem3D(int code, AxisInfo const& axisX, AxisInfo const& axisY) const -> std::shared_ptr<GeographicCoordinateSystem>
 	{
+		code = ResolveCrsAlias(code);
 #ifdef _DEBUG
 		auto const coordinateSystemType = _provider->GetCoordinateSystemType(code);
 		assert(0 == compareNoCase(coordinateSystemType.c_str(), "geographic 2D"));

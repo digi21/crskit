@@ -24,6 +24,14 @@ namespace CrsKit::CoordinateSystems
 
 	auto GeographicCoordinateSystem::FromWkt(Wkt::TokenWkt const& tokenGEOGCS) -> std::shared_ptr<GeographicCoordinateSystem>
 	{
+		if (auto const alias = FindCrsAlias(tokenGEOGCS))
+		{
+			auto const axis = AxisInfo::FromWkt(tokenGEOGCS);
+			if (axis.empty())
+				return GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(*alias);
+			return GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(*alias, axis);
+		}
+
 		auto const [authority, authorityCode] = Wkt::ReadAuthority(tokenGEOGCS);
 
 		if (!authority.empty())

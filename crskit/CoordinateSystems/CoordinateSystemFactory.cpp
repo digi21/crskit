@@ -28,6 +28,32 @@ namespace CrsKit::CoordinateSystems
 		return GetDefaultContext()->parsePolicy == WktParsePolicy::CatalogWins;
 	}
 
+	auto FindCrsAlias(Wkt::TokenWkt const& node) -> std::optional<int>
+	{
+		auto const context = GetDefaultContext();
+		auto const& aliases = context->aliases;
+		if (aliases.IsEmpty())
+			return std::nullopt;
+
+		// Local/engineering and compound CRS are never aliased (a compound is resolved by its components).
+		for (auto const* excluded : { "LOCAL_CS", "ENGCRS", "ENGINEERINGCRS", "COMPD_CS", "COMPOUNDCRS" })
+			if (0 == compareNoCase(node.GetName().c_str(), excluded))
+				return std::nullopt;
+
+		for (auto const* keyword : { "ID", "AUTHORITY" })
+		{
+			if (!node.HasChild(keyword))
+				continue;
+			auto const& id = node.GetChild(keyword);
+			if (auto const code = aliases.FindCrs(id.GetChild(0).GetString(), id.GetChild(1).GetInt()))
+				return code;
+		}
+
+		if (0 == node.GetChildCount())
+			return std::nullopt;
+		return aliases.FindCrsByName(node.GetChild(0).GetString());
+	}
+
 	auto CoordinateSystemFactory::CreateFrom(Wkt::TokenWkt const& token) -> std::shared_ptr<CoordinateSystem>
 	{
 		// WKT2 (ISO 19162) strings are recognised by their root keyword (GEOGCRS/PROJCRS/...) and parsed
@@ -65,8 +91,9 @@ namespace CrsKit::CoordinateSystems
 		// ESRI-flavoured WKT that carries an EPSG code resolves from the catalogue by that code (a clean
 		// EPSG object rather than the ArcGIS names), regardless of the parse policy and never by matching
 		// ESRI names. The ESRI compound (a VERTCS embedded in the PROJCS) is handled by the block below.
+		// An alias (CrsContext::aliases) on the ID/AUTHORITY or the name stands in for the EPSG code.
 		if (EsriProjectionEngine::LooksLikeEsri(root) && !EsriProjectionEngine::IsEsriCompound(root))
-			if (auto const code = Wkt::EpsgCode(root); 0 != code)
+			if (auto const code = FindCrsAlias(root).value_or(Wkt::EpsgCode(root)); 0 != code)
 				return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code);
 
 		// ESRI stores a compound CRS as a VERTCS embedded in the PROJCS. When both parts carry an EPSG code
@@ -74,10 +101,14 @@ namespace CrsKit::CoordinateSystems
 		// structure -- VDATUM, Vertical_Shift -- that we cannot build from its pieces, so a compound without
 		// codes falls through to the horizontal-only parse below.)
 		if (EsriProjectionEngine::IsEsriCompound(root))
-			if (auto const horizontalCode = Wkt::EpsgCode(root), verticalCode = Wkt::EpsgCode(root.GetChild("VERTCS")); 0 != horizontalCode && 0 != verticalCode)
+		{
+			auto const& vertcs = root.GetChild("VERTCS");
+			if (auto const horizontalCode = FindCrsAlias(root).value_or(Wkt::EpsgCode(root)), verticalCode = FindCrsAlias(vertcs).value_or(Wkt::EpsgCode(vertcs)); 0 != horizontalCode && 0 != verticalCode)
 				return GetCoordinateSystemAuthorityFactory()->CreateCompoundCoordinateSystem(horizontalCode, verticalCode);
+		}
 
-		if (CatalogWins() && root.GetName() == "PROJCS")
+		// The ESRI name lookup below is a catalogue query, so it does not run for a CRS that has an alias.
+		if (CatalogWins() && root.GetName() == "PROJCS" && !FindCrsAlias(root))
 		{
 			// The system may be Esri, compound or projected.
 			//
@@ -101,7 +132,8 @@ namespace CrsKit::CoordinateSystems
 			}
 
 			auto const horizontalEpsgCode = EsriProjectionEngine::FindHorizontalEpsgCode(wkt);
-			auto const verticalEpsgCode = EsriProjectionEngine::FindVerticalEpsgCode(verticalWkt);
+			auto const verticalAlias = root.HasChild("VERTCS") ? FindCrsAlias(root.GetChild("VERTCS")) : std::nullopt;
+			auto const verticalEpsgCode = verticalAlias ? *verticalAlias : EsriProjectionEngine::FindVerticalEpsgCode(verticalWkt);
 			if (0 != horizontalEpsgCode)
 			{
 				if (0 != verticalEpsgCode)
