@@ -25,6 +25,21 @@ using namespace std;
 
 namespace CrsKit::Epsg
 {
+	namespace
+	{
+		// The EPSG code an operation code resolves to through CrsContext::aliases (itself when it has no alias).
+		auto ResolveOperationAlias(int code) -> int
+		{
+			return GetDefaultContext()->aliases.ResolveOperation(code);
+		}
+
+		// The EPSG code operations of a CRS are looked up by: the alias target of its authority and code, or its code.
+		auto CatalogueCode(CoordinateSystem const& coordinateSystem) -> int
+		{
+			return GetDefaultContext()->aliases.FindCrs(coordinateSystem.GetAuthority(), coordinateSystem.GetAuthorityCode()).value_or(coordinateSystem.GetAuthorityCode());
+		}
+	}
+
 	CoordinateTransformationAuthorityFactory::CoordinateTransformationAuthorityFactory(std::shared_ptr<Epsg::IAuthorityProvider> const& authorityProvider)
 		: _provider{ authorityProvider }
 	{
@@ -52,6 +67,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateMathTransform(int code) const -> std::shared_ptr<IMathTransform>
 	{
+		code = ResolveOperationAlias(code);
 		auto const algorithmCode = _provider->GetAlgorithmCodeForOperation(code);
 		auto const projection = GetCoordinateSystemAuthorityFactory()->CreateProjection(code, algorithmCode);
 
@@ -79,6 +95,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateFromTransformationCode(int code, std::shared_ptr<CoordinateSystem> const& source, std::shared_ptr<CoordinateSystem> const& target, bool inverse) const -> std::shared_ptr<CoordinateTransformation>
 	{
+		code = ResolveOperationAlias(code);
 		auto const transformationName = _provider->GetCoordinateOperationName(code);
 		if (transformationName.empty())
 			throw AuthorityCodeNotFoundException(std::format("Could not locate the transformation with authority code: {}", code));
@@ -100,6 +117,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::StaticCreateFromTransformationCode(int code) const -> std::shared_ptr<ICoordinateTransformation>
 	{
+		code = ResolveOperationAlias(code);
 		return CreateFromTransformationCode(
 			code,
 			GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(_provider->GetCoordinateOperationSourceCrs(code)),
@@ -109,6 +127,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<GeographicCoordinateSystem> const& target, int operationCode, bool inverse) const -> std::shared_ptr<CoordinateTransformation>
 	{
+		operationCode = ResolveOperationAlias(operationCode);
 		auto const algorithmCode = _provider->GetAlgorithmCodeForOperation(operationCode);
 
 		// The operation may be a geocentric operation, for which there is no class because 1: there are no standardized names for the parameters of the two
@@ -218,7 +237,7 @@ namespace CrsKit::Epsg
 		auto const verticalSourceDatum = std::dynamic_pointer_cast<VerticalDatum>(source->GetVerticalDatum());
 		auto const sameVerticalDatum = nullptr != verticalSourceDatum && 0 == verticalSourceDatum->CompareTo(target->GetVerticalDatum());
 
-		if (source->GetAuthorityCode() == target->GetAuthorityCode() || sameVerticalDatum)
+		if (CatalogueCode(*source) == CatalogueCode(*target) || sameVerticalDatum)
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				"",
 				"",
@@ -232,14 +251,14 @@ namespace CrsKit::Epsg
 
 		// We first try from source to target
 		auto const transformations = _provider->OperationCodesToTransformSystemAtoB(
-			source->GetAuthorityCode(), target->GetAuthorityCode());
+			CatalogueCode(*source), CatalogueCode(*target));
 
 		if (transformations.size() > 1)
 		{
 			if (nullptr == options.selectOperation)
 				throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
 
-			auto const operationCode = options.selectOperation(source->GetName(), target->GetName(), transformations);
+			auto const operationCode = ResolveOperationAlias(options.selectOperation(source->GetName(), target->GetName(), transformations));
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
@@ -272,14 +291,14 @@ namespace CrsKit::Epsg
 		// direction (e.g. "Baltic to Caspian" exists but not "Caspian to Baltic"). The query already
 		// it filters out deprecated operations, so only current operations are used.
 		auto const inverseTransformations = _provider->OperationCodesToTransformSystemAtoB(
-			target->GetAuthorityCode(), source->GetAuthorityCode());
+			CatalogueCode(*target), CatalogueCode(*source));
 
 		if (inverseTransformations.size() > 1)
 		{
 			if (nullptr == options.selectOperation)
 				throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", target->GetAuthorityCode(), source->GetAuthorityCode()));
 
-			auto const operationCode = options.selectOperation(target->GetName(), source->GetName(), inverseTransformations);
+			auto const operationCode = ResolveOperationAlias(options.selectOperation(target->GetName(), source->GetName(), inverseTransformations));
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
 				_provider->GetCoordinateOperationDescription(operationCode),
@@ -376,14 +395,14 @@ namespace CrsKit::Epsg
 		// There is a datum change. We locate the best transformation:
 
 		auto transformations = _provider->OperationCodesToTransformSystemAtoB(
-			source->GetAuthorityCode(),
-			target->GetAuthorityCode());
+			CatalogueCode(*source),
+			CatalogueCode(*target));
 
 		if (0 == transformations.size())
 		{
 			transformations = _provider->OperationCodesToTransformSystemAtoB(
-				target->GetAuthorityCode(),
-				source->GetAuthorityCode());
+				CatalogueCode(*target),
+				CatalogueCode(*source));
 
 			if (transformations.size() > 1)
 			{
@@ -453,11 +472,11 @@ namespace CrsKit::Epsg
 	auto CoordinateTransformationAuthorityFactory::CreateCoordinateTransformBetweenGeocentricSystems(std::shared_ptr<GeocentricCoordinateSystem> const& source, std::shared_ptr<GeocentricCoordinateSystem> const& target, CoordinateTransformationOptions const& options) const -> std::shared_ptr<CoordinateTransformation>
 	{
 		auto transformations = _provider->OperationCodesToTransformSystemAtoB(
-			source->GetAuthorityCode(), target->GetAuthorityCode());
+			CatalogueCode(*source), CatalogueCode(*target));
 
 		if (0 == transformations.size())
 		{
-			transformations = _provider->OperationCodesToTransformSystemAtoB(target->GetAuthorityCode(), source->GetAuthorityCode());
+			transformations = _provider->OperationCodesToTransformSystemAtoB(CatalogueCode(*target), CatalogueCode(*source));
 
 			if (0 == transformations.size())
 			{
@@ -481,7 +500,7 @@ namespace CrsKit::Epsg
 							static_cast<const char*>(target->GetName().c_str())));
 				}
 
-				auto const operationCode = options.selectOperation(source->GetName(), target->GetName(), transformations);
+				auto const operationCode = ResolveOperationAlias(options.selectOperation(source->GetName(), target->GetName(), transformations));
 
 				return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 					_provider->GetCoordinateOperationName(operationCode),
@@ -519,7 +538,7 @@ namespace CrsKit::Epsg
 						target->GetName().c_str()));
 			}
 
-			auto const operationCode = options.selectOperation(source->GetName(), target->GetName(), transformations);
+			auto const operationCode = ResolveOperationAlias(options.selectOperation(source->GetName(), target->GetName(), transformations));
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
 				_provider->GetCoordinateOperationDescription(operationCode),
@@ -721,8 +740,8 @@ namespace CrsKit::Epsg
 	auto CoordinateTransformationAuthorityFactory::CreateCoordinateTransformBetweenGeographicVerticalSystems(std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<VerticalCoordinateSystem> const& target, bool inverse, CoordinateTransformationOptions const& options) const -> std::shared_ptr<CoordinateTransformation>
 	{
 		auto const transformations = _provider->OperationCodesToTransformSystemAtoB(
-			source->GetAuthorityCode(),
-			target->GetAuthorityCode());
+			CatalogueCode(*source),
+			CatalogueCode(*target));
 
 		if (0 == transformations.size())
 		{
@@ -731,7 +750,7 @@ namespace CrsKit::Epsg
 			// [REGENTE], not the generic ETRS89/WGS 84 requested here), so the exact (source, target)
 			// pair finds nothing. Locate the geoid operation by the vertical target and reuse it: the
 			// grid is interpolated at the point's lat/lon, so the source realization is immaterial.
-			auto const geoidOperations = _provider->GeographicToVerticalOperationCodes(target->GetAuthorityCode());
+			auto const geoidOperations = _provider->GeographicToVerticalOperationCodes(CatalogueCode(*target));
 
 			// Several geoid models may serve the same vertical system (EGM2008 height has two: a 1' grid
 			// and a 2.5' one), and they are not interchangeable. Ambiguity is the caller's to resolve
@@ -786,6 +805,7 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateCoordinateTransformBetweenGeographicVerticalSystems(std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<VerticalCoordinateSystem> const& target, int operationCode, bool inverse) const -> std::shared_ptr<CoordinateTransformation>
 	{
+		operationCode = ResolveOperationAlias(operationCode);
 		if (inverse)
 		{
 			return make_shared<CoordinateTransformation>(
