@@ -54,6 +54,33 @@ find_package(crskit CONFIG REQUIRED)
 target_link_libraries(your_target PRIVATE crskit::crskit)
 ```
 
+### CRS and operation aliases
+
+Data stored with CRS codes or WKT that are not in the EPSG catalogue (an application's own vertical
+datum, a superseded code) can be resolved as the official CRS through `CrsContext::aliases`
+(`crskit/CrsAliases.h`). The application fills three tables:
+
+```cpp
+auto& aliases = CrsKit::GetDefaultContext()->aliases;
+aliases.AddCrs(900001, 5773);                 // EPSG:900001 -> EPSG:5773 (EGM96 height)
+aliases.AddCrs("MyApp", 17, 5773);            // MyApp:17   -> EPSG:5773
+aliases.AddCrsName("My local height", 5773);  // a CRS with this name -> EPSG:5773
+aliases.AddOperation(900100, 10084);          // operation 900100 -> EPSG operation 10084
+```
+
+- Each alias is applied **before** the catalogue is consulted, under both `WktParsePolicy` values: a CRS
+  that matches is the official CRS built entirely from the catalogue (name, datum, unit, code), and
+  `GetWkt()` emits that CRS. The WKT1 `AXIS` of a geographic or projected CRS, when present, is kept.
+- It applies to `CoordinateSystemAuthorityFactory` (every CRS created by code), to the WKT1 and WKT2
+  readers (by `AUTHORITY`/`ID` first, by name second), to each component of a compound CRS (a compound
+  whose component is replaced takes its name from the components and loses its own code), to ESRI WKT,
+  and to `CoordinateTransformationAuthorityFactory` (operation codes, the code returned by
+  `selectOperation`, and the CRS codes it looks operations up by).
+- Names are compared without ASCII case, with `_` read as a space and runs of spaces collapsed and
+  trimmed. Bytes outside ASCII are compared as they are: UTF-8 accents must match exactly.
+- Chains (`A -> B`, `B -> C`) are rejected with `std::invalid_argument`. Compound CRS codes cannot be
+  aliased; their components can.
+
 ## Using CrsKit from Python
 
 CrsKit has a Python binding (pybind11), published as a wheel:
