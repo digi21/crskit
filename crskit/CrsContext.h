@@ -52,6 +52,7 @@ namespace CrsKit
 	// explicit CrsContext to override these per call. Companion to CoordinateTransformationOptions,
 	// which carries the per-call transform-building callbacks ("Type B"). Modelled after PROJ's
 	// PJ_CONTEXT: a default exists for convenience, and any call may pass its own.
+	// New fields go at the end: binaries built against an earlier version access the existing ones by offset.
 	struct CrsContext final
 	{
 		// Output flavour for the no-argument GetWkt(); the GetWkt(WktVersion) overload overrides it per call.
@@ -66,5 +67,10 @@ namespace CrsKit
 		// Caller-supplied CRS and operation equivalences, applied before the catalogue under both parse
 		// policies (see CrsAliases). Read ambiently by the factories and the WKT readers, like parsePolicy.
 		CrsAliases aliases{};
+		// Under CatalogWins, a GEOGCS or PROJCS without AUTHORITY whose datum carries TOWGS84 is also resolved
+		// by its ESRI name when its ellipsoid, prime meridian and angular unit match the catalogue CRS (for a
+		// PROJCS, also the ESRI name of its GEOGCS); the TOWGS84 parameters are then dropped. When false, such a
+		// WKT is built from its pieces.
+		bool snapEsriNameWithTowgs84{};
 	};
 }

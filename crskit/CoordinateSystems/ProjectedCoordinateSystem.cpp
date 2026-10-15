@@ -49,16 +49,37 @@ namespace CrsKit::CoordinateSystems
 		else if (CatalogWins())
 		{
 			// No AUTHORITY node: we try to recognise the CRS by name and use the catalogue version.
-			// BUT a datum carrying explicit TOWGS84 parameters is taken at face value: snapping it to a
-			// same-named catalogue entry would drop the Bursa-Wolf parameters the caller supplied, so we
-			// keep the WKT definition as-is. The datum sits at PROJCS -> GEOGCS -> DATUM.
-			if (!tokenPROJCS.GetChild(1).GetChild(1).HasChild("TOWGS84"))
+			// A datum carrying explicit TOWGS84 parameters is kept as-is, because snapping drops them,
+			// unless CrsContext::snapEsriNameWithTowgs84 is set, the ESRI name of the GEOGCS is that of the
+			// catalogue base CRS and its definition matches. The datum sits at PROJCS -> GEOGCS -> DATUM.
+			auto const& tokenGEOGCS = tokenPROJCS.GetChild(1);
+			if (!tokenGEOGCS.GetChild(1).HasChild("TOWGS84"))
 			{
 				// We check whether it is of type EsriProjectionEngine
 				auto const epsgCode = EsriProjectionEngine::FindHorizontalEpsgCodeByName(tokenPROJCS.GetChild(0).GetString());
 
 				if (0 != epsgCode)
 					return GetCoordinateSystemAuthorityFactory()->CreateProjectedCoordinateSystem(epsgCode, axis);
+			}
+			else if (GetDefaultContext()->snapEsriNameWithTowgs84)
+			{
+				auto const epsgCode = EsriProjectionEngine::FindHorizontalEpsgCodeByName(tokenPROJCS.GetChild(0).GetString());
+				auto const geographicCode = EsriProjectionEngine::FindHorizontalEpsgCodeByName(tokenGEOGCS.GetChild(0).GetString());
+
+				if (0 != epsgCode && 0 != geographicCode)
+				{
+					try
+					{
+						auto system = GetCoordinateSystemAuthorityFactory()->CreateProjectedCoordinateSystem(epsgCode, axis);
+						auto const base = system->GetGeographicCoordinateSystem();
+						if (base && base->GetAuthorityCode() == geographicCode && GeographicCoordinateSystem::MatchesCatalogueDefinition(tokenGEOGCS, *base))
+							return system;
+					}
+					catch (std::exception const&)
+					{
+						// The ESRI name belongs to a CRS of another type: build from the text.
+					}
+				}
 			}
 		}
 

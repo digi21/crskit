@@ -1,4 +1,5 @@
 #include "pch.h"
+#include <numbers>
 #include "BaseInfo.h"
 #include "CoordinateSystem.h"
 #include "HorizontalDatum.h"
@@ -49,10 +50,10 @@ namespace CrsKit::CoordinateSystems
 		else if (CatalogWins())
 		{
 			// No AUTHORITY node: we try to recognise the CRS by name and use the catalogue version.
-			// BUT a datum carrying explicit TOWGS84 parameters is taken at face value: snapping it to a
-			// same-named catalogue entry would drop the Bursa-Wolf parameters the caller supplied, so we
-			// keep the WKT definition as-is.
-			if (!tokenGEOGCS.GetChild(1).HasChild("TOWGS84"))
+			// A datum carrying explicit TOWGS84 parameters is kept as-is, because snapping drops them,
+			// unless CrsContext::snapEsriNameWithTowgs84 is set and MatchesCatalogueDefinition holds.
+			auto const hasTowgs84 = tokenGEOGCS.GetChild(1).HasChild("TOWGS84");
+			if (!hasTowgs84)
 			{
 				// We check whether it is of type EsriProjectionEngine
 				auto const epsgCode = EsriProjectionEngine::FindHorizontalEpsgCodeByName(tokenGEOGCS.GetChild(0).GetString());
@@ -66,6 +67,11 @@ namespace CrsKit::CoordinateSystems
 
 					return GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode, axis);
 				}
+			}
+			else if (GetDefaultContext()->snapEsriNameWithTowgs84)
+			{
+				if (auto system = SnapEsriNameWithTowgs84(tokenGEOGCS))
+					return system;
 			}
 		}
 
@@ -115,6 +121,58 @@ namespace CrsKit::CoordinateSystems
 			PrimeMeridian::FromWkt(tokenGEOGCS.GetChild(2)),
 			axis,
 			units);
+	}
+
+	auto GeographicCoordinateSystem::SnapEsriNameWithTowgs84(Wkt::TokenWkt const& tokenGEOGCS) -> std::shared_ptr<GeographicCoordinateSystem>
+	{
+		auto const epsgCode = EsriProjectionEngine::FindHorizontalEpsgCodeByName(tokenGEOGCS.GetChild(0).GetString());
+		if (0 == epsgCode)
+			return {};
+
+		try
+		{
+			auto const axis = AxisInfo::FromWkt(tokenGEOGCS);
+			auto system = axis.empty()
+				? GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode)
+				: GetCoordinateSystemAuthorityFactory()->CreateGeographicCoordinateSystem(epsgCode, axis);
+			return MatchesCatalogueDefinition(tokenGEOGCS, *system) ? system : nullptr;
+		}
+		catch (std::exception const&)
+		{
+			// The ESRI name belongs to a CRS of another type (a projected CRS, for instance): build from the text.
+			return {};
+		}
+	}
+
+	auto GeographicCoordinateSystem::MatchesCatalogueDefinition(Wkt::TokenWkt const& tokenGEOGCS, IGeographicCoordinateSystem const& system) -> bool
+	{
+		if (tokenGEOGCS.GetChildCount() < 4)
+			return false;
+
+		auto const& datum = tokenGEOGCS.GetChild(1);
+		auto const& meridian = tokenGEOGCS.GetChild(2);
+		if (datum.GetChildCount() < 2 || compareNoCase(datum.GetChild(1).GetName().c_str(), "SPHEROID") || compareNoCase(meridian.GetName().c_str(), "PRIMEM"))
+			return false;
+
+		auto const& spheroid = datum.GetChild(1);
+		if (spheroid.GetChildCount() < 3 || meridian.GetChildCount() < 2)
+			return false;
+
+		// The semi-major axis is in metres. The prime meridian is read in degrees, as PrimeMeridian::FromWkt reads
+		// it and as ESRI writes it even when the GEOGCS unit is the grad.
+		auto const semiMajorAxis = spheroid.GetChild(1).GetDouble();
+		auto const inverseFlattening = spheroid.GetChild(2).GetDouble();
+		auto const meridianRadians = meridian.GetChild(1).GetDouble() * std::numbers::pi / 180.0;
+		auto const radiansPerUnit = AngularUnit::FromWkt(tokenGEOGCS.GetChild(3)).GetRadiansPerUnit();
+
+		auto const& ellipsoid = system.GetHorizontalDatum()->GetEllipsoid();
+		auto const systemMeridian = system.GetPrimeMeridian();
+		auto const systemRadiansPerUnit = system.GetAngularUnit().GetRadiansPerUnit();
+
+		return fabs(ellipsoid.GetSemiMajorAxis() * ellipsoid.GetLinearUnit().GetMetersPerUnit() - semiMajorAxis) <= 1e-2
+			&& fabs(ellipsoid.GetInverseFlattening() - inverseFlattening) <= 1e-4
+			&& fabs(systemMeridian.GetLongitude() * systemMeridian.GetAngularUnit().GetRadiansPerUnit() - meridianRadians) <= 1e-8
+			&& fabs(systemRadiansPerUnit - radiansPerUnit) <= 1e-9 * systemRadiansPerUnit;
 	}
 
 	auto GeographicCoordinateSystem::GetAngularUnit() const -> AngularUnit
