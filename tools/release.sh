@@ -56,8 +56,9 @@ done
 [ -z "$SHA" ] && { echo "error: could not fetch tarball SHA512"; exit 1; }
 echo "   SHA512 = $SHA"
 
-# 4. Write the SHA512 into the portfile and commit.
-sed -i -E "s|(SHA512 )[0-9a-f]+|\1$SHA|" ports/crskit/portfile.cmake
+# 4. Write the SHA512 into the portfile and commit. Anchored to the argument line: a comment such as
+#    "the SHA512 below" also starts with hex letters.
+sed -i -E "s|^([[:space:]]*SHA512 )[0-9a-f]+|\1$SHA|" ports/crskit/portfile.cmake
 git add ports/crskit/portfile.cmake
 git commit -m "vcpkg: pin the v$VERSION source SHA512 in the crskit port"
 
