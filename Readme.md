@@ -32,10 +32,16 @@ applies transformations between systems, backed by the full EPSG catalogue.
 
 ## Using CrsKit (vcpkg)
 
-CrsKit is distributed as a vcpkg registry. Point your project at it in `vcpkg-configuration.json`:
+CrsKit is distributed as a vcpkg registry. Point your project at it in `vcpkg-configuration.json`. vcpkg
+requires a baseline for the default registry when other registries are listed, so the file sets both:
 
 ```json
 {
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "<commit of microsoft/vcpkg>"
+  },
   "registries": [
     {
       "kind": "git",
