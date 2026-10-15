@@ -1,5 +1,7 @@
 #include "pch.h"
 
+#include <charconv>
+
 using namespace std;
 
 namespace CrsKit::Wkt
@@ -68,13 +70,23 @@ namespace CrsKit::Wkt
 		return *_children[index];
 	}
 
+	auto ReadAuthorityCode(TokenWkt const& code) -> int
+	{
+		auto const text = code.GetString();
+		auto value = 0;
+		auto const [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+		if (error != std::errc{} || end != text.data() + text.size())
+			return 0;
+		return value;
+	}
+
 	auto ReadAuthority(TokenWkt const& node) -> std::pair<std::string, int>
 	{
 		if (!node.HasChild("AUTHORITY"))
 			return { "", 0 };
 
 		auto const& authority = node.GetChild("AUTHORITY");
-		return { authority.GetChild(0).GetString(), authority.GetChild(1).GetInt() };
+		return { authority.GetChild(0).GetString(), ReadAuthorityCode(authority.GetChild(1)) };
 	}
 
 	auto EpsgCode(TokenWkt const& node) -> int

@@ -47,7 +47,7 @@ namespace CrsKit::CoordinateSystems
 				continue;
 			hasId = true;
 			auto const& id = node.GetChild(keyword);
-			if (auto const code = aliases.FindCrs(id.GetChild(0).GetString(), id.GetChild(1).GetInt()))
+			if (auto const code = aliases.FindCrs(id.GetChild(0).GetString(), Wkt::ReadAuthorityCode(id.GetChild(1))))
 				return code;
 		}
 

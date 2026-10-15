@@ -168,13 +168,13 @@ namespace CrsKit::Wkt
 			{
 				auto const& id = node.GetChild("ID");
 				authority = id.GetChild(0).GetString();
-				code = id.GetChild(1).GetInt();
+				code = CrsKit::Wkt::ReadAuthorityCode(id.GetChild(1));
 			}
 			else if (node.HasChild("AUTHORITY"))
 			{
 				auto const& id = node.GetChild("AUTHORITY");
 				authority = id.GetChild(0).GetString();
-				code = id.GetChild(1).GetInt();
+				code = CrsKit::Wkt::ReadAuthorityCode(id.GetChild(1));
 			}
 		}
 

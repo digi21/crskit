@@ -64,6 +64,9 @@ namespace CrsKit::Wkt
 		auto GetChild(size_t index) const noexcept(false) -> const TokenWkt&;
 	};
 
+	// The code of an AUTHORITY/ID node, read from its value token; 0 when it is not a number (IGNF "LAMB93").
+	[[nodiscard]] auto ReadAuthorityCode(TokenWkt const& code) -> int;
+
 	// The (authority name, code) carried by a node's AUTHORITY child, or {"", 0} when there is none.
 	[[nodiscard]] auto ReadAuthority(TokenWkt const& node) -> std::pair<std::string, int>;
 
