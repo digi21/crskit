@@ -35,7 +35,8 @@ namespace CrsKit
 	//
 	// Chains are rejected with std::invalid_argument (an alias target cannot be the source of another alias),
 	// so resolving twice gives the same result as resolving once. Adding an existing source replaces its
-	// target. Copies share the tables; Add* and Clear replace them, so a copy taken earlier is not changed.
+	// target, whether the old or the new target is the source itself (code -> code). Copies share the
+	// tables; Add* and Clear replace them, so a copy taken earlier is not changed.
 	class _modeCrsKit CrsAliases final
 	{
 	public:

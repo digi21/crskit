@@ -431,3 +431,35 @@ TEST(CrsAliases, SingleCandidateOperationResolvesItsAlias)
 	ExpectAliasedSingleCandidate(7371, 4978, 7377, 7666);
 	ExpectAliasedSingleCandidate(4978, 7371, 7377, 7666);
 }
+
+TEST(CrsAliases, AddingAnExistingSourceReplacesItsTarget)
+{
+	CrsAliases crs;
+	crs.AddCrs(kEgm96Height, kEgm96Height);
+	EXPECT_NO_THROW(crs.AddCrs(kEgm96Height, kNavd88Height));
+	EXPECT_EQ(kNavd88Height, crs.ResolveCrs(kEgm96Height));
+
+	CrsAliases identity;
+	identity.AddCrs(kCustomVertical, kEgm96Height);
+	EXPECT_NO_THROW(identity.AddCrs(kCustomVertical, kCustomVertical));
+	EXPECT_EQ(kCustomVertical, identity.ResolveCrs(kCustomVertical));
+
+	CrsAliases operations;
+	operations.AddOperation(1149, 1149);
+	EXPECT_NO_THROW(operations.AddOperation(1149, 1150));
+	EXPECT_EQ(1150, operations.ResolveOperation(1149));
+
+	CrsAliases operationIdentity;
+	operationIdentity.AddOperation(990100, 1149);
+	EXPECT_NO_THROW(operationIdentity.AddOperation(990100, 990100));
+	EXPECT_EQ(990100, operationIdentity.ResolveOperation(990100));
+
+	// Chains through another source are still rejected.
+	CrsAliases chained;
+	chained.AddCrs(kCustomVertical, kEgm96Height);
+	EXPECT_THROW(chained.AddCrs(kEgm96Height, kNavd88Height), std::invalid_argument);
+	EXPECT_THROW(chained.AddCrs(990003, kCustomVertical), std::invalid_argument);
+	chained.AddOperation(990100, 1149);
+	EXPECT_THROW(chained.AddOperation(1149, 1150), std::invalid_argument);
+	EXPECT_THROW(chained.AddOperation(990101, 990100), std::invalid_argument);
+}

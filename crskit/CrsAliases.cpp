@@ -57,8 +57,10 @@ namespace CrsKit
 	{
 		if (!_tables)
 			return false;
+		// The entry of EPSG:code itself is the one being replaced, so it does not count.
+		auto const isOtherCode = [code](auto const& entry) { return entry.second == code && entry.first != std::pair<std::string, int>{ kEpsg, code }; };
 		auto const isCode = [code](auto const& entry) { return entry.second == code; };
-		return std::ranges::any_of(_tables->crsCodes, isCode) || std::ranges::any_of(_tables->crsNames, isCode);
+		return std::ranges::any_of(_tables->crsCodes, isOtherCode) || std::ranges::any_of(_tables->crsNames, isCode);
 	}
 
 	auto CrsAliases::ThrowIfCrsTargetIsSource(int targetCode) const -> void
@@ -79,7 +81,9 @@ namespace CrsKit
 		if (key.first.empty())
 			throw std::invalid_argument("A CRS alias needs an authority.");
 
-		ThrowIfCrsTargetIsSource(targetCode);
+		// EPSG:code -> EPSG:code replaces whatever EPSG:code resolved to, so it cannot form a chain.
+		if (key.first != kEpsg || code != targetCode)
+			ThrowIfCrsTargetIsSource(targetCode);
 		if (key.first == kEpsg && code != targetCode && IsCrsTarget(code))
 			throw std::invalid_argument(std::format("EPSG:{} is the target of another alias; aliases cannot be chained.", code));
 
@@ -105,9 +109,10 @@ namespace CrsKit
 	auto CrsAliases::AddOperation(int code, int targetCode) -> void
 	{
 		ThrowIfInvalidTarget(targetCode);
-		if (auto const existing = FindOperation(targetCode); existing && *existing != targetCode)
+		// code -> code replaces whatever 'code' resolved to, and the entry of 'code' itself is the one being replaced.
+		if (auto const existing = FindOperation(targetCode); code != targetCode && existing && *existing != targetCode)
 			throw std::invalid_argument(std::format("Operation {} is already an alias of operation {}; aliases cannot be chained.", targetCode, *existing));
-		if (code != targetCode && _tables && std::ranges::any_of(_tables->operations, [code](auto const& entry) { return entry.second == code; }))
+		if (code != targetCode && _tables && std::ranges::any_of(_tables->operations, [code](auto const& entry) { return entry.second == code && entry.first != code; }))
 			throw std::invalid_argument(std::format("Operation {} is the target of another alias; aliases cannot be chained.", code));
 
 		auto tables = _tables ? std::make_shared<Tables>(*_tables) : std::make_shared<Tables>();
