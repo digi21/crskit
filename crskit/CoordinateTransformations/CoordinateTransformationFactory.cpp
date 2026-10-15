@@ -1133,33 +1133,9 @@ namespace CrsKit::CoordinateTransformations
 			verticalTransformations.push_back(userSpecifiedVerticalTransformation);
 		}
 
-
-		std::shared_ptr<IMathTransform> verticalTransformation;
-		if (1 == verticalTransformations.size())
-			verticalTransformation = verticalTransformations[0];
-		else
-			verticalTransformation = make_shared<ConcatenatedTransform>(verticalTransformations);
-
-		// Some Geo-to-Vertical transformations return three coordinates and others only one coordinate
-
-		if (3 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
-		{
-			// The transformation receives XYZ and returns Z
-			// but what we must return is XYZ, so I do the following:
-			// XYZ -> XYXYZ
-			// PASSTHROUGH(2, transformation)
-			transformations.push_back(Affine::TransformXyzToXyXyz());
-			transformations.push_back(make_shared<PassThrough>(2, verticalTransformation));
-		}
-		else if (1 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
-		{
-			transformations.push_back(make_shared<PassThrough>(2, verticalTransformation));
-		}
-		else
-		{
-			for (auto i = verticalTransformations.size() - 1; i >= 0; i--)
-				transformations.push_back(verticalTransformations[i]);
-		}
+		// Some geographic-to-vertical transformations return the three coordinates and others only the height.
+		if (!verticalTransformations.empty())
+			AppendVerticalStep(transformations, ConcatenateVertical(verticalTransformations));
 
 		return transformations;
 	}
