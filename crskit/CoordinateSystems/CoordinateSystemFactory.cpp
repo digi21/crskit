@@ -28,6 +28,23 @@ namespace CrsKit::CoordinateSystems
 		return GetDefaultContext()->parsePolicy == WktParsePolicy::CatalogWins;
 	}
 
+	// The PROJCS and VERTCS texts of an ESRI compound: "PROJCS[...],VERTCS[...]", or the VERTCS nested as the
+	// last child of the PROJCS, whose closing bracket then goes back to the PROJCS.
+	auto SplitEsriCompound(std::string const& wkt) -> std::pair<std::string, std::string>
+	{
+		auto const start = wkt.find(",VERTCS");
+		if (std::string::npos == start)
+			return { wkt, {} };
+		auto horizontal = wkt.substr(0, start);
+		auto vertical = wkt.substr(start + 1);
+		if (std::ranges::count(vertical, '[') < std::ranges::count(vertical, ']') && vertical.ends_with(']'))
+		{
+			vertical.pop_back();
+			horizontal += ']';
+		}
+		return { horizontal, vertical };
+	}
+
 	auto FindCrsAlias(Wkt::TokenWkt const& node) -> std::optional<int>
 	{
 		auto const context = GetDefaultContext();
@@ -105,8 +122,12 @@ namespace CrsKit::CoordinateSystems
 		// codes falls through to the horizontal-only parse below.)
 		if (EsriProjectionEngine::IsEsriCompound(root))
 		{
+			// A VERTCS without code is looked up by its text in the ESRI table.
 			auto const& vertcs = root.GetChild("VERTCS");
-			if (auto const horizontalCode = FindCrsAlias(root).value_or(Wkt::EpsgCode(root)), verticalCode = FindCrsAlias(vertcs).value_or(Wkt::EpsgCode(vertcs)); 0 != horizontalCode && 0 != verticalCode)
+			auto verticalCode = FindCrsAlias(vertcs).value_or(Wkt::EpsgCode(vertcs));
+			if (0 == verticalCode)
+				verticalCode = EsriProjectionEngine::FindVerticalEpsgCode(SplitEsriCompound(wkt).second);
+			if (auto const horizontalCode = FindCrsAlias(root).value_or(Wkt::EpsgCode(root)); 0 != horizontalCode && 0 != verticalCode)
 				return GetCoordinateSystemAuthorityFactory()->CreateCompoundCoordinateSystem(horizontalCode, verticalCode);
 		}
 
@@ -122,17 +143,8 @@ namespace CrsKit::CoordinateSystems
 			// the option to create OpenGIS-compatible systems is set, and therefore the name it will be assigned
 			// this reference system will be the ArcInfo name and not the ArcGis name, which is the one the user expects to see.
 			std::string verticalWkt;
-			for (auto i = 0u; i < deserializadorWkt.GetRootNode().GetChildCount(); i++)
-			{
-				if (deserializadorWkt.GetRootNode().GetChild(i).GetName() == "VERTCS")
-				{
-					// It is an Esri system and also has a vertical component
-					auto const comienzo = wkt.find(",VERTCS");
-					verticalWkt = wkt.substr(wkt.size() - comienzo - 1);
-					wkt = wkt.substr(0,comienzo);
-					break;
-				}
-			}
+			if (root.HasChild("VERTCS"))
+				std::tie(wkt, verticalWkt) = SplitEsriCompound(wkt);
 
 			auto const horizontalEpsgCode = EsriProjectionEngine::FindHorizontalEpsgCode(wkt);
 			auto const verticalAlias = root.HasChild("VERTCS") ? FindCrsAlias(root.GetChild("VERTCS")) : std::nullopt;
