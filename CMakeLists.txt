@@ -125,7 +125,12 @@ if(DIGI21_BUILD_TESTS)
         "${CMAKE_CURRENT_SOURCE_DIR}/external/sqlite")
 
     target_compile_definitions(crskit_tests PRIVATE
-        _CONSOLE _CRT_SECURE_NO_WARNINGS GTEST_LINKED_AS_SHARED_LIBRARY=1 UNICODE _UNICODE)
+        _CONSOLE _CRT_SECURE_NO_WARNINGS UNICODE _UNICODE)
+    # The gtest headers import their symbols from a DLL only when gtest is one; the fetched gtest is static.
+    get_target_property(GTEST_LIBRARY_TYPE GTest::gtest TYPE)
+    if(GTEST_LIBRARY_TYPE STREQUAL "SHARED_LIBRARY")
+        target_compile_definitions(crskit_tests PRIVATE GTEST_LINKED_AS_SHARED_LIBRARY=1)
+    endif()
 
     # Own main() in TestEnvironment.cpp -> do not link gtest_main.
     target_link_libraries(crskit_tests PRIVATE crskit GTest::gtest)
