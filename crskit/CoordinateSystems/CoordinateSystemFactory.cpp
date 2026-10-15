@@ -220,6 +220,18 @@ namespace CrsKit::CoordinateSystems
 		return CreateUnknownCompound();
 	}
 
+	namespace
+	{
+		// Every axis of the CRS, the height of a geographic 3D CRS included.
+		auto AxesOf(CoordinateSystem const& coordinateSystem) -> std::vector<AxisInfo>
+		{
+			std::vector<AxisInfo> axes;
+			for (auto i = 0; i < coordinateSystem.GetDimension(); ++i)
+				axes.push_back(coordinateSystem.GetAxis(i));
+			return axes;
+		}
+	}
+
 	auto CoordinateSystemFactory::WithAxesEastNorth(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<CoordinateSystem>
 	{
 		if (coordinateSystem->GetAxis(0).GetOrientation() == AxisOrientationEnum::East &&
@@ -228,8 +240,7 @@ namespace CrsKit::CoordinateSystems
 
 		if (auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem); nullptr != geographic)
 		{
-			std::vector<AxisInfo> axis;
-			axis.resize(coordinateSystem->GetDimension());
+			auto axis = AxesOf(*coordinateSystem);
 			axis[0] = AxisInfo("Lon", AxisOrientationEnum::East);
 			axis[1] = AxisInfo("Lat", AxisOrientationEnum::North);
 
@@ -273,8 +284,7 @@ namespace CrsKit::CoordinateSystems
 		auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
 		if (nullptr != geographic)
 		{
-			std::vector<AxisInfo> axis;
-			axis.resize(2);
+			auto axis = AxesOf(*coordinateSystem);
 			axis[0] = AxisInfo("Lat", AxisOrientationEnum::North);
 			axis[1] = AxisInfo("Lon", AxisOrientationEnum::East);
 
