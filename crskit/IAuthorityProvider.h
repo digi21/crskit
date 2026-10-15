@@ -63,7 +63,7 @@ namespace CrsKit::Epsg
 		// when the exact (geographic, vertical) pair has no operation because the geoid is catalogued
 		// against a specific realization (e.g. Alicante height's geoid is EPSG 9410 with source
 		// ETRS89-ESP [REGENTE], not the generic ETRS89/WGS 84). Default: none (optional capability).
-		[[nodiscard]] virtual auto GeographicToVerticalOperationCodes(int verticalTargetSystem) -> std::vector<CoordinateTransformations::CoordinateOperation> { return {}; }
+		[[nodiscard]] virtual auto GeographicToVerticalOperationCodes([[maybe_unused]] int verticalTargetSystem) -> std::vector<CoordinateTransformations::CoordinateOperation> { return {}; }
 		[[nodiscard]] virtual auto GetCoordinateOperationName(int operationCode) -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateOperationDescription(int operationCode) -> std::string = 0;
 		[[nodiscard]] virtual auto GetCoordinateOperationAreaOfUse(int coordinateOperationCode) -> int = 0;
