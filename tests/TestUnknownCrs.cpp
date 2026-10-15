@@ -165,3 +165,12 @@ TEST(UnknownCrs, ResolvedThreeDimensionalVerticalFromCompoundToGeographic3D)
 	ExpectHeight(Wgs84Compound(kUncodedVertical), Official(4979), Resolving(AddTenMetres3D(), calls), 110.0);
 	EXPECT_LT(0, calls);
 }
+
+// The same 3D -> 3D vertical transformation supplied for geographic 3D -> compound and compound -> compound.
+TEST(UnknownCrs, ResolvedThreeDimensionalVerticalToACompound)
+{
+	int calls{};
+	ExpectHeight(Official(4979), Wgs84Compound(kUncodedVertical), Resolving(AddTenMetres3D(), calls), 110.0);
+	ExpectHeight(Wgs84Compound(Official(5773)->GetWkt(WktVersion::Wkt1)), Wgs84Compound(kUncodedVertical), Resolving(AddTenMetres3D(), calls), 110.0);
+	EXPECT_LT(0, calls);
+}

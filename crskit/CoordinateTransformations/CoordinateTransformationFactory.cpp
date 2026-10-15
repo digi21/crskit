@@ -1079,10 +1079,7 @@ namespace CrsKit::CoordinateTransformations
 			if (nullptr == userSpecifiedVerticalTransformation)
 				throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", geographic3D->GetName().c_str(), verticalTarget->GetName().c_str()));
 
-			if (3 == userSpecifiedVerticalTransformation->GetSourceDimension())
-				transformations.push_back(Affine::TransformXyzToXyXyz());
-
-			transformations.push_back(make_shared<PassThrough>(2, userSpecifiedVerticalTransformation));
+			AppendVerticalStep(transformations, userSpecifiedVerticalTransformation);
 		}
 
 		// Transformation horizontal
@@ -1184,10 +1181,7 @@ namespace CrsKit::CoordinateTransformations
 				if (nullptr == userSpecifiedVerticalTransformation)
 					throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", verticalSource->GetName().c_str(), verticalTarget->GetName().c_str()));
 
-				if (3 == userSpecifiedVerticalTransformation->GetSourceDimension())
-					transformations.push_back(Affine::TransformXyzToXyXyz());
-
-				transformations.push_back(make_shared<PassThrough>(2, userSpecifiedVerticalTransformation));
+				AppendVerticalStep(transformations, userSpecifiedVerticalTransformation);
 			}
 		}
 
