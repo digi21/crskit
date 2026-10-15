@@ -27,7 +27,8 @@ namespace CrsKit
 	//
 	// Where aliases apply: every CRS created by code through the EPSG CoordinateSystemAuthorityFactory
 	// (including the base CRS it looks up internally), every WKT1/WKT2 CRS node (GEOGCS, PROJCS, VERT_CS,
-	// GEOCCS, GEOGCRS, PROJCRS, VERTCRS, GEODCRS; by AUTHORITY/ID first, by name second) and the components
+	// GEOCCS, GEOGCRS, PROJCRS, VERTCRS, GEODCRS; by AUTHORITY/ID, and by name only when the node carries no
+	// AUTHORITY/ID, so a WKT with a code that has no alias keeps that code whatever its name) and the components
 	// of a compound CRS; every operation code the EPSG CoordinateTransformationAuthorityFactory receives,
 	// including the one returned by CoordinateTransformationOptions::selectOperation; and the CRS codes it
 	// uses to look up operations between two CRS. A compound CRS code is not aliased: a compound is
@@ -44,7 +45,7 @@ namespace CrsKit
 		auto AddCrs(int code, int targetCode) -> void;
 		// authority:code resolves as EPSG:targetCode. The authority is compared without case.
 		auto AddCrs(std::string_view authority, int code, int targetCode) -> void;
-		// A CRS named 'name' (after NormalizeName) resolves as EPSG:targetCode.
+		// A CRS named 'name' (after NormalizeName) whose WKT has no AUTHORITY/ID resolves as EPSG:targetCode.
 		auto AddCrsName(std::string_view name, int targetCode) -> void;
 		// The EPSG operation 'code' resolves as the EPSG operation targetCode.
 		auto AddOperation(int code, int targetCode) -> void;

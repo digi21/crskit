@@ -97,15 +97,15 @@ namespace
 	const char* kVerticalWkt2WithoutId =
 		R"WKT(VERTCRS["My local height",VDATUM["My local datum"],CS[vertical,1],AXIS["gravity-related height (H)",up,LENGTHUNIT["metre",1]]])WKT";
 
-	// The official WKT of 'code' with its name and outermost AUTHORITY/ID code replaced.
+	// The official WKT of 'code' with its name and outermost AUTHORITY/ID code replaced (removed when newCode is 0).
 	auto Renamed(int code, WktVersion version, std::string const& name, int newCode) -> std::string
 	{
 		auto const official = Official(code);
 		auto wkt = official->GetWkt(version);
 		auto const quotedName = std::format("\"{}\"", official->GetName());
 		wkt.replace(wkt.find(quotedName), quotedName.size(), std::format("\"{}\"", name));
-		auto const id = IsWkt2(version) ? std::format("ID[\"EPSG\",{}]", code) : std::format("AUTHORITY[\"EPSG\",\"{}\"]", code);
-		auto const newId = IsWkt2(version) ? std::format("ID[\"EPSG\",{}]", newCode) : std::format("AUTHORITY[\"EPSG\",\"{}\"]", newCode);
+		auto const id = IsWkt2(version) ? std::format(",ID[\"EPSG\",{}]", code) : std::format(",AUTHORITY[\"EPSG\",\"{}\"]", code);
+		auto const newId = 0 == newCode ? std::string{} : IsWkt2(version) ? std::format(",ID[\"EPSG\",{}]", newCode) : std::format(",AUTHORITY[\"EPSG\",\"{}\"]", newCode);
 		wkt.replace(wkt.rfind(id), id.size(), newId);
 		return wkt;
 	}
@@ -271,7 +271,7 @@ TEST(CrsAliases, HorizontalCrsResolveByCodeAndByName)
 		for (auto const version : { WktVersion::Wkt1, WktVersion::Wkt2_2019 })
 		{
 			ExpectOfficial(FromWkt(Renamed(kEtrs89Utm30N, version, "Some projected", kCustomProjected)), kEtrs89Utm30N);
-			ExpectOfficial(FromWkt(Renamed(kEtrs89Utm30N, version, "MY_PROJECTED", 990999)), kEtrs89Utm30N);
+			ExpectOfficial(FromWkt(Renamed(kEtrs89Utm30N, version, "MY_PROJECTED", 0)), kEtrs89Utm30N);
 			ExpectOfficial(FromWkt(Renamed(kEtrs89, version, "Some geographic", kCustomGeographic)), kEtrs89);
 			ExpectOfficial(FromWkt(Renamed(4936, version, "Some geocentric", kCustomGeocentric)), 4936);
 		}
@@ -404,34 +404,6 @@ TEST(CrsAliases, OperationLookupUsesTheAliasOfACrsBuiltBeforehand)
 	}
 }
 
-namespace
-{
-	// The operation the factory picks between two CRS is the alias target of the single candidate.
-	auto ExpectAliasedSingleCandidate(int sourceCode, int targetCode, int candidate, int replacement) -> void
-	{
-		CrsAliases aliases;
-		aliases.AddOperation(candidate, replacement);
-		ScopedAliases _{ aliases };
-
-		auto const factory = GetCoordinateTransformationAuthorityFactory();
-		auto const ct = factory->CreateFromCoordinateSystems(Official(sourceCode), Official(targetCode));
-		auto const official = factory->CreateFromTransformationCode(replacement);
-		EXPECT_EQ(std::to_string(replacement), ct->GetAuthorityCode());
-		EXPECT_EQ(official->GetName(), ct->GetName());
-		EXPECT_EQ(official->GetAreaOfUse(), ct->GetAreaOfUse());
-	}
-}
-
-TEST(CrsAliases, SingleCandidateOperationResolvesItsAlias)
-{
-	// Vertical: NZVD2009 -> One Tree Point (only EPSG 4441), direct and inverse.
-	ExpectAliasedSingleCandidate(4440, 5767, 4441, 4442);
-	ExpectAliasedSingleCandidate(5767, 4440, 4441, 4442);
-	// Geocentric: ONGD14 -> WGS 84 (only EPSG 7377), direct and inverse.
-	ExpectAliasedSingleCandidate(7371, 4978, 7377, 7666);
-	ExpectAliasedSingleCandidate(4978, 7371, 7377, 7666);
-}
-
 TEST(CrsAliases, AddingAnExistingSourceReplacesItsTarget)
 {
 	CrsAliases crs;
@@ -462,4 +434,50 @@ TEST(CrsAliases, AddingAnExistingSourceReplacesItsTarget)
 	chained.AddOperation(990100, 1149);
 	EXPECT_THROW(chained.AddOperation(1149, 1150), std::invalid_argument);
 	EXPECT_THROW(chained.AddOperation(990101, 990100), std::invalid_argument);
+}
+
+// A name alias applies only to a WKT without AUTHORITY/ID: a WKT that carries a code keeps that code.
+TEST(CrsAliases, NameAliasDoesNotApplyToAWktWithAnAuthority)
+{
+	constexpr int kAlicanteHeight = 5782;
+	CrsAliases aliases;
+	aliases.AddCrsName("Alicante height", kNavd88Height);
+
+	for (auto const policy : { WktParsePolicy::TextWins, WktParsePolicy::CatalogWins })
+	{
+		ScopedAliases _{ aliases, policy };
+		for (auto const version : { WktVersion::Wkt1, WktVersion::Wkt2_2019 })
+		{
+			EXPECT_EQ(kAlicanteHeight, FromWkt(Official(kAlicanteHeight)->GetWkt(version))->GetAuthorityCode());
+			ExpectOfficial(FromWkt(Renamed(kAlicanteHeight, version, "Alicante height", 0)), kNavd88Height);
+		}
+	}
+}
+
+namespace
+{
+	// The operation the factory picks between two CRS is the alias target of the single candidate.
+	auto ExpectAliasedSingleCandidate(int sourceCode, int targetCode, int candidate, int replacement) -> void
+	{
+		CrsAliases aliases;
+		aliases.AddOperation(candidate, replacement);
+		ScopedAliases _{ aliases };
+
+		auto const factory = GetCoordinateTransformationAuthorityFactory();
+		auto const ct = factory->CreateFromCoordinateSystems(Official(sourceCode), Official(targetCode));
+		auto const official = factory->CreateFromTransformationCode(replacement);
+		EXPECT_EQ(std::to_string(replacement), ct->GetAuthorityCode());
+		EXPECT_EQ(official->GetName(), ct->GetName());
+		EXPECT_EQ(official->GetAreaOfUse(), ct->GetAreaOfUse());
+	}
+}
+
+TEST(CrsAliases, SingleCandidateOperationResolvesItsAlias)
+{
+	// Vertical: NZVD2009 -> One Tree Point (only EPSG 4441), direct and inverse.
+	ExpectAliasedSingleCandidate(4440, 5767, 4441, 4442);
+	ExpectAliasedSingleCandidate(5767, 4440, 4441, 4442);
+	// Geocentric: ONGD14 -> WGS 84 (only EPSG 7377), direct and inverse.
+	ExpectAliasedSingleCandidate(7371, 4978, 7377, 7666);
+	ExpectAliasedSingleCandidate(4978, 7371, 7377, 7666);
 }

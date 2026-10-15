@@ -40,16 +40,19 @@ namespace CrsKit::CoordinateSystems
 			if (0 == compareNoCase(node.GetName().c_str(), excluded))
 				return std::nullopt;
 
+		auto hasId = false;
 		for (auto const* keyword : { "ID", "AUTHORITY" })
 		{
 			if (!node.HasChild(keyword))
 				continue;
+			hasId = true;
 			auto const& id = node.GetChild(keyword);
 			if (auto const code = aliases.FindCrs(id.GetChild(0).GetString(), id.GetChild(1).GetInt()))
 				return code;
 		}
 
-		if (0 == node.GetChildCount())
+		// A name alias applies only to a node without AUTHORITY/ID.
+		if (hasId || 0 == node.GetChildCount())
 			return std::nullopt;
 		return aliases.FindCrsByName(node.GetChild(0).GetString());
 	}

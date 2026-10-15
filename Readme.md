@@ -64,7 +64,7 @@ datum, a superseded code) can be resolved as the official CRS through `CrsContex
 auto& aliases = CrsKit::GetDefaultContext()->aliases;
 aliases.AddCrs(900001, 5773);                 // EPSG:900001 -> EPSG:5773 (EGM96 height)
 aliases.AddCrs("MyApp", 17, 5773);            // MyApp:17   -> EPSG:5773
-aliases.AddCrsName("My local height", 5773);  // a CRS with this name -> EPSG:5773
+aliases.AddCrsName("My local height", 5773);  // a CRS with this name and no AUTHORITY/ID -> EPSG:5773
 aliases.AddOperation(900100, 10084);          // operation 900100 -> EPSG operation 10084
 ```
 
@@ -72,7 +72,8 @@ aliases.AddOperation(900100, 10084);          // operation 900100 -> EPSG operat
   that matches is the official CRS built entirely from the catalogue (name, datum, unit, code), and
   `GetWkt()` emits that CRS. The WKT1 `AXIS` of a geographic or projected CRS, when present, is kept.
 - It applies to `CoordinateSystemAuthorityFactory` (every CRS created by code), to the WKT1 and WKT2
-  readers (by `AUTHORITY`/`ID` first, by name second), to each component of a compound CRS (a compound
+  readers (by `AUTHORITY`/`ID`, and by name only when the WKT node has no `AUTHORITY`/`ID`: a WKT that
+  carries a code without an alias keeps that code), to each component of a compound CRS (a compound
   whose component is replaced takes its name from the components and loses its own code), to ESRI WKT,
   and to `CoordinateTransformationAuthorityFactory` (operation codes, the code returned by
   `selectOperation`, and the CRS codes it looks operations up by).
