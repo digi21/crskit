@@ -14,6 +14,8 @@
 #   3. Computes the tarball SHA512 and writes it into the portfile, commits.
 #   4. Runs `vcpkg x-add-version` to add the version to versions/, commits.
 #   5. Pushes main.
+#   6. Creates the GitHub release vX.Y.Z, marked as latest, listing the commits since the previous
+#      vX.Y.Z tag (requires the GitHub CLI `gh`, logged in with write access to the repository).
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
@@ -68,4 +70,15 @@ git commit -m "vcpkg: add crskit $VERSION to the registry version database"
 
 # 6. Push.
 git push origin HEAD
+
+# 7. GitHub release, with the commit subjects since the previous version tag as its notes.
+PREVIOUS=$(git describe --tags --abbrev=0 --match 'v*' "v$VERSION^" 2>/dev/null || true)
+RANGE="v$VERSION"
+[ -n "$PREVIOUS" ] && RANGE="$PREVIOUS..v$VERSION"
+if command -v gh >/dev/null 2>&1; then
+  git log --pretty='- %s' "$RANGE" | gh release create "v$VERSION" -R "$REPO" --title "crskit $VERSION" --notes-file - --latest
+else
+  echo "warning: gh not found; create the release v$VERSION by hand (notes: git log --pretty='- %s' $RANGE)"
+fi
+
 echo ">> Done. Consumers can bump their baseline to: $(git rev-parse HEAD)"
