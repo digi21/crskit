@@ -30,8 +30,9 @@ public:
 	static auto NameFromVerticalEpsgCode(int code) -> std::string;
 
 private:
-	static auto LoadHorizontalSystems() -> void;
-	static auto LoadVerticalSystems() -> void;
+	// False while the table file cannot be opened; the next call tries again.
+	static auto LoadHorizontalSystems() -> bool;
+	static auto LoadVerticalSystems() -> bool;
 };
 
 }

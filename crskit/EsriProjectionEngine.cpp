@@ -2,6 +2,11 @@
 #include "EsriProjectionEngine.h"
 #include "CrsContext.h"
 
+#include <atomic>
+#include <filesystem>
+#include <fstream>
+#include <mutex>
+
 using namespace std;
 using namespace CrsKit;
 
@@ -13,6 +18,32 @@ namespace
 {
 	map<int, std::string> horizontalSystems;
 	map<int, std::string> verticalSystems;
+	std::atomic<bool> horizontalLoaded{ false };
+	std::atomic<bool> verticalLoaded{ false };
+	std::mutex loadMutex;
+
+	// Fills 'table' from the file 'fileName' of the data directory the first time it can be opened. Until
+	// then every call retries; once 'loaded' is set, 'table' is never written again and is read without lock.
+	template <typename Read>
+	auto LoadTable(std::atomic<bool>& loaded, map<int, std::string>& table, char const* fileName, Read read) -> bool
+	{
+		if (loaded.load(std::memory_order_acquire))
+			return true;
+
+		std::scoped_lock const lock{ loadMutex };
+		if (loaded.load(std::memory_order_relaxed))
+			return true;
+
+		std::ifstream file{ std::filesystem::path(CrsKit::GetDefaultContext()->dataDirectory + fileName) };
+		if (!file.is_open())
+			return false;
+
+		map<int, std::string> loadedTable;
+		read(file, loadedTable);
+		table = std::move(loadedTable);
+		loaded.store(true, std::memory_order_release);
+		return true;
+	}
 
 	// The quoted name of a WKT node, e.g. GEOGCS["GCS_WGS_1984",...] -> "GCS_WGS_1984".
 	auto nodeName(Wkt::TokenWkt const& node) -> std::string
@@ -59,12 +90,12 @@ auto EsriProjectionEngine::NameFromEpsgCode(int code) -> std::string
 
 auto EsriProjectionEngine::NameFromHorizontalEpsgCode(int code) -> std::string
 {
-	if (horizontalSystems.size() == 0)
-		LoadHorizontalSystems();
+	if (!LoadHorizontalSystems())
+		return {};
 
 	if (horizontalSystems.contains(code))
 	{
-		auto const system = horizontalSystems[code];
+		auto const system = horizontalSystems.at(code);
 		auto words = split(system, "\"");
 		return words[1];
 	}
@@ -74,12 +105,12 @@ auto EsriProjectionEngine::NameFromHorizontalEpsgCode(int code) -> std::string
 
 auto EsriProjectionEngine::NameFromVerticalEpsgCode(int code) -> std::string
 {
-	if (verticalSystems.size() == 0)
-		LoadVerticalSystems();
+	if (!LoadVerticalSystems())
+		return {};
 
 	if (verticalSystems.contains(code))
 	{
-		auto const system = verticalSystems[code];
+		auto const system = verticalSystems.at(code);
 		auto words = split(system, "\"");
 		return words[1];
 	}
@@ -89,13 +120,10 @@ auto EsriProjectionEngine::NameFromVerticalEpsgCode(int code) -> std::string
 
 auto EsriProjectionEngine::HorizontalWkt(int epsgCode, std::string const& defecto, bool includeEpsgCode) -> std::string
 {
-	if (horizontalSystems.empty())
-		LoadHorizontalSystems();
-
-	if (!horizontalSystems.contains(epsgCode))
+	if (!LoadHorizontalSystems() || !horizontalSystems.contains(epsgCode))
 		return defecto;
 
-	auto system = horizontalSystems[epsgCode];
+	auto system = horizontalSystems.at(epsgCode);
 
 	if (!includeEpsgCode)
 		system = system.substr(0, system.find(",AUTHORITY")) + "]";
@@ -105,13 +133,10 @@ auto EsriProjectionEngine::HorizontalWkt(int epsgCode, std::string const& defect
 
 auto EsriProjectionEngine::VerticalWkt(int epsgCode, std::string const& defecto, bool includeEpsgCode) -> std::string
 {
-	if (verticalSystems.empty())
-		LoadVerticalSystems();
-
-	if (!verticalSystems.contains(epsgCode))
+	if (!LoadVerticalSystems() || !verticalSystems.contains(epsgCode))
 		return defecto;
 
-	auto system = verticalSystems[epsgCode];
+	auto system = verticalSystems.at(epsgCode);
 
 	if (includeEpsgCode)
 		system = system.substr(0, system.size() - 1) + std::format(",AUTHORITY[\"EPSG\",{}]]", epsgCode);
@@ -121,11 +146,8 @@ auto EsriProjectionEngine::VerticalWkt(int epsgCode, std::string const& defecto,
 
 auto EsriProjectionEngine::CompoundWkt(int horizontalEpsgCode, int verticalEpsgCode, std::string const& defecto) -> std::string
 {
-	if (horizontalSystems.empty())
-		LoadHorizontalSystems();
-
-	if (verticalSystems.empty())
-		LoadVerticalSystems();
+	if (!LoadHorizontalSystems() || !LoadVerticalSystems())
+		return defecto;
 
 	if (!horizontalSystems.contains(horizontalEpsgCode))
 		return defecto;
@@ -133,86 +155,65 @@ auto EsriProjectionEngine::CompoundWkt(int horizontalEpsgCode, int verticalEpsgC
 	if (!verticalSystems.contains(verticalEpsgCode))
 		return defecto;
 
-	auto const horizontalSystem = horizontalSystems[horizontalEpsgCode];
-	auto const verticalSystem = verticalSystems[verticalEpsgCode];
+	auto const horizontalSystem = horizontalSystems.at(horizontalEpsgCode);
+	auto const verticalSystem = verticalSystems.at(verticalEpsgCode);
 
 	return horizontalSystem + "," + verticalSystem;
 }
 
-auto EsriProjectionEngine::LoadHorizontalSystems() -> void
+auto EsriProjectionEngine::LoadHorizontalSystems() -> bool
 {
-	// Load once even under concurrent first use (the file-static map has no other synchronization).
-	static std::once_flag once;
-	std::call_once(once, []
+	return LoadTable(horizontalLoaded, horizontalSystems, "esri_epsg.wkt", [](std::ifstream& file, map<int, std::string>& table)
 	{
-		std::string const filePath = CrsKit::GetDefaultContext()->dataDirectory + "esri_epsg.wkt";
-
-		try
+		std::string text;
+		while (std::getline(file, text))
 		{
-			std::ifstream file{std::filesystem::path(filePath)};
-			if (!file.is_open())
-				throw std::runtime_error("File could not be opened");
-			std::string text;
-			while (std::getline(file, text))
+			if (text.empty() || text[0] == '#')
+				continue;
+			auto const primeraComa = text.find(',');
+			if (std::string::npos == primeraComa)
+				continue;
+			try
 			{
-				if (!text.empty() && text[0] == '#')
-					continue;
-
-				if (text.empty())
-					continue;
-
-				auto const primeraComa = text.find(',');
-				auto epsgString = text.substr(0, primeraComa);
-
-				horizontalSystems[parse_int(epsgString.c_str())] = text.substr(primeraComa + 1);
+				table[parse_int(text.substr(0, primeraComa).c_str())] = text.substr(primeraComa + 1);
 			}
-		}
-		catch (...)
-		{
-			// The ESRI WKT could not be loaded; it is ignored.
+			catch (...)
+			{
+				// A malformed line is skipped.
+			}
 		}
 	});
 }
 
-auto EsriProjectionEngine::LoadVerticalSystems() -> void
+auto EsriProjectionEngine::LoadVerticalSystems() -> bool
 {
-	static std::once_flag once;
-	std::call_once(once, []
+	return LoadTable(verticalLoaded, verticalSystems, "pe_list_vertcs.csv", [](std::ifstream& file, map<int, std::string>& table)
 	{
-		std::string const filePath = CrsKit::GetDefaultContext()->dataDirectory + "pe_list_vertcs.csv";
-
-		try
+		std::string text;
+		// The first line is the header.
+		if (!std::getline(file, text))
+			return;
+		while (std::getline(file, text))
 		{
-			std::ifstream file{std::filesystem::path(filePath)};
-			if (!file.is_open())
-				throw std::runtime_error("File could not be opened");
-			std::string text;
-
-			// Skip the first line
-			if (!std::getline(file, text))
-				return;
-
-			while (std::getline(file, text))
+			auto const words = split(text, ";");
+			if (words.size() < 2)
+				continue;
+			try
 			{
-				if (text.empty())
-					continue;
-
-				auto words = split(text, ";");
-
-				verticalSystems[parse_int(words[0].c_str())] = words[1];
+				table[parse_int(words[0].c_str())] = words[1];
 			}
-		}
-		catch (...)
-		{
-			// The ESRI WKT could not be loaded; it is ignored.
+			catch (...)
+			{
+				// A malformed line is skipped.
+			}
 		}
 	});
 }
 
 auto EsriProjectionEngine::FindHorizontalEpsgCode(std::string const& wkt) -> int
 {
-	if (horizontalSystems.size() == 0)
-		LoadHorizontalSystems();
+	if (!LoadHorizontalSystems())
+		return {};
 
 	auto const it = std::ranges::find_if(horizontalSystems, [&](auto const& system)
 	{
@@ -228,8 +229,8 @@ auto EsriProjectionEngine::FindHorizontalEpsgCode(std::string const& wkt) -> int
 
 auto EsriProjectionEngine::FindHorizontalEpsgCodeByName(std::string const& name) -> int
 {
-	if (horizontalSystems.size() == 0)
-		LoadHorizontalSystems();
+	if (!LoadHorizontalSystems())
+		return {};
 
 	auto const it = std::ranges::find_if(horizontalSystems, [&](auto const& system)
 	{
@@ -241,8 +242,8 @@ auto EsriProjectionEngine::FindHorizontalEpsgCodeByName(std::string const& name)
 
 auto EsriProjectionEngine::FindVerticalEpsgCodeByName(std::string const& name) -> int
 {
-	if (verticalSystems.size() == 0)
-		LoadVerticalSystems();
+	if (!LoadVerticalSystems())
+		return {};
 
 	auto const it = std::ranges::find_if(verticalSystems, [&](auto const& system)
 	{
@@ -254,8 +255,8 @@ auto EsriProjectionEngine::FindVerticalEpsgCodeByName(std::string const& name) -
 
 auto EsriProjectionEngine::FindVerticalEpsgCode(std::string const& wkt) -> int
 {
-	if (verticalSystems.size() == 0)
-		LoadVerticalSystems();
+	if (!LoadVerticalSystems())
+		return {};
 
 	auto const it = std::ranges::find_if(verticalSystems, [&](auto const& system)
 	{
