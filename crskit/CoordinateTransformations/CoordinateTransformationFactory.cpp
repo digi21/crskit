@@ -97,6 +97,12 @@ namespace
 		throw std::runtime_error(std::format("A vertical transformation from {} to {} dimensions cannot be applied to the height of a 3D point.", source, target));
 	}
 
+	// False under UnknownCrsPolicy::Identity without resolveTransform: an unknown vertical then keeps the height as it is.
+	auto ResolvesUnknownVertical(CrsKit::CoordinateTransformationOptions const& options) -> bool
+	{
+		return nullptr != options.resolveTransform || CrsKit::UnknownCrsPolicy::Identity != options.unknownCrsPolicy;
+	}
+
 	// The located vertical steps as one transform: the step itself when there is one.
 	auto ConcatenateVertical(std::vector<std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform>> const& steps) -> std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform>
 	{
@@ -1045,11 +1051,11 @@ namespace CrsKit::CoordinateTransformations
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
 
-		// If the target vertical is unknown/local we resolve it per the options
-		// (ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged).
+		// An unknown/local target vertical: the transformation resolveTransform returns is the vertical step.
+		// ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged.
 		auto const verticalTargetLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(verticalTarget);
-		if (verticalTargetLocal)
-			static_cast<void>(ResolveUnknownCrs(geographic3D, verticalTarget, options));
+		if (verticalTargetLocal && ResolvesUnknownVertical(options))
+			AppendVerticalStep(transformations, ResolveUnknownCrs(geographic3D, verticalTarget, options));
 
 		if (nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(verticalTarget))
 		{
@@ -1105,11 +1111,11 @@ namespace CrsKit::CoordinateTransformations
 
 		vector<shared_ptr<IMathTransform>> verticalTransformations;
 
-		// If the source vertical is unknown/local we resolve it per the options
-		// (ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged).
+		// An unknown/local source vertical: the transformation resolveTransform returns is the vertical step.
+		// ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged.
 		auto const verticalSourceLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(verticalSource);
-		if (verticalSourceLocal)
-			static_cast<void>(ResolveUnknownCrs(verticalSource, target, options));
+		if (verticalSourceLocal && ResolvesUnknownVertical(options))
+			verticalTransformations.push_back(ResolveUnknownCrs(verticalSource, target, options));
 
 		if (nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(verticalSource))
 		{
@@ -1146,12 +1152,12 @@ namespace CrsKit::CoordinateTransformations
 
 		// This is the typical case of WGS 84 / UTM Zone 30N + EGM2008 -> ED50 / UTM 30N + EGM96
 
-		// If exactly one vertical is unknown/local we resolve it per the options
-		// (ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged).
+		// Exactly one vertical unknown/local: the transformation resolveTransform returns is the vertical step.
+		// ResolveUnknownCrs throws on Reject; on Identity the height passes through unchanged.
 		auto const verticalSourceLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(verticalSource);
 		auto const verticalTargetLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(verticalTarget);
-		if (verticalSourceLocal != verticalTargetLocal)
-			static_cast<void>(ResolveUnknownCrs(verticalSource, verticalTarget, options));
+		if (verticalSourceLocal != verticalTargetLocal && ResolvesUnknownVertical(options))
+			AppendVerticalStep(transformations, ResolveUnknownCrs(verticalSource, verticalTarget, options));
 
 		if (!verticalSourceLocal && !verticalTargetLocal)
 		{

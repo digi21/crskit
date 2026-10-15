@@ -90,7 +90,14 @@ namespace
 		return GetCoordinateSystemFactory()->CreateFromWkt("COMPD_CS[\"c\"," + Official(4326)->GetWkt(WktVersion::Wkt1) + "," + verticalWkt + "]");
 	}
 
+	const char* kLocalVertical = R"WKT(LOCAL_CS["LocalV",LOCAL_DATUM["LocalV",32767],UNIT["m",1.0],AXIS["Z",UP]])WKT";
 	const char* kUncodedVertical = R"WKT(VERT_CS["H",VERT_DATUM["H",2005],UNIT["m",1.0],AXIS["Up",UP]])WKT";
+
+	// h -> h + 10.
+	auto AddTenMetres1D()
+	{
+		return GetMathTransformFactory()->CreateFromWkt(R"WKT(PARAM_MT["Affine",PARAMETER["num_row",2],PARAMETER["num_col",2],PARAMETER["elt_0_0",1],PARAMETER["elt_0_1",10],PARAMETER["elt_1_0",0],PARAMETER["elt_1_1",1]])WKT");
+	}
 
 	// (x, y, h) -> (x, y, h + 10).
 	auto AddTenMetres3D()
@@ -118,6 +125,37 @@ namespace
 		options.resolveTransform = [transform, &calls](auto const&, auto const&) { ++calls; return transform; };
 		return options;
 	}
+}
+
+// The transformation resolveTransform returns for an unknown/local vertical is the vertical step of the result.
+TEST(UnknownCrs, ResolvedVerticalIsAppliedFromCompoundToGeographic3D)
+{
+	int calls{};
+	ExpectHeight(Wgs84Compound(kLocalVertical), Official(4979), Resolving(AddTenMetres1D(), calls), 110.0);
+	EXPECT_LT(0, calls);
+}
+
+TEST(UnknownCrs, ResolvedVerticalIsAppliedFromGeographic3DToCompound)
+{
+	int calls{};
+	ExpectHeight(Official(4979), Wgs84Compound(kLocalVertical), Resolving(AddTenMetres1D(), calls), 110.0);
+	EXPECT_LT(0, calls);
+}
+
+TEST(UnknownCrs, ResolvedVerticalIsAppliedFromCompoundToCompound)
+{
+	int calls{};
+	ExpectHeight(Wgs84Compound(Official(5773)->GetWkt(WktVersion::Wkt1)), Wgs84Compound(kLocalVertical), Resolving(AddTenMetres1D(), calls), 110.0);
+	EXPECT_LT(0, calls);
+}
+
+TEST(UnknownCrs, IdentityPolicyKeepsTheHeightOfAnUnknownVertical)
+{
+	CoordinateTransformationOptions options;
+	options.unknownCrsPolicy = UnknownCrsPolicy::Identity;
+	ExpectHeight(Wgs84Compound(kLocalVertical), Official(4979), options, 100.0);
+	ExpectHeight(Official(4979), Wgs84Compound(kLocalVertical), options, 100.0);
+	ExpectHeight(Wgs84Compound(Official(5773)->GetWkt(WktVersion::Wkt1)), Wgs84Compound(kLocalVertical), options, 100.0);
 }
 
 // A 3D -> 3D vertical transformation supplied for a compound -> geographic 3D pair is applied as it is.
