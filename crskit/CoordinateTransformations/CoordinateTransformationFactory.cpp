@@ -75,6 +75,35 @@ namespace
 			return std::nullopt;
 		return std::array{ r0->first, r0->second, r1->first, r1->second };
 	}
+
+	// Appends the steps that apply 'vertical' (1->1, 3->1 or 3->3) to the height of an XYZ point.
+	auto AppendVerticalStep(std::vector<std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform>>& chain, std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform> const& vertical) -> void
+	{
+		using namespace CrsKit::CoordinateTransformations;
+		auto const source = vertical->GetSourceDimension();
+		auto const target = vertical->GetTargetDimension();
+		if (1 == target && (1 == source || 3 == source))
+		{
+			if (3 == source)
+				chain.push_back(Algorithms::Affine::TransformXyzToXyXyz());
+			chain.push_back(std::make_shared<PassThrough>(2, vertical));
+			return;
+		}
+		if (3 == source && 3 == target)
+		{
+			chain.push_back(vertical);
+			return;
+		}
+		throw std::runtime_error(std::format("A vertical transformation from {} to {} dimensions cannot be applied to the height of a 3D point.", source, target));
+	}
+
+	// The located vertical steps as one transform: the step itself when there is one.
+	auto ConcatenateVertical(std::vector<std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform>> const& steps) -> std::shared_ptr<CrsKit::CoordinateTransformations::IMathTransform>
+	{
+		if (1 == steps.size())
+			return steps[0];
+		return std::make_shared<CrsKit::CoordinateTransformations::ConcatenatedTransform>(steps);
+	}
 }
 namespace CrsKit::CoordinateTransformations
 {
@@ -453,7 +482,9 @@ namespace CrsKit::CoordinateTransformations
 				return CreateFromVerticalCoordinateSystems(vertical, geographic, options);
 		}
 
-		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG")
+		// A compound CRS is resolved component by component below, even when it carries an EPSG code.
+		auto const isCompound = [](std::shared_ptr<CoordinateSystem> const& cs) { return nullptr != dynamic_pointer_cast<CompoundCoordinateSystem>(cs); };
+		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG" && !isCompound(sourceCS) && !isCompound(targetCS))
 			return GetCoordinateTransformationAuthorityFactory()->CreateFromCoordinateSystems(sourceCS, targetCS, options);
 
 		if (3 == sourceCS->GetDimension() && 3 == targetCS->GetDimension())
@@ -1028,16 +1059,8 @@ namespace CrsKit::CoordinateTransformations
 				options,
 				false);
 
-			std::shared_ptr<IMathTransform> verticalTransformation;
-			if (1 == verticalTransformations.size())
-				verticalTransformation = verticalTransformations[0];
-			else
-				verticalTransformation = make_shared<ConcatenatedTransform>(verticalTransformations);
-
-			if (3 == verticalTransformation->GetSourceDimension())
-				transformations.push_back(Affine::TransformXyzToXyXyz());
-
-			transformations.push_back(make_shared<PassThrough>(2, verticalTransformation));
+			if (!verticalTransformations.empty())
+				AppendVerticalStep(transformations, ConcatenateVertical(verticalTransformations));
 		}
 
 		if (!verticalTargetLocal && 0 == transformations.size())
@@ -1159,10 +1182,12 @@ namespace CrsKit::CoordinateTransformations
 			// As we have two vertical transformations, we transform first
 			if (nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(verticalSource) && nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(verticalTarget))
 			{
-				transformations = LocateFromVerticalCoordinateSystems(
+				auto const verticalTransformations = LocateFromVerticalCoordinateSystems(
 					dynamic_pointer_cast<VerticalCoordinateSystem>(verticalSource),
 					dynamic_pointer_cast<VerticalCoordinateSystem>(verticalTarget),
 					options);
+				if (!verticalTransformations.empty())
+					AppendVerticalStep(transformations, ConcatenateVertical(verticalTransformations));
 			}
 
 			if (0 == transformations.size())

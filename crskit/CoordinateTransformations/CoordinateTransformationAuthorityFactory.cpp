@@ -618,6 +618,10 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateCoordinateTransformBetweenHorizontalSystems(std::shared_ptr<HorizontalCoordinateSystem> const& source, std::shared_ptr<HorizontalCoordinateSystem> const& target, CoordinateTransformationOptions const& options) const -> std::shared_ptr<CoordinateTransformation>
 	{
+		// A compound CRS is not a HorizontalCoordinateSystem, so it arrives here as null.
+		if (nullptr == source || nullptr == target)
+			throw runtime_error("The authority factory cannot transform a compound coordinate system; the CoordinateTransformationFactory transforms it component by component.");
+
 		auto const aIsProjected = nullptr != dynamic_pointer_cast<ProjectedCoordinateSystem>(source);
 		auto const aIsGeographic = nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(source);
 		auto const aIsGeocentric = nullptr != dynamic_pointer_cast<GeocentricCoordinateSystem>(source);
