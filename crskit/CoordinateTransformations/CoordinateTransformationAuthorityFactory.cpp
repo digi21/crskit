@@ -610,6 +610,17 @@ namespace CrsKit::Epsg
 				options);
 		}
 
+		// A geocentric CRS is not a HorizontalCoordinateSystem.
+		auto const aIsGeocentric = nullptr != dynamic_pointer_cast<GeocentricCoordinateSystem>(source);
+		auto const bIsGeocentric = nullptr != dynamic_pointer_cast<GeocentricCoordinateSystem>(target);
+		if (aIsGeocentric && bIsGeocentric)
+		{
+			return CreateCoordinateTransformBetweenGeocentricSystems(
+				dynamic_pointer_cast<GeocentricCoordinateSystem>(source),
+				dynamic_pointer_cast<GeocentricCoordinateSystem>(target),
+				options);
+		}
+
 		return CreateCoordinateTransformBetweenHorizontalSystems(
 			dynamic_pointer_cast<HorizontalCoordinateSystem>(source),
 			dynamic_pointer_cast<HorizontalCoordinateSystem>(target),
@@ -618,9 +629,9 @@ namespace CrsKit::Epsg
 
 	auto CoordinateTransformationAuthorityFactory::CreateCoordinateTransformBetweenHorizontalSystems(std::shared_ptr<HorizontalCoordinateSystem> const& source, std::shared_ptr<HorizontalCoordinateSystem> const& target, CoordinateTransformationOptions const& options) const -> std::shared_ptr<CoordinateTransformation>
 	{
-		// A compound CRS is not a HorizontalCoordinateSystem, so it arrives here as null.
+		// A compound CRS, or a geocentric one paired with a horizontal one, is not a HorizontalCoordinateSystem and arrives here as null.
 		if (nullptr == source || nullptr == target)
-			throw runtime_error("The authority factory cannot transform a compound coordinate system; the CoordinateTransformationFactory transforms it component by component.");
+			throw runtime_error("The authority factory transforms horizontal, vertical and geocentric coordinate systems among themselves; a compound one is transformed component by component by the CoordinateTransformationFactory.");
 
 		auto const aIsProjected = nullptr != dynamic_pointer_cast<ProjectedCoordinateSystem>(source);
 		auto const aIsGeographic = nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(source);
