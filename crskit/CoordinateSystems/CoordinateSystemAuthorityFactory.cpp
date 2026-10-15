@@ -439,17 +439,7 @@ namespace CrsKit::Epsg
 
 			auto const axis = CreateAxisInformation(code);
 			auto const units = CreateUnitsInformation(code);
-			// A derived vertical CRS has no DATUM_CODE and inherits the datum of its BASE_CRS_CODE, which can be
-			// derived too: 6358 (NAVD88 depth (ftUS)) -> 6360 (NAVD88 height (ftUS)) -> 5703 (NAVD88 height).
-			auto datumCode = _provider->GetDatumCodeForCrs(code);
-			for (auto baseCrsCode = code, depth = 0; 0 == datumCode && depth < 8; ++depth)
-			{
-				baseCrsCode = _provider->GetGeographicCrsCodeForProjectedCrs(baseCrsCode);
-				if (0 == baseCrsCode)
-					break;
-				datumCode = _provider->GetDatumCodeForCrs(baseCrsCode);
-			}
-			auto const verticalDatum = CreateVerticalDatum(datumCode);
+			auto const verticalDatum = CreateVerticalDatum(GetCodeOfDatumAssociatedWithCrs(code));
 
 			return make_shared<VerticalCoordinateSystem>(
 				coordinateSystemName,
@@ -569,7 +559,18 @@ namespace CrsKit::Epsg
 	auto CoordinateSystemAuthorityFactory::GetCodeOfDatumAssociatedWithCrs(int code) const -> int
 	{
 		code = ResolveCrsAlias(code);
-		return _provider->GetDatumCodeForCrs(code);
+
+		// A projected or derived CRS has no DATUM_CODE and inherits the datum of its BASE_CRS_CODE, which can be
+		// derived too: 6358 (NAVD88 depth (ftUS)) -> 6360 (NAVD88 height (ftUS)) -> 5703 (NAVD88 height).
+		auto datumCode = _provider->GetDatumCodeForCrs(code);
+		for (auto baseCrsCode = code, depth = 0; 0 == datumCode && depth < 8; ++depth)
+		{
+			baseCrsCode = _provider->GetGeographicCrsCodeForProjectedCrs(baseCrsCode);
+			if (0 == baseCrsCode)
+				break;
+			datumCode = _provider->GetDatumCodeForCrs(baseCrsCode);
+		}
+		return datumCode;
 	}
 
 	auto CoordinateSystemAuthorityFactory::GetNameOfDatum(int code) const -> std::string
