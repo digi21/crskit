@@ -273,7 +273,7 @@ namespace CrsKit::Epsg
 
 		if (1 == transformations.size())
 		{
-			auto const operationCode = transformations[0].Code;
+			auto const operationCode = ResolveOperationAlias(transformations[0].Code);
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
@@ -312,7 +312,7 @@ namespace CrsKit::Epsg
 
 		if (1 == inverseTransformations.size())
 		{
-			auto const operationCode = inverseTransformations[0].Code;
+			auto const operationCode = ResolveOperationAlias(inverseTransformations[0].Code);
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
@@ -513,7 +513,7 @@ namespace CrsKit::Epsg
 					operationCode);
 			}
 
-			auto const operationCode = transformations[0].Code;
+			auto const operationCode = ResolveOperationAlias(transformations[0].Code);
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 				_provider->GetCoordinateOperationName(operationCode),
@@ -550,7 +550,7 @@ namespace CrsKit::Epsg
 				operationCode);
 		}
 
-		auto const operationCode = transformations[0].Code;
+		auto const operationCode = ResolveOperationAlias(transformations[0].Code);
 		return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 			_provider->GetCoordinateOperationName(operationCode),
 			_provider->GetCoordinateOperationDescription(operationCode),

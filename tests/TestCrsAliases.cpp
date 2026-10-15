@@ -403,3 +403,31 @@ TEST(CrsAliases, OperationLookupUsesTheAliasOfACrsBuiltBeforehand)
 		GTEST_SKIP() << e.what();
 	}
 }
+
+namespace
+{
+	// The operation the factory picks between two CRS is the alias target of the single candidate.
+	auto ExpectAliasedSingleCandidate(int sourceCode, int targetCode, int candidate, int replacement) -> void
+	{
+		CrsAliases aliases;
+		aliases.AddOperation(candidate, replacement);
+		ScopedAliases _{ aliases };
+
+		auto const factory = GetCoordinateTransformationAuthorityFactory();
+		auto const ct = factory->CreateFromCoordinateSystems(Official(sourceCode), Official(targetCode));
+		auto const official = factory->CreateFromTransformationCode(replacement);
+		EXPECT_EQ(std::to_string(replacement), ct->GetAuthorityCode());
+		EXPECT_EQ(official->GetName(), ct->GetName());
+		EXPECT_EQ(official->GetAreaOfUse(), ct->GetAreaOfUse());
+	}
+}
+
+TEST(CrsAliases, SingleCandidateOperationResolvesItsAlias)
+{
+	// Vertical: NZVD2009 -> One Tree Point (only EPSG 4441), direct and inverse.
+	ExpectAliasedSingleCandidate(4440, 5767, 4441, 4442);
+	ExpectAliasedSingleCandidate(5767, 4440, 4441, 4442);
+	// Geocentric: ONGD14 -> WGS 84 (only EPSG 7377), direct and inverse.
+	ExpectAliasedSingleCandidate(7371, 4978, 7377, 7666);
+	ExpectAliasedSingleCandidate(4978, 7371, 7377, 7666);
+}
