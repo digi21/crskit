@@ -80,6 +80,28 @@ TEST(Towgs84Transform, MatchesEpsgOperation)
 	EXPECT_NEAR(viaEpsg[1], viaTowgs84[1], 1e-7);
 }
 
+// The target datum is the WGS 84 ensemble written as a WKT2 ENSEMBLE without ID: the parser gives it code 0 and the EPSG name.
+// The datum is WGS 84, so the TOWGS84 shift of the source applies and gives the result of EPSG operation 1133. The target axes
+// are longitude and latitude, so the first output coordinate of the TOWGS84 transformation is compared with the second output
+// coordinate of EPSG operation 1133.
+TEST(Towgs84Transform, MatchesEpsg1133WhenTargetDatumIsWgs84EnsembleWithoutId)
+{
+	char const* sourceCrsWkt = R"WKT(GEOGCS["ED50",DATUM["European_Datum_1950",SPHEROID["International 1924",6378388,297],TOWGS84[-87,-98,-121,0,0,0,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AXIS["Lat", NORTH],AXIS["Long", EAST]])WKT";
+	char const* targetCrsWkt = R"WKT(GEOGCRS["WGS 84 without identifiers",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic longitude (Lon)",east,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic latitude (Lat)",north,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]]])WKT";
+
+	auto const towgs84Ct = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(Crs(sourceCrsWkt), Crs(targetCrsWkt));
+	ASSERT_NE(nullptr, towgs84Ct);
+
+	auto const source = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4230);
+	auto const target = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4326);
+	auto const epsg1133Transforms = BuildDirectInverseWithOperation(source, target, 1133);
+
+	auto const actualCoordinates = towgs84Ct->GetMathTransform()->Transform({ 40.0, -3.0 });
+	auto const expectedCoordinates = epsg1133Transforms.d->Transform({ 40.0, -3.0 });
+	EXPECT_NEAR(expectedCoordinates[1], actualCoordinates[0], 1e-7);
+	EXPECT_NEAR(expectedCoordinates[0], actualCoordinates[1], 1e-7);
+}
+
 // Safety rule: if a datum neither carries TOWGS84 nor is WGS 84, its relation to WGS 84 is unknown.
 // The library must refuse rather than silently assume the identity (which would be wrong coordinates).
 TEST(Towgs84Transform, RefusesWhenDatumRelationUnknown)
