@@ -240,7 +240,10 @@ namespace CrsKit::Wkt
 
 			auto const name = root.GetChild(0).GetString();
 
-			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF"});
+			// A geodetic datum ensemble (ETRS89, WGS 84) is represented by ENSEMBLE[name, MEMBER..., ELLIPSOID,
+			// ENSEMBLEACCURACY, ID] instead of DATUM[...]. The parser reads the datum name, ellipsoid and authority identifier from ENSEMBLE and ignores MEMBER and
+			// ENSEMBLEACCURACY.
+			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF", "ENSEMBLE"});
 			if (!datumNode)
 				throw WktParseException("DATUM");
 
@@ -759,7 +762,7 @@ namespace CrsKit::Wkt
 
 			auto const name = root.GetChild(0).GetString();
 
-			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF"});
+			auto const* datumNode = FindChild(root, {"DATUM", "GEODETICDATUM", "TRF", "ENSEMBLE"});
 			if (!datumNode)
 				throw WktParseException("DATUM");
 			auto const* ellipsoidNode = FindChild(*datumNode, {"ELLIPSOID", "SPHEROID"});
@@ -811,7 +814,7 @@ namespace CrsKit::Wkt
 
 			auto const name = root.GetChild(0).GetString();
 
-			auto const* datumNode = FindChild(root, {"VDATUM", "VERTICALDATUM", "VERT_DATUM"});
+			auto const* datumNode = FindChild(root, {"VDATUM", "VERTICALDATUM", "VERT_DATUM", "ENSEMBLE"});
 			if (!datumNode)
 				throw WktParseException("VDATUM");
 			std::string datumAuthority;

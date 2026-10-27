@@ -86,6 +86,39 @@ namespace
         LENGTHUNIT["metre",1],
     ID["EPSG",3855]])WKT";
 
+	// A projected coordinate reference system (CRS), encoded as Well-known text version 2 (WKT2:2019), from a compressed
+	// point-cloud file (.laz) published by Spain's Instituto Geográfico Nacional (IGN) for the 2023 Plan Nacional de
+	// Ortofotografía Aérea (PNOA). The projected CRS uses a datum ensemble in its base geographic CRS; the ensemble's
+	// ellipsoid has an inverse flattening rounded to 298.2572221.
+	const char* kWkt2Etrs89Utm30NEnsemble =
+		R"WKT(PROJCRS["ETRS89 / UTM zone 30N",BASEGEOGCRS["ETRS89",ENSEMBLE["European Terrestrial Reference System 1989 ensemble", MEMBER["European Terrestrial Reference Frame 1989", ID["EPSG",1178]], MEMBER["European Terrestrial Reference Frame 1990", ID["EPSG",1179]], MEMBER["European Terrestrial Reference Frame 1991", ID["EPSG",1180]], MEMBER["European Terrestrial Reference Frame 1992", ID["EPSG",1181]], MEMBER["European Terrestrial Reference Frame 1993", ID["EPSG",1182]], MEMBER["European Terrestrial Reference Frame 1994", ID["EPSG",1183]], MEMBER["European Terrestrial Reference Frame 1996", ID["EPSG",1184]], MEMBER["European Terrestrial Reference Frame 1997", ID["EPSG",1185]], MEMBER["European Terrestrial Reference Frame 2000", ID["EPSG",1186]], MEMBER["European Terrestrial Reference Frame 2005", ID["EPSG",1204]], MEMBER["European Terrestrial Reference Frame 2014", ID["EPSG",1206]], ELLIPSOID["GRS 1980",6378137,298.2572221,LENGTHUNIT["metre",1,ID["EPSG",9001]],ID["EPSG",7019]], ENSEMBLEACCURACY[0.1],ID["EPSG",6258]],ID["EPSG",4258]],CONVERSION["UTM zone 30N",METHOD["Transverse Mercator",ID["EPSG",9807]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9102]]],PARAMETER["Longitude of natural origin",-3,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9102]]],PARAMETER["Scale factor at natural origin",0.9996,SCALEUNIT["unity",1,ID["EPSG",9201]]],PARAMETER["False easting",500000,LENGTHUNIT["metre",1,ID["EPSG",9001]]],PARAMETER["False northing",0,LENGTHUNIT["metre",1,ID["EPSG",9001]]],ID["EPSG",16030]],CS[Cartesian,2,ID["EPSG",4400]],AXIS["Easting (E)",east],AXIS["Northing (N)",north],LENGTHUNIT["metre",1,ID["EPSG",9001]],ID["EPSG",25830]])WKT";
+
+	// A user-defined WKT2:2019 geographic CRS whose datum is an ensemble. The parser constructs this CRS from the WKT
+	// elements because the CRS name has no catalogue match and the CRS has no authority identifier.
+	const char* kWkt2GeographicEnsemble =
+		R"WKT(GEOGCRS["Test ensemble GCS",
+    ENSEMBLE["Test datum ensemble",
+        MEMBER["Test realization 1"],
+        MEMBER["Test realization 2"],
+        ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]],
+        ENSEMBLEACCURACY[0.1]],
+    PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],
+    CS[ellipsoidal,2],
+        AXIS["geodetic latitude (Lat)",north],
+        AXIS["geodetic longitude (Lon)",east],
+        ANGLEUNIT["degree",0.0174532925199433]])WKT";
+
+	// A user-defined WKT2:2019 vertical CRS whose datum is an ensemble.
+	const char* kWkt2VerticalEnsemble =
+		R"WKT(VERTCRS["Test ensemble height",
+    ENSEMBLE["Test vertical datum ensemble",
+        MEMBER["Test vertical realization 1"],
+        MEMBER["Test vertical realization 2"],
+        ENSEMBLEACCURACY[0.5]],
+    CS[vertical,1],
+        AXIS["gravity-related height (H)",up],
+        LENGTHUNIT["metre",1]])WKT";
+
 	// A WKT2:2019 engineering (local) CRS.
 	const char* kWkt2Engineering =
 		R"WKT(ENGCRS["A construction site CRS",
@@ -365,4 +398,54 @@ TEST(Wkt2, Wkt1ToWkt2ProjectedIsEquivalent)
 
 	auto const fromWkt2 = GetCoordinateSystemFactory()->CreateFromWkt(wkt2);
 	EXPECT_TRUE(AreEquivalent(fromWkt1, fromWkt2));
+}
+
+// CreateFromWkt parses a projected CRS with an ENSEMBLE base datum; AreEquivalent compares the result with EPSG:25830
+// and returns true.
+TEST(Wkt2, ParseProjectedWithDatumEnsemble)
+{
+	auto const coordinateSystem = GetCoordinateSystemFactory()->CreateFromWkt(kWkt2Etrs89Utm30NEnsemble);
+	auto const projectedCoordinateSystem = std::dynamic_pointer_cast<ProjectedCoordinateSystem>(coordinateSystem);
+	ASSERT_TRUE(projectedCoordinateSystem);
+
+	auto const baseGeographicCoordinateSystem =
+		std::dynamic_pointer_cast<GeographicCoordinateSystem>(projectedCoordinateSystem->GetGeographicCoordinateSystem());
+	ASSERT_TRUE(baseGeographicCoordinateSystem);
+	auto const datum = std::dynamic_pointer_cast<IInfo>(baseGeographicCoordinateSystem->GetHorizontalDatum());
+	ASSERT_TRUE(datum);
+	EXPECT_EQ("European Terrestrial Reference System 1989 ensemble", datum->GetName());
+	// The ID of the ensemble (EPSG:6258), not the ID of its first MEMBER (EPSG:1178).
+	EXPECT_EQ(6258, datum->GetAuthorityCode());
+	EXPECT_NEAR(6378137.0, baseGeographicCoordinateSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), 1E-6);
+
+	EXPECT_EQ("EPSG", projectedCoordinateSystem->GetAuthority());
+	EXPECT_EQ(25830, projectedCoordinateSystem->GetAuthorityCode());
+	EXPECT_TRUE(AreEquivalent(coordinateSystem, GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(25830)));
+}
+
+// CreateFromWkt reads the geographic datum name and ellipsoid from ENSEMBLE.
+TEST(Wkt2, ParseGeographicWithDatumEnsemble)
+{
+	auto const geographicCoordinateSystem =
+		std::dynamic_pointer_cast<GeographicCoordinateSystem>(GetCoordinateSystemFactory()->CreateFromWkt(kWkt2GeographicEnsemble));
+	ASSERT_TRUE(geographicCoordinateSystem);
+
+	auto const datum = std::dynamic_pointer_cast<IInfo>(geographicCoordinateSystem->GetHorizontalDatum());
+	ASSERT_TRUE(datum);
+	EXPECT_EQ("Test datum ensemble", datum->GetName());
+	auto const ellipsoid = geographicCoordinateSystem->GetHorizontalDatum()->GetEllipsoid();
+	EXPECT_NEAR(6378137.0, ellipsoid.GetSemiMajorAxis(), 1E-6);
+	EXPECT_NEAR(298.257222101, ellipsoid.GetInverseFlattening(), 1E-9);
+}
+
+// CreateFromWkt uses the ENSEMBLE name as the vertical datum name.
+TEST(Wkt2, ParseVerticalWithDatumEnsemble)
+{
+	auto const verticalCoordinateSystem =
+		std::dynamic_pointer_cast<VerticalCoordinateSystem>(GetCoordinateSystemFactory()->CreateFromWkt(kWkt2VerticalEnsemble));
+	ASSERT_TRUE(verticalCoordinateSystem);
+
+	auto const datum = std::dynamic_pointer_cast<IInfo>(verticalCoordinateSystem->GetVerticalDatum());
+	ASSERT_TRUE(datum);
+	EXPECT_EQ("Test vertical datum ensemble", datum->GetName());
 }
