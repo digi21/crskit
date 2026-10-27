@@ -30,14 +30,14 @@ namespace
 
 	auto GetHorizontalDatum(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<HorizontalDatum>
 	{
-		auto const geographic = std::dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
-		return geographic ? std::dynamic_pointer_cast<HorizontalDatum>(geographic->GetHorizontalDatum()) : nullptr;
+		auto const geographicCoordinateSystem = std::dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
+		return geographicCoordinateSystem ? std::dynamic_pointer_cast<HorizontalDatum>(geographicCoordinateSystem->GetHorizontalDatum()) : nullptr;
 	}
 
 	auto GetVerticalDatum(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<VerticalDatum>
 	{
-		auto const vertical = std::dynamic_pointer_cast<VerticalCoordinateSystem>(coordinateSystem);
-		return vertical ? std::dynamic_pointer_cast<VerticalDatum>(vertical->GetVerticalDatum()) : nullptr;
+		auto const verticalCoordinateSystem = std::dynamic_pointer_cast<VerticalCoordinateSystem>(coordinateSystem);
+		return verticalCoordinateSystem ? std::dynamic_pointer_cast<VerticalDatum>(verticalCoordinateSystem->GetVerticalDatum()) : nullptr;
 	}
 }
 

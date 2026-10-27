@@ -84,8 +84,9 @@ namespace CrsKit::CoordinateSystems
 	{
 		auto const info = dynamic_pointer_cast<IInfo>(obj);
 
-		// If either datum has UnknownAuthorityCode, CompareTo compares the datum names without regard to case. A datum defined in Well-Known Text 2
-		// without an ID element, such as an ENSEMBLE, then matches the catalogue datum of the same name in either order.
+		// If either datum has UnknownAuthorityCode, CompareTo compares the datum names without regard to case. A datum defined
+		// in Well-Known Text 2 without an ID element, such as a datum represented by an ENSEMBLE element, then matches the
+		// catalogue datum of the same name in either order.
 		if (GetAuthorityCode() != UnknownAuthorityCode && info->GetAuthorityCode() != UnknownAuthorityCode)
 		{
 			if (GetAuthority() != info->GetAuthority())

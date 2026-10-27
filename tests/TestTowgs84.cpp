@@ -80,7 +80,8 @@ TEST(Towgs84Transform, MatchesEpsgOperation)
 	EXPECT_NEAR(viaEpsg[1], viaTowgs84[1], 1e-7);
 }
 
-// The target datum is the WGS 84 ensemble written as a WKT2 ENSEMBLE without ID: the parser gives it code 0 and the EPSG name.
+// The target datum is the World Geodetic System 1984 (WGS 84) ensemble written as an ENSEMBLE in Well-known Text version 2
+// (WKT2) without ID: the parser assigns authority code 0 and the name "World Geodetic System 1984 ensemble".
 // The datum is WGS 84, so the TOWGS84 shift of the source applies and gives the result of EPSG operation 1133. The target axes
 // are longitude and latitude, so the first output coordinate of the TOWGS84 transformation is compared with the second output
 // coordinate of EPSG operation 1133.

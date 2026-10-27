@@ -526,7 +526,8 @@ namespace CrsKit::CoordinateTransformations
 			if (kWgs84DatumCode == datum->GetAuthorityCode())
 				return true;
 
-			// For an ENSEMBLE named "World Geodetic System 1984 ensemble" without ID, the WKT2 parser creates a datum with that name and code 0.
+			// For an ENSEMBLE named "World Geodetic System 1984 ensemble" without ID, the Well-known Text version 2 (WKT2)
+			// parser creates a datum with that name and code 0.
 			auto const name = datum->GetName();
 			for (auto const candidate : { "WGS_1984", "WGS 84", "WGS84", "D_WGS_1984", "World Geodetic System 1984", "World Geodetic System 1984 ensemble" })
 				if (0 == compareNoCase(name.c_str(), candidate))

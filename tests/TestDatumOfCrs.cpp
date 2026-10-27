@@ -1,5 +1,6 @@
-// GetCodeOfDatumAssociatedWithCrs: a projected or derived coordinate reference system (CRS) has no datum of its own in the catalogue and
-// reports the datum of its base CRS. GetCodeOfPrimeMeridianAssociatedWithCrs returns the prime meridian code of the datum of the CRS.
+// For a projected or derived coordinate reference system (CRS), GetCodeOfDatumAssociatedWithCrs returns the datum code of the
+// base CRS, because the catalogue assigns no datum directly to the projected or derived CRS.
+// GetCodeOfPrimeMeridianAssociatedWithCrs returns the prime meridian code of the datum of the CRS.
 
 #include "TestBase.h"
 
