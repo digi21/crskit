@@ -32,7 +32,8 @@ namespace CrsKit::CoordinateSystems
 		{
 			auto const info = std::dynamic_pointer_cast<IInfo>(obj);
 
-			if (GetAuthorityCode() != UnknownAuthorityCode)
+			// If either datum has UnknownAuthorityCode, CompareTo compares the datum names without regard to case.
+			if (GetAuthorityCode() != UnknownAuthorityCode && info->GetAuthorityCode() != UnknownAuthorityCode)
 			{
 				if (GetAuthority() != info->GetAuthority())
 					return compareNoCase(GetAuthority().c_str(), info->GetAuthority().c_str());
