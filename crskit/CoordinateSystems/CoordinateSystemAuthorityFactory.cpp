@@ -590,7 +590,9 @@ namespace CrsKit::Epsg
 
 	auto CoordinateSystemAuthorityFactory::GetCodeOfPrimeMeridianAssociatedWithCrs(int code) const -> int
 	{
-		return _provider->GetMeridianCodeForDatum(code);
+		// The catalogue stores the prime meridian with the geodetic datum. For a vertical coordinate reference system the catalogue
+		// stores no prime meridian for its datum, so GetCodeOfPrimeMeridianAssociatedWithCrs returns 0.
+		return _provider->GetMeridianCodeForDatum(GetCodeOfDatumAssociatedWithCrs(code));
 	}
 
 	auto CoordinateSystemAuthorityFactory::GetNameOfPrimeMeridian(int code) const -> std::string
