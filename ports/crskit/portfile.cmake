@@ -4,7 +4,8 @@
 # (this repo's ports/ + versions/). When hacking on the library itself, build it directly with CMake
 # instead — this port is for CONSUMERS.
 #
-# To publish a new version: tag it (vX.Y.Z) and push, update the SHA512 e6b1b1d84766846b16be1a39a346c97496cc468a59efd122ef5bff54600254dddcb5750c17e6aee5427cb2ff49cd86804042d1028e7c6c33a4e2060e6d66bb43low (vcpkg prints the expected
+# To publish a new version: create the vX.Y.Z tag on the release commit and push that tag to the digi21/crskit
+# repository on GitHub, update the SHA512 below (vcpkg prints the expected
 # SHA512 on the first, mismatching build), then run:
 #   vcpkg x-add-version crskit --x-builtin-ports-root=ports --x-builtin-registry-versions-dir=versions
 
