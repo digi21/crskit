@@ -343,14 +343,26 @@ namespace CrsKit::Epsg
 
 		try
 		{
+			auto const angularUnitCode = _provider->GetMeridianAngularUnit(code);
+			auto angularUnit = CreateAngularUnit(angularUnitCode);
+			auto longitude = _provider->GetMeridianLongitude(code);
+
+			// When GetRadiansPerUnit of the unit is not finite, as for sexagesimal degrees, minutes and seconds (EPSG unit 9110),
+			// whose values pack degrees, minutes and seconds, CreatePrimeMeridian converts the longitude to degrees.
+			if (!std::isfinite(angularUnit.GetRadiansPerUnit()))
+			{
+				longitude = GetUtilities()->ToSexagesimal(angularUnitCode, angularUnit.GetRadiansPerUnit(), longitude);
+				angularUnit = CreateAngularUnit(MEASURE_UNIT_DEGREES);
+			}
+
 			return PrimeMeridian{
 				meridianName,
 				"EPSG",
 				code,
 				_provider->GetAlias(code),
 				_provider->GetMeridianInfo(code),
-				CreateAngularUnit(_provider->GetMeridianAngularUnit(code)),
-				_provider->GetMeridianLongitude(code)};
+				angularUnit,
+				longitude};
 		}
 		catch (std::exception const& e)
 		{
