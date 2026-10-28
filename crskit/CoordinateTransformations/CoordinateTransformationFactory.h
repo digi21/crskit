@@ -57,7 +57,8 @@ namespace CrsKit::CoordinateTransformations
 		[[nodiscard]] static auto CreateHeightConversionToMetres(CoordinateSystems::GeographicCoordinateSystem const& system) -> std::shared_ptr<IMathTransform>;
 		// Returns the step that adds the longitude of the prime meridian of geographicSystem, in degrees, to the first of
 		// pointDimensionCount coordinates, a longitude in degrees from that prime meridian, so that the first coordinate
-		// becomes the longitude from Greenwich. Returns nullptr when the prime meridian of geographicSystem is Greenwich.
+		// becomes the longitude from Greenwich in [-180, 180] degrees; the inverse step returns the longitude from the prime
+		// meridian in [-180, 180] degrees. Returns nullptr when the prime meridian of geographicSystem is Greenwich.
 		[[nodiscard]] static auto CreatePrimeMeridianToGreenwichLongitudeConversion(CoordinateSystems::GeographicCoordinateSystem const& geographicSystem, int pointDimensionCount) -> std::shared_ptr<IMathTransform>;
 		[[nodiscard]] static auto CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 

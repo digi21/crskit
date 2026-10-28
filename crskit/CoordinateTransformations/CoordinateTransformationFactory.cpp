@@ -12,6 +12,7 @@ using namespace CrsKit::Math;
 #include "Algorithms/Afine.h"
 #include "Algorithms/Geographic2D2Geocentric.h"
 #include "Algorithms/Geographic2D2Geographic3D.h"
+#include "Algorithms/LongitudeRotation.h"
 #include "Algorithms/PositionVectorTransformation.h"
 #include "../CoordinateSystems/HorizontalDatum.h"
 #include "../ExtensionManager.h"
@@ -358,9 +359,7 @@ namespace CrsKit::CoordinateTransformations
 		if (0.0 == primeMeridianLongitudeInDegrees)
 			return nullptr;
 
-		std::vector<double> translationOffsets(static_cast<std::size_t>(pointDimensionCount), 0.0);
-		translationOffsets[0] = primeMeridianLongitudeInDegrees;
-		return Affine::CreateAffineTranslationTransform(translationOffsets);
+		return make_shared<LongitudeRotation>(pointDimensionCount, primeMeridianLongitudeInDegrees, false);
 	}
 
 	auto StaticCoordinateTransformationFactory::CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<GeographicCoordinateSystem> const& geo) -> vector<shared_ptr<IMathTransform>>
