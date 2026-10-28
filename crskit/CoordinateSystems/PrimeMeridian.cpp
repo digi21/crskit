@@ -2,6 +2,8 @@
 #include "PrimeMeridian.h"
 #include "CoordinateSystemAuthorityFactory.h"
 
+#include <numbers>
+
 using namespace std;
 
 namespace CrsKit::CoordinateSystems
@@ -36,15 +38,18 @@ namespace CrsKit::CoordinateSystems
 
 	auto PrimeMeridian::GetWkt() const -> std::string
 	{
+		// The longitude of PRIMEM is in degrees, the unit in which FromWkt reads it.
+		auto const longitudeInDegrees = _longitude * _angularUnit.GetRadiansPerUnit() * 180.0 / std::numbers::pi;
+
 		if (!_authority.empty() && _authorityCode)
 			return std::format("PRIMEM[\"{}\",{:.16g},AUTHORITY[\"{}\",\"{}\"]]",
 				_name.c_str(),
-				_longitude,
+				longitudeInDegrees,
 				_authority.c_str(),
 				_authorityCode);
 
 		return std::format("PRIMEM[\"{}\",{:.16g}]",
 			_name.c_str(),
-			_longitude);
+			longitudeInDegrees);
 	}
 }
