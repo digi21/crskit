@@ -425,6 +425,20 @@ namespace CrsKit
 	{
 		direct.clear();
 		inverse.clear();
+
+		// For a geocentric coordinate reference system, direct converts X, Y and Z from its linear unit to metres and inverse
+		// converts them from metres to its linear unit, each with one affine step; vertical is not used.
+		if (auto const geocentricSystem = dynamic_pointer_cast<GeocentricCoordinateSystem>(horizontal))
+		{
+			direct.push_back(Affine::AffineMainDiagonalTransform(geocentricSystem->GetLinearUnit().GetMetersPerUnit(), 3));
+			inverse.push_back(Affine::AffineMainDiagonalTransform(1.0 / geocentricSystem->GetLinearUnit().GetMetersPerUnit(), 3));
+			return;
+		}
+
+		if (nullptr == dynamic_pointer_cast<GeographicCoordinateSystem>(horizontal) && nullptr == dynamic_pointer_cast<ProjectedCoordinateSystem>(horizontal))
+			throw TransformationNotFoundException(std::format("No transformation to geocentric coordinates has been found for the horizontal coordinate system {}: it is not a geographic, projected or geocentric coordinate system.",
+				horizontal ? horizontal->GetName() : std::string{ "null" }));
+
 		std::vector<std::shared_ptr<IMathTransform>> horizontalTransformations;
 
 		// We create a transformation to convert the system to geocentric coordinates
