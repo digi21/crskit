@@ -458,7 +458,6 @@ namespace CrsKit
 			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid(), false);
 			direct.push_back(geographicToGeocentric);
 
-			// We compute the inverse
 			inverse.push_back(geographicToGeocentric->GetInverse());
 		}
 		else
@@ -534,10 +533,11 @@ namespace CrsKit
 
 			inverse.push_back(geographicToGeocentric->GetInverse());
 			std::ranges::copy(ellipsoidalToOrthometricHeightSteps, std::back_inserter(inverse));
-
-			for (auto const& transformation : horizontalTransformations | std::views::reverse)
-				inverse.push_back(transformation->GetInverse());
 		}
+
+		// The inverse chain returns the coordinates in the axes and units of the horizontal coordinate reference system.
+		for (auto const& transformation : horizontalTransformations | std::views::reverse)
+			inverse.push_back(transformation->GetInverse());
 	}
 
 
