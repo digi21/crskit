@@ -33,6 +33,34 @@ namespace CrsKit
 
 			return !geographicOnly && (0 == compareNoCase(kind.c_str(), "projected") || 0 == compareNoCase(kind.c_str(), "vertical") || 0 == compareNoCase(kind.c_str(), "geocentric"));
 		}
+
+		// Returns steps that receive and return three coordinates: a height transformation from one coordinate is applied to
+		// the third coordinate, and one from three coordinates to one replaces the third coordinate.
+		auto CreateThreeCoordinateHeightSteps(std::shared_ptr<IMathTransform> const& heightTransformation) -> std::vector<std::shared_ptr<IMathTransform>>
+		{
+			if (1 == heightTransformation->GetSourceDimension())
+				return { make_shared<PassThrough>(2, heightTransformation) };
+
+			if (1 == heightTransformation->GetTargetDimension())
+				return { Affine::TransformXyzToXyXyz(), make_shared<PassThrough>(2, heightTransformation) };
+
+			return { heightTransformation };
+		}
+
+		// Returns steps that receive and return longitude and latitude in degrees and a height, the convention of the
+		// transformation methods: the steps change the coordinates to the axes and the angular unit of geographicSystem3D,
+		// apply transformationInAxesOfGeographicSystem3D and change the coordinates back to the convention.
+		auto CreateStepsWithLongitudeLatitudeInDegreesAndHeight(std::shared_ptr<GeographicCoordinateSystem> const& geographicSystem3D, std::shared_ptr<IMathTransform> const& transformationInAxesOfGeographicSystem3D) -> std::vector<std::shared_ptr<IMathTransform>>
+		{
+			auto const geographicAxesToLongitudeLatitudeInDegreesAndHeightSteps = StaticCoordinateTransformationFactory::CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographicSystem3D, 3);
+
+			std::vector<std::shared_ptr<IMathTransform>> steps;
+			for (auto const& step : geographicAxesToLongitudeLatitudeInDegreesAndHeightSteps | std::views::reverse)
+				steps.push_back(step->GetInverse());
+			steps.push_back(transformationInAxesOfGeographicSystem3D);
+			std::ranges::copy(geographicAxesToLongitudeLatitudeInDegreesAndHeightSteps, std::back_inserter(steps));
+			return steps;
+		}
 	}
 
 	auto Utilities::GetCompoundLocalWkt() const -> std::string
@@ -434,83 +462,76 @@ namespace CrsKit
 		}
 		else
 		{
-			shared_ptr<IMathTransform> verticalTransformation;
+			// The height conversion steps receive and return longitude and latitude in degrees and a height. The direct
+			// chain converts the orthometric height to ellipsoidal height and the inverse chain converts the ellipsoidal
+			// height to orthometric height. With a geographic 3D CRS, the factory builds the conversion of each chain in the
+			// direction of that chain, because the inverse of a chain with TransformXyzToXyXyz does not exist.
+			std::vector<std::shared_ptr<IMathTransform>> orthometricToEllipsoidalHeightSteps;
+			std::vector<std::shared_ptr<IMathTransform>> ellipsoidalToOrthometricHeightSteps;
 			if (nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(vertical))
 			{
-				// Now I have to apply the vertical transformation to convert the orthometric Z coordinate into an ellipsoidal one
-
-				// Vertical transformations only exist between Geographic 3D and Vertical systems or between Vertical and Vertical. Here we locate the geographic 3D system associated with the geographic
-				// that we have:
+				// Vertical transformations only exist between geographic 3D and vertical systems or between two vertical systems.
 				auto const geographicSystem3D = CoordinateSystemFactory::FindGeographicSystem3D(geographicSystem);
 
 				if (nullptr == geographicSystem3D)
 				{
+					// The dialog creates the transformation from the geographic CRS to the vertical CRS.
 					auto const selectedVerticalTransformation = createVerticalSystemDialogCallback(geographicSystem->GetName(), vertical->GetName());
 					if (!selectedVerticalTransformation)
 						throw runtime_error("The user has not selected a vertical coordinate system.");
 
-					verticalTransformation = selectedVerticalTransformation->GetInverse();
+					orthometricToEllipsoidalHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation->GetInverse());
+					ellipsoidalToOrthometricHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation);
 				}
 				else
 				{
-					verticalTransformation = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(
-						geographicSystem3D,
-						vertical,
-						CoordinateTransformationOptions{ .resolveTransform = [createVerticalSystemDialogCallback](std::shared_ptr<CoordinateSystem> const& s, std::shared_ptr<CoordinateSystem> const& t) { return createVerticalSystemDialogCallback(s->GetName(), t->GetName()); }, .selectOperation = selectTransformationCallback })->GetMathTransform()->GetInverse();
-				}
+					// The factory asks for the operation once per direction. The second call reuses the selected code when that code
+					// is among the operations offered.
+					auto const selectedOperationCode = make_shared<optional<int>>();
+					auto const selectOperationReusingTheSelectedCode = [selectTransformationCallback, selectedOperationCode](std::string const& sourceName, std::string const& targetName, std::vector<CoordinateOperation> const& operations) -> int
+					{
+						if (*selectedOperationCode && std::ranges::any_of(operations, [&](CoordinateOperation const& operation) { return operation.Code == **selectedOperationCode; }))
+							return **selectedOperationCode;
 
-				if (1 == verticalTransformation->GetSourceDimension())
-				{
-					direct.push_back(make_shared<PassThrough>(2, verticalTransformation));
-				}
-				else
-				{
-					if (1 == verticalTransformation->GetTargetDimension())
+						*selectedOperationCode = selectTransformationCallback(sourceName, targetName, operations);
+						return **selectedOperationCode;
+					};
+
+					CoordinateTransformationOptions options;
+					if (selectTransformationCallback)
+						options.selectOperation = selectOperationReusingTheSelectedCode;
+
+					try
 					{
-						// The transformation receives XYZ and returns Z
-						// but what we must return is XYZ, so I do the following:
-						// XYZ -> XYXYZ
-						// PASSTHROUGH(2, transformation)
-						direct.push_back(Affine::TransformXyzToXyXyz());
-						direct.push_back(make_shared<PassThrough>(2, verticalTransformation));
+						// From the vertical CRS to the geographic 3D CRS and back; both receive and return three coordinates in the
+						// axes of geographicSystem3D.
+						orthometricToEllipsoidalHeightSteps = CreateStepsWithLongitudeLatitudeInDegreesAndHeight(geographicSystem3D,
+							StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(vertical, geographicSystem3D, options)->GetMathTransform());
+						ellipsoidalToOrthometricHeightSteps = CreateStepsWithLongitudeLatitudeInDegreesAndHeight(geographicSystem3D,
+							StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(geographicSystem3D, vertical, options)->GetMathTransform());
 					}
-					else
+					catch (TransformationNotFoundException const&)
 					{
-						direct.push_back(verticalTransformation);
+						// Without an operation between the two CRSs, the dialog creates once the transformation from the geographic CRS
+						// to the vertical CRS, which receives longitude and latitude in degrees, as in the branch without a geographic
+						// 3D CRS.
+						auto const selectedVerticalTransformation = createVerticalSystemDialogCallback ? createVerticalSystemDialogCallback(geographicSystem3D->GetName(), vertical->GetName()) : nullptr;
+						if (!selectedVerticalTransformation)
+							throw;
+
+						orthometricToEllipsoidalHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation->GetInverse());
+						ellipsoidalToOrthometricHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation);
 					}
 				}
 			}
+
+			std::ranges::copy(orthometricToEllipsoidalHeightSteps, std::back_inserter(direct));
 
 			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false);
 			direct.push_back(geographicToGeocentric);
 
-			// We compute the inverse
 			inverse.push_back(geographicToGeocentric->GetInverse());
-
-			if (nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(vertical))
-			{
-				// Tenemos Longitude, Latitude, h
-				if (1 == verticalTransformation->GetSourceDimension())
-				{
-					inverse.push_back(make_shared<PassThrough>(2, verticalTransformation->GetInverse()));
-				}
-				else
-				{
-					if (1 == verticalTransformation->GetTargetDimension())
-					{
-						// The transformation receives Longitude, Latitude, Z and returns Z
-						// but what we must return is Longitude, Latitude, Z, so I do the following:
-						// XYZ -> XYXYZ
-						// PASSTHROUGH(2, transformation)
-						inverse.push_back(Affine::TransformXyzToXyXyz());
-						inverse.push_back(make_shared<PassThrough>(2, verticalTransformation->GetInverse()));
-					}
-					else
-					{
-						inverse.push_back(verticalTransformation->GetInverse());
-					}
-				}
-			}
+			std::ranges::copy(ellipsoidalToOrthometricHeightSteps, std::back_inserter(inverse));
 
 			for (auto const& transformation : horizontalTransformations | std::views::reverse)
 				inverse.push_back(transformation->GetInverse());
