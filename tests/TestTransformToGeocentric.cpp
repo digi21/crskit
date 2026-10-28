@@ -2,7 +2,8 @@
 // (CRS) to geocentric coordinates (direct) and the chain from geocentric coordinates to coordinates in the horizontal and
 // the vertical CRS (inverse). With a geoid operation, which receives three
 // coordinates and returns the height, each chain takes the height conversion that the factory builds in its direction.
-// AlicanteHeightRoundTripsThroughGeocentricCoordinates needs the geoid grid EGM08_REDNAP.txt in the data directory, and
+// AlicanteHeightRoundTripsThroughGeocentricCoordinates and LatitudeFirstGeographicRoundTripsThroughGeocentricCoordinates need
+// the geoid grid EGM08_REDNAP.txt in the data directory, and
 // AsksOnceForTheGeoidOperationOfBothChains needs Und_min2.5x2.5_egm2008_isw=82_WGS84_TideFree (EPSG operation 3858);
 // each test is skipped when a grid that it needs is missing.
 
@@ -30,6 +31,23 @@ namespace
 	}
 
 	auto CreateCatalogueCoordinateSystem(int code) { return GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(code); }
+
+	// Tolerances of a round trip for each coordinate: 1 mm in metres, and 1e-8 degrees (about 1.1 mm of latitude).
+	std::vector<double> const kEastingNorthingHeightTolerances{ 1e-3, 1e-3, 1e-3 };
+	std::vector<double> const kLatitudeLongitudeHeightTolerances{ 1e-8, 1e-8, 1e-3 };
+
+	// Applies the direct chain and then the inverse chain to the point, and compares each returned coordinate with the
+	// starting coordinate within the tolerance of the same index.
+	auto ExpectChainsReturnThePoint(std::vector<std::shared_ptr<IMathTransform>> const& direct, std::vector<std::shared_ptr<IMathTransform>> const& inverse, std::vector<double> const& point, std::vector<double> const& tolerances) -> void
+	{
+		auto const geocentricPoint = ApplyChain(direct, point);
+		auto const returnedPoint = ApplyChain(inverse, geocentricPoint);
+		ASSERT_EQ(point.size(), returnedPoint.size());
+		for (std::size_t coordinateIndex = 0; coordinateIndex < point.size(); ++coordinateIndex)
+			EXPECT_NEAR(point[coordinateIndex], returnedPoint[coordinateIndex], tolerances[coordinateIndex]) << "coordinate " << coordinateIndex;
+	}
+
+	auto CreateUnknownVerticalCoordinateSystem() { return GetCoordinateSystemFactory()->CreateFromWkt(GetUtilities()->GetUnknownVerticalWkt()); }
 }
 
 // ETRS89 / UTM zone 30N + Alicante height (EPSG 25830 + 5782) with the geoid EGM08-REDNAP (EPSG operation 9410), at a point
@@ -81,6 +99,90 @@ TEST(TransformToGeocentric, AlicanteHeightRoundTripsThroughGeocentricCoordinates
 	EXPECT_NEAR(projectedPoint[0], returnedPoint[0], 1e-3);
 	EXPECT_NEAR(projectedPoint[1], returnedPoint[1], 1e-3);
 	EXPECT_NEAR(projectedPoint[2], returnedPoint[2], 1e-3);
+}
+
+// ETRS89 / UTM zone 30N with the unknown vertical CRS of GetUnknownVerticalWkt (LOCAL_CS). The test expects that
+// CreateTransformToGeocentric does not call createVerticalSystemDialogCallback, that the height before the last step of the
+// direct chain, GeographicToGeocentric, differs from the starting height by at most 1e-9 metres, and that the inverse chain
+// returns the starting point within 1 mm.
+TEST(TransformToGeocentric, UnknownVerticalRoundTripsThroughGeocentricCoordinates)
+{
+	std::vector<std::shared_ptr<IMathTransform>> direct;
+	std::vector<std::shared_ptr<IMathTransform>> inverse;
+	auto verticalTransformationDialogCallCount = 0;
+
+	GetUtilities()->CreateTransformToGeocentric(CreateCatalogueCoordinateSystem(25830), CreateUnknownVerticalCoordinateSystem(), direct, inverse,
+		[&](std::string const&, std::string const&) -> std::shared_ptr<IMathTransform> { ++verticalTransformationDialogCallCount; return nullptr; },
+		[](std::string const&, std::string const&, std::vector<CoordinateOperation> const& operations) { return operations.front().Code; });
+	EXPECT_EQ(0, verticalTransformationDialogCallCount);
+
+	// Easting, northing and height (metres).
+	std::vector<double> const projectedPoint{ 619173.470, 4485177.795, 1576.899 };
+	EXPECT_NEAR(projectedPoint[2], ApplySteps(direct, projectedPoint, direct.size() - 1)[2], 1e-9);
+	ExpectChainsReturnThePoint(direct, inverse, projectedPoint, kEastingNorthingHeightTolerances);
+}
+
+// ETRS89 3D (EPSG 4937, axes latitude, longitude and ellipsoidal height) as the horizontal CRS. The test expects that the
+// inverse chain returns the starting point in the axis order of EPSG 4937.
+TEST(TransformToGeocentric, Geographic3DRoundTripsThroughGeocentricCoordinates)
+{
+	std::vector<std::shared_ptr<IMathTransform>> direct;
+	std::vector<std::shared_ptr<IMathTransform>> inverse;
+
+	GetUtilities()->CreateTransformToGeocentric(CreateCatalogueCoordinateSystem(4937), CreateUnknownVerticalCoordinateSystem(), direct, inverse,
+		[](std::string const&, std::string const&) -> std::shared_ptr<IMathTransform> { return nullptr; },
+		[](std::string const&, std::string const&, std::vector<CoordinateOperation> const& operations) { return operations.front().Code; });
+
+	// Latitude, longitude (degrees) and ellipsoidal height (metres) in Madrid.
+	ExpectChainsReturnThePoint(direct, inverse, { 40.4, -3.7, 700.0 }, kLatitudeLongitudeHeightTolerances);
+}
+
+// WGS 84 3D (EPSG 4979) split by Utilities::ExtractHorizontalVertical into its geographic 2D CRS and EPSG 4979 as the
+// vertical CRS. The test expects that the inverse chain returns the starting point in the axis order of EPSG 4979.
+TEST(TransformToGeocentric, Geographic3DSplitIntoHorizontalAndVerticalRoundTripsThroughGeocentricCoordinates)
+{
+	auto const [horizontalCoordinateSystem, verticalCoordinateSystem] = GetUtilities()->ExtractHorizontalVertical(CreateCatalogueCoordinateSystem(4979));
+	ASSERT_EQ(2, horizontalCoordinateSystem->GetDimension());
+	std::vector<std::shared_ptr<IMathTransform>> direct;
+	std::vector<std::shared_ptr<IMathTransform>> inverse;
+	auto verticalTransformationDialogCallCount = 0;
+
+	GetUtilities()->CreateTransformToGeocentric(horizontalCoordinateSystem, verticalCoordinateSystem, direct, inverse,
+		[&](std::string const&, std::string const&) -> std::shared_ptr<IMathTransform> { ++verticalTransformationDialogCallCount; return nullptr; },
+		[](std::string const&, std::string const&, std::vector<CoordinateOperation> const& operations) { return operations.front().Code; });
+	EXPECT_EQ(0, verticalTransformationDialogCallCount);
+
+	// Latitude, longitude (degrees) and ellipsoidal height (metres) in Madrid.
+	ExpectChainsReturnThePoint(direct, inverse, { 40.4, -3.7, 700.0 }, kLatitudeLongitudeHeightTolerances);
+}
+
+// ETRS89 (EPSG 4258, axes latitude and longitude) + Alicante height (EPSG 5782) with the geoid EGM08-REDNAP (EPSG operation
+// 9410). The test expects that the point before the last step of the direct chain, GeographicToGeocentric, has the
+// longitude before the latitude, and that the inverse chain returns the starting point with the latitude before the
+// longitude.
+TEST(TransformToGeocentric, LatitudeFirstGeographicRoundTripsThroughGeocentricCoordinates)
+{
+	std::vector<std::shared_ptr<IMathTransform>> direct;
+	std::vector<std::shared_ptr<IMathTransform>> inverse;
+
+	try
+	{
+		GetUtilities()->CreateTransformToGeocentric(CreateCatalogueCoordinateSystem(4258), CreateCatalogueCoordinateSystem(5782), direct, inverse,
+			[](std::string const&, std::string const&) -> std::shared_ptr<IMathTransform> { return nullptr; },
+			[](std::string const&, std::string const&, std::vector<CoordinateOperation> const& operations) { return operations.front().Code; });
+	}
+	catch (GridFileNotFoundException const& exception)
+	{
+		GTEST_SKIP() << exception.what();
+	}
+
+	// Latitude, longitude (degrees) and Alicante height (metres) in Madrid.
+	std::vector<double> const geographicPoint{ 40.4, -3.7, 650.0 };
+	auto const longitudeLatitudeAndEllipsoidalHeight = ApplySteps(direct, geographicPoint, direct.size() - 1);
+	EXPECT_NEAR(geographicPoint[1], longitudeLatitudeAndEllipsoidalHeight[0], 1e-9);
+	EXPECT_NEAR(geographicPoint[0], longitudeLatitudeAndEllipsoidalHeight[1], 1e-9);
+	EXPECT_GT(longitudeLatitudeAndEllipsoidalHeight[2] - geographicPoint[2], 40.0);
+	ExpectChainsReturnThePoint(direct, inverse, geographicPoint, kLatitudeLongitudeHeightTolerances);
 }
 
 // EGM2008 height (EPSG 3855) has two geoid operations from WGS 84 3D (EPSG 3858 and 3859), offered in both directions.
