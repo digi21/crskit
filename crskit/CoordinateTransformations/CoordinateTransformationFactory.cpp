@@ -588,13 +588,35 @@ namespace CrsKit::CoordinateTransformations
 		// EPSG code of the World Geodetic System 1984 datum.
 		constexpr int kWgs84DatumCode = 6326;
 
-		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when HorizontalDatum::CompareTo returns 0
-		// for their datums, the corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of
-		// their prime meridians from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may differ.
+		// Returns true when the authority code of datum is 6326 or its name, ignoring case, is one of the names of WGS 84 below.
+		auto IsWgs84Datum(std::shared_ptr<HorizontalDatum> const& datum) -> bool
+		{
+			if (kWgs84DatumCode == datum->GetAuthorityCode())
+				return true;
+
+			// For an ENSEMBLE named "World Geodetic System 1984 ensemble" without ID, the Well-known Text version 2 (WKT2)
+			// parser creates a datum with that name and code 0.
+			auto const name = datum->GetName();
+			for (auto const candidate : { "WGS_1984", "WGS 84", "WGS84", "D_WGS_1984", "World Geodetic System 1984", "World Geodetic System 1984 ensemble" })
+				if (0 == compareNoCase(name.c_str(), candidate))
+					return true;
+			return false;
+		}
+
+		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when their datums are the same datum, the
+		// corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of their prime meridians
+		// from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may differ. Two datums
+		// are the same datum when IsWgs84Datum returns true for both, or when HorizontalDatum::CompareTo returns 0. CompareTo
+		// compares a datum without an authority code with the other datum by name, and the catalogue names the WGS 84 datum
+		// "World Geodetic System 1984 ensemble", whereas Well-Known Text without a code names it WGS_1984, D_WGS_1984 or World
+		// Geodetic System 1984.
 		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
 		{
 			auto const firstDatum = std::dynamic_pointer_cast<HorizontalDatum>(firstGeographicCoordinateSystem.GetHorizontalDatum());
-			if (!firstDatum || 0 != firstDatum->CompareTo(secondGeographicCoordinateSystem.GetHorizontalDatum()))
+			auto const secondDatum = std::dynamic_pointer_cast<HorizontalDatum>(secondGeographicCoordinateSystem.GetHorizontalDatum());
+			if (!firstDatum || !secondDatum)
+				return false;
+			if (!(IsWgs84Datum(firstDatum) && IsWgs84Datum(secondDatum)) && 0 != firstDatum->CompareTo(secondDatum))
 				return false;
 
 			// An ellipsoid can be defined in a linear unit other than the metre.
@@ -614,20 +636,6 @@ namespace CrsKit::CoordinateTransformations
 			};
 			return fabs(calculateLongitudeFromGreenwichInRadians(firstGeographicCoordinateSystem.GetPrimeMeridian())
 				- calculateLongitudeFromGreenwichInRadians(secondGeographicCoordinateSystem.GetPrimeMeridian())) < 1e-12;
-		}
-		// A datum whose relationship to WGS 84 is the identity: WGS 84 itself.
-		auto IsWgs84Datum(std::shared_ptr<HorizontalDatum> const& datum) -> bool
-		{
-			if (kWgs84DatumCode == datum->GetAuthorityCode())
-				return true;
-
-			// For an ENSEMBLE named "World Geodetic System 1984 ensemble" without ID, the Well-known Text version 2 (WKT2)
-			// parser creates a datum with that name and code 0.
-			auto const name = datum->GetName();
-			for (auto const candidate : { "WGS_1984", "WGS 84", "WGS84", "D_WGS_1984", "World Geodetic System 1984", "World Geodetic System 1984 ensemble" })
-				if (0 == compareNoCase(name.c_str(), candidate))
-					return true;
-			return false;
 		}
 
 		// Builds the datum shift between two geographic systems from their TOWGS84 (Bursa-Wolf)
