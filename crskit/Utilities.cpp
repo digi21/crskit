@@ -415,7 +415,7 @@ namespace CrsKit
 		}
 
 		// Mathematical operations expect (Longitude, Latitude) and not (Latitude, Longitude)
-		if (geographicSystem->GetAxis(0).GetName() == "Lat" && (geographicSystem->GetAxis(1).GetName() == "Long" || geographicSystem->GetAxis(1).GetName() == "Lon"))
+		if (StaticCoordinateTransformationFactory::HasLatitudeFirst(*geographicSystem))
 			horizontalTransformations.push_back(Affine::TransformXyzToYxz());
 
 		// The units of the transformations are always sexagesimal

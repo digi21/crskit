@@ -35,6 +35,10 @@ namespace CrsKit::CoordinateTransformations
 		[[nodiscard]] static auto CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(std::string const& transformationName, std::string const& description, std::string const& areaName, std::shared_ptr<CoordinateSystems::GeocentricCoordinateSystem> const& source, std::shared_ptr<CoordinateSystems::GeocentricCoordinateSystem> const& target, std::shared_ptr<IMathTransform> const& mathTransform, bool inverse, int authorityCode = 0) -> std::shared_ptr<CoordinateTransformation>;
 		[[nodiscard]] static auto CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(std::string const& transformationName, std::string const& description, std::string const& areaName, std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& source, std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& target, std::shared_ptr<IMathTransform> const& mathTransform, bool inverse, int authorityCode = 0) -> std::shared_ptr<CoordinateTransformation>;
 		[[nodiscard]] static auto CreateProjectionTransforms(std::shared_ptr<CoordinateSystems::ProjectedCoordinateSystem> const& pcs) -> std::shared_ptr<IMathTransform>;
+		// Returns true when the first axis of the geographic coordinate reference system points north or south and the second
+		// axis points east or west, so the system lists latitude before longitude; the transformation methods expect
+		// longitude first.
+		[[nodiscard]] static auto HasLatitudeFirst(CoordinateSystems::ICoordinateSystem const& geographic) -> bool;
 
 		[[nodiscard]] static auto CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 		[[nodiscard]] static auto CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;

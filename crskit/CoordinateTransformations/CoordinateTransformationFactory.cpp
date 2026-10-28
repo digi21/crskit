@@ -134,14 +134,21 @@ namespace CrsKit::CoordinateTransformations
 		return StaticCoordinateTransformationFactory::CreateFromHorizontalCoordinateSystems(geographic3D, target, options);
 	}
 
+	auto StaticCoordinateTransformationFactory::HasLatitudeFirst(ICoordinateSystem const& geographic) -> bool
+	{
+		// Reads the axis orientations and not the axis names: a Well-Known Text version 2 (WKT2) written by PROJ names the
+		// axes "geodetic latitude (Lat)" and "geodetic longitude (Lon)", while the catalogue names them "Lat" and "Lon".
+		auto const firstAxisOrientation = geographic.GetAxis(0).GetOrientation();
+		auto const secondAxisOrientation = geographic.GetAxis(1).GetOrientation();
+		return (AxisOrientationEnum::North == firstAxisOrientation || AxisOrientationEnum::South == firstAxisOrientation)
+			&& (AxisOrientationEnum::East == secondAxisOrientation || AxisOrientationEnum::West == secondAxisOrientation);
+	}
+
 	auto StaticCoordinateTransformationFactory::CreateProjectionTransforms(std::shared_ptr<ProjectedCoordinateSystem> const& pcs) -> std::shared_ptr<IMathTransform>
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
 
-		// The following does not work: sourceCS->GetAxis(0).GetOrientation() == AxisOrientationEnum::North && sourceCS->GetAxis(1).GetOrientation() == AxisOrientationEnum::East
-		// because test 5110_part1 would fail since the coordinate system in that case is X:North Y:X, i.e. the axes are not swapped (the coordinate is still
-		// formed as X,Y)
-		if (pcs->GetGeographicCoordinateSystem()->GetAxis(0).GetName() == "Lat" && (pcs->GetGeographicCoordinateSystem()->GetAxis(1).GetName() == "Long" || pcs->GetGeographicCoordinateSystem()->GetAxis(1).GetName() == "Lon"))
+		if (HasLatitudeFirst(*pcs->GetGeographicCoordinateSystem()))
 			transformations.push_back(Affine::AffineSwapAxesTransform(2));
 
 		if (fabs(pcs->GetGeographicCoordinateSystem()->GetAngularUnit().GetRadiansPerUnit() - M_PI / 180.0) > 1E-15)
@@ -306,7 +313,7 @@ namespace CrsKit::CoordinateTransformations
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
 
-		if (geo->GetAxis(0).GetName() == "Lat" && (geo->GetAxis(1).GetName() == "Long" || geo->GetAxis(1).GetName() == "Lon"))
+		if (HasLatitudeFirst(*geo))
 			if (2 == pointDimensions)
 				transformations.push_back(Affine::AffineSwapAxesTransform(2));
 			else if (3 == pointDimensions)
@@ -325,7 +332,7 @@ namespace CrsKit::CoordinateTransformations
 		if (fabs(geo->GetAngularUnit().GetRadiansPerUnit() - M_PI / 180.0) > 1E-15)
 			transformations.push_back(Affine::AffineMainDiagonalTransform(M_PI / 180.0 / geo->GetAngularUnit().GetRadiansPerUnit(), 2));
 
-		if (geo->GetAxis(0).GetName() == "Lat" && (geo->GetAxis(1).GetName() == "Long" || geo->GetAxis(1).GetName() == "Lon"))
+		if (HasLatitudeFirst(*geo))
 			transformations.push_back(Affine::AffineSwapAxesTransform(2));
 
 		return transformations;
