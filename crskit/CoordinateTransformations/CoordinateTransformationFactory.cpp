@@ -527,6 +527,33 @@ namespace CrsKit::CoordinateTransformations
 		// EPSG code of the World Geodetic System 1984 datum.
 		constexpr int kWgs84DatumCode = 6326;
 
+		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when HorizontalDatum::CompareTo returns 0
+		// for their datums, the corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of
+		// their prime meridians from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may differ.
+		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		{
+			auto const firstDatum = std::dynamic_pointer_cast<HorizontalDatum>(firstGeographicCoordinateSystem.GetHorizontalDatum());
+			if (!firstDatum || 0 != firstDatum->CompareTo(secondGeographicCoordinateSystem.GetHorizontalDatum()))
+				return false;
+
+			// An ellipsoid can be defined in a linear unit other than the metre.
+			auto const calculateSemiAxesInMetres = [](Ellipsoid const& ellipsoid)
+			{
+				auto const metresPerUnit = ellipsoid.GetLinearUnit().GetMetersPerUnit();
+				return std::pair{ ellipsoid.GetSemiMajorAxis() * metresPerUnit, ellipsoid.GetSemiMinorAxis() * metresPerUnit };
+			};
+			auto const [firstSemiMajorAxis, firstSemiMinorAxis] = calculateSemiAxesInMetres(firstGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
+			auto const [secondSemiMajorAxis, secondSemiMinorAxis] = calculateSemiAxesInMetres(secondGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
+			if (fabs(firstSemiMajorAxis - secondSemiMajorAxis) > 1e-6 || fabs(firstSemiMinorAxis - secondSemiMinorAxis) > 1e-6)
+				return false;
+
+			auto const calculateLongitudeFromGreenwichInRadians = [](PrimeMeridian const& primeMeridian)
+			{
+				return primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit();
+			};
+			return fabs(calculateLongitudeFromGreenwichInRadians(firstGeographicCoordinateSystem.GetPrimeMeridian())
+				- calculateLongitudeFromGreenwichInRadians(secondGeographicCoordinateSystem.GetPrimeMeridian())) < 1e-12;
+		}
 		// A datum whose relationship to WGS 84 is the identity: WGS 84 itself.
 		auto IsWgs84Datum(std::shared_ptr<HorizontalDatum> const& datum) -> bool
 		{
@@ -704,24 +731,30 @@ namespace CrsKit::CoordinateTransformations
 				}
 		}
 
-		if (nullptr != sourceAsGeographic && nullptr != targetAsProjected && 0 == targetAsProjected->GetGeographicCoordinateSystem()->CompareTo(sourceAsGeographic))
-			return make_shared<CoordinateTransformation>(
-				"",
-				"",
-				"",
-				sourceAsGeographic,
-				targetAsProjected,
-				CreateProjectionTransforms(targetAsProjected));
+		// When the source and target geographic CRSs share a geodetic frame, including a CRS defined in Well-Known Text (WKT)
+		// without an authority code: remove the projection of the source if the source is projected, convert the axes and the
+		// angular unit between the geographic CRSs, and apply the projection of the target if the target is projected.
+		{
+			auto const sourceGeographicCoordinateSystem = sourceAsGeographic ? sourceAsGeographic
+				: (sourceAsProjected ? dynamic_pointer_cast<GeographicCoordinateSystem>(sourceAsProjected->GetGeographicCoordinateSystem()) : nullptr);
+			auto const targetGeographicCoordinateSystem = targetAsGeographic ? targetAsGeographic
+				: (targetAsProjected ? dynamic_pointer_cast<GeographicCoordinateSystem>(targetAsProjected->GetGeographicCoordinateSystem()) : nullptr);
 
-		if (nullptr != sourceAsProjected && nullptr != targetAsGeographic && 0 == sourceAsProjected->GetGeographicCoordinateSystem()->CompareTo(targetAsGeographic))
-			return make_shared<CoordinateTransformation>(
-				"",
-				"",
-				"",
-				sourceAsProjected,
-				targetAsGeographic,
-				CreateProjectionTransforms(sourceAsProjected)->GetInverse());
+			if (nullptr != sourceGeographicCoordinateSystem && nullptr != targetGeographicCoordinateSystem
+				&& ShareGeodeticFrame(*sourceGeographicCoordinateSystem, *targetGeographicCoordinateSystem))
+			{
+				vector<shared_ptr<IMathTransform>> transforms;
+				if (nullptr != sourceAsProjected)
+					transforms.push_back(CreateProjectionTransforms(sourceAsProjected)->GetInverse());
+				transforms.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
+					sourceGeographicCoordinateSystem->GetName() + " to " + targetGeographicCoordinateSystem->GetName(), "", "",
+					sourceGeographicCoordinateSystem, targetGeographicCoordinateSystem, nullptr, false)->GetMathTransform());
+				if (nullptr != targetAsProjected)
+					transforms.push_back(CreateProjectionTransforms(targetAsProjected));
 
+				return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, make_shared<ConcatenatedTransform>(transforms));
+			}
+		}
 		throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", sourceCS->GetName().c_str(), targetCS->GetName().c_str()));
 	}
 
