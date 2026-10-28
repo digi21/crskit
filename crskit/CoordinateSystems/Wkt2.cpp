@@ -187,28 +187,67 @@ namespace CrsKit::Wkt
 			return nullptr;
 		}
 
+		auto ParseAngleUnitNode(TokenWkt const& unit) -> AngularUnit
+		{
+			std::string authority;
+			int code{};
+			ParseId(unit, authority, code);
+			return AngularUnit{unit.GetChild(0).GetString(), authority, code, "", "", unit.GetChild(1).GetDouble()};
+		}
+
+		auto ParseLengthUnitNode(TokenWkt const& unit) -> LinearUnit
+		{
+			std::string authority;
+			int code{};
+			ParseId(unit, authority, code);
+			return LinearUnit{unit.GetChild(0).GetString(), authority, code, "", "", unit.GetChild(1).GetDouble()};
+		}
+
 		auto ParseAngleUnit(TokenWkt const& container, AngularUnit const& fallback) -> AngularUnit
 		{
 			auto const* unit = FindChild(container, {"ANGLEUNIT", "UNIT"});
-			if (!unit)
-				return fallback;
-
-			std::string authority;
-			int code{};
-			ParseId(*unit, authority, code);
-			return AngularUnit{unit->GetChild(0).GetString(), authority, code, "", "", unit->GetChild(1).GetDouble()};
+			return unit ? ParseAngleUnitNode(*unit) : fallback;
 		}
 
 		auto ParseLengthUnit(TokenWkt const& container, LinearUnit const& fallback) -> LinearUnit
 		{
 			auto const* unit = FindChild(container, {"LENGTHUNIT", "UNIT"});
-			if (!unit)
-				return fallback;
+			return unit ? ParseLengthUnitNode(*unit) : fallback;
+		}
 
-			std::string authority;
-			int code{};
-			ParseId(*unit, authority, code);
-			return LinearUnit{unit->GetChild(0).GetString(), authority, code, "", "", unit->GetChild(1).GetDouble()};
+		// Returns the unit node with one of the keywords inside the AXIS child of root at the zero-based axisIndex, or nullptr
+		// when root has no AXIS child at axisIndex or that AXIS node has no such unit node. A coordinate system declares the unit in each AXIS node instead of after the last one when its
+		// axes use different units, and the WKT2 that PROJ writes declares the unit inside each AXIS node.
+		auto FindAxisUnit(TokenWkt const& root, std::size_t axisIndex, std::initializer_list<const char*> keywords) -> const TokenWkt*
+		{
+			std::size_t axisCount = 0;
+			for (std::size_t childIndex = 0; childIndex < root.GetChildCount(); ++childIndex)
+			{
+				auto const& child = root.GetChild(childIndex);
+				if (0 != compareNoCase(child.GetName().c_str(), "AXIS"))
+					continue;
+				if (axisIndex == axisCount++)
+					return FindChild(child, keywords);
+			}
+			return nullptr;
+		}
+
+		// Returns the unit that root declares after its AXIS nodes; otherwise, the unit that the AXIS node at axisIndex declares;
+		// otherwise, fallback.
+		auto ParseCoordinateSystemAngleUnit(TokenWkt const& root, std::size_t axisIndex, AngularUnit const& fallback) -> AngularUnit
+		{
+			if (auto const* unit = FindChild(root, {"ANGLEUNIT", "UNIT"}))
+				return ParseAngleUnitNode(*unit);
+			auto const* unit = FindAxisUnit(root, axisIndex, {"ANGLEUNIT", "UNIT"});
+			return unit ? ParseAngleUnitNode(*unit) : fallback;
+		}
+
+		auto ParseCoordinateSystemLengthUnit(TokenWkt const& root, std::size_t axisIndex, LinearUnit const& fallback) -> LinearUnit
+		{
+			if (auto const* unit = FindChild(root, {"LENGTHUNIT", "UNIT"}))
+				return ParseLengthUnitNode(*unit);
+			auto const* unit = FindAxisUnit(root, axisIndex, {"LENGTHUNIT", "UNIT"});
+			return unit ? ParseLengthUnitNode(*unit) : fallback;
 		}
 
 		auto ParseEllipsoid(TokenWkt const& ellipsoidNode) -> Ellipsoid
@@ -260,7 +299,7 @@ namespace CrsKit::Wkt
 				DatumType::HD_Geocentric, ellipsoid, nullptr);
 
 			AngularUnit const degree{"degree", "EPSG", 9122, "", "", 0.0174532925199433};
-			auto const angularUnit = ParseAngleUnit(root, degree);
+			auto const angularUnit = ParseCoordinateSystemAngleUnit(root, 0, degree);
 
 			PrimeMeridian primeMeridian{"Greenwich", "EPSG", 8901, "", "", angularUnit, 0.0};
 			if (auto const* primemNode = FindChild(root, {"PRIMEM", "PRIMEMERIDIAN"}))
@@ -287,7 +326,13 @@ namespace CrsKit::Wkt
 			units[0] = angularUnit;
 			units[1] = angularUnit;
 			if (axes.size() == 3)
-				units[2] = ParseLengthUnit(root, LinearUnit{"metre", 1.0});
+			{
+				// Only the third AXIS node or a LENGTHUNIT node after the axes can declare the unit of the ellipsoidal height.
+				auto const* heightUnit = FindAxisUnit(root, 2, {"LENGTHUNIT", "UNIT"});
+				if (nullptr == heightUnit)
+					heightUnit = FindChild(root, {"LENGTHUNIT"});
+				units[2] = heightUnit ? ParseLengthUnitNode(*heightUnit) : LinearUnit{"metre", 1.0};
+			}
 
 			std::string authority;
 			int code{};
@@ -737,7 +782,7 @@ namespace CrsKit::Wkt
 			}
 
 			auto const projection = std::make_shared<Projection>(std::string(method->ogcClass), parameters);
-			auto const linearUnit = ParseLengthUnit(root, LinearUnit{"metre", 1.0});
+			auto const linearUnit = ParseCoordinateSystemLengthUnit(root, 0, LinearUnit{"metre", 1.0});
 
 			auto axes = AxisInfo::FromWkt(root);
 			if (axes.size() < 2)
@@ -788,7 +833,7 @@ namespace CrsKit::Wkt
 					ParseAngleUnit(*primemNode, degree), primemNode->GetChild(1).GetDouble()};
 			}
 
-			auto const linearUnit = ParseLengthUnit(root, LinearUnit{"metre", 1.0});
+			auto const linearUnit = ParseCoordinateSystemLengthUnit(root, 0, LinearUnit{"metre", 1.0});
 
 			auto axes = AxisInfo::FromWkt(root);
 			if (axes.size() < 3)
@@ -824,7 +869,7 @@ namespace CrsKit::Wkt
 				datumNode->GetChild(0).GetString(), datumAuthority, datumCode, "", "",
 				DatumType::VD_GeoidModelDerived);
 
-			auto const linearUnit = ParseLengthUnit(root, LinearUnit{"metre", 1.0});
+			auto const linearUnit = ParseCoordinateSystemLengthUnit(root, 0, LinearUnit{"metre", 1.0});
 
 			auto axes = AxisInfo::FromWkt(root);
 			if (axes.empty())
@@ -854,7 +899,7 @@ namespace CrsKit::Wkt
 			auto const datum = std::make_shared<LocalDatum>(
 				datumNode->GetChild(0).GetString(), DatumType::LD_Min, datumAuthority, datumCode);
 
-			auto const linearUnit = ParseLengthUnit(root, LinearUnit{"metre", 1.0});
+			auto const linearUnit = ParseCoordinateSystemLengthUnit(root, 0, LinearUnit{"metre", 1.0});
 
 			auto axes = AxisInfo::FromWkt(root);
 			if (axes.empty())
