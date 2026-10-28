@@ -140,11 +140,11 @@ namespace CrsKit::Epsg
 		operationCode = ResolveOperationAlias(operationCode);
 		auto const algorithmCode = _provider->GetAlgorithmCodeForOperation(operationCode);
 
-		// When source or target is three-dimensional, the math operation receives and returns longitude and latitude in degrees
-		// and the ellipsoidal height in metres; otherwise it receives and returns longitude and latitude in degrees.
-		auto const requiresThreeCoordinates = 3 == source->GetDimension() || 3 == target->GetDimension();
+		// When source and target are three-dimensional, the math operation receives and returns longitude and latitude in
+		// degrees and the ellipsoidal height in metres; otherwise it receives and returns longitude and latitude in degrees.
+		auto const requiresThreeCoordinates = 3 == source->GetDimension() && 3 == target->GetDimension();
 
-		// geocentricDatumShift receives and returns geocentric coordinates. When source and target are two-dimensional, the
+		// geocentricDatumShift receives and returns geocentric coordinates. When source or target is two-dimensional, the
 		// chain inserts an ellipsoidal height of 0 metres before the geocentric conversion of source and removes the
 		// ellipsoidal height after the inverse geocentric conversion of target.
 		auto const createDatumShiftThroughGeocentricCoordinates = [&](std::shared_ptr<IMathTransform> const& geocentricDatumShift) -> std::shared_ptr<IMathTransform>

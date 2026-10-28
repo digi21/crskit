@@ -40,6 +40,10 @@ namespace
 	std::vector<double> const kNad83CsrsPoint{ 45.0, -75.0, 100.0 };
 	std::vector<double> const kWgs84Point{ 45.000009002217, -75.000001910773, 98.875774 };
 	std::vector<double> const kLatitudeLongitudeHeightTolerances{ 1e-9, 1e-9, 1e-3 };
+	// Latitude and longitude of kNad83CsrsPoint, and the latitude and longitude that European Petroleum Survey Group (EPSG)
+	// operation 1946 returns for kNad83CsrsLatitudeAndLongitude with an ellipsoidal height of 0 metres.
+	std::vector<double> const kNad83CsrsLatitudeAndLongitude{ 45.0, -75.0 };
+	std::vector<double> const kExpectedWgs84LatitudeAndLongitudeForZeroEllipsoidalHeight{ 45.000009002478, -75.000001910865 };
 }
 
 // NAD83(CSRS) three-dimensional to WGS 84 three-dimensional converts the ellipsoidal height with EPSG operation 1946.
@@ -54,16 +58,39 @@ TEST(Geographic3DDatumShift, Wgs84ToNad83CsrsAppliesTheInverseOperation)
 	ExpectPointCoordinatesWithinTolerances(kNad83CsrsPoint, TransformPointWithEpsgOperation1946(4979, 4955, kWgs84Point), kLatitudeLongitudeHeightTolerances);
 }
 
-// NAD83(CSRS) three-dimensional to WGS 84 two-dimensional uses the ellipsoidal height of the input point and returns the
-// latitude and the longitude.
-TEST(Geographic3DDatumShift, Nad83Csrs3DToWgs84TwoDimensionalReturnsLatitudeAndLongitude)
+// Between a three-dimensional and a two-dimensional geographic coordinate reference system, the transformation receives
+// and returns latitude and longitude, and the operation takes an ellipsoidal height of 0 metres: North American Datum
+// 1983 (Canadian Spatial Reference System) three-dimensional to World Geodetic System 1984 two-dimensional.
+TEST(Geographic3DDatumShift, Nad83Csrs3DToWgs84TwoDimensionalTransformsLatitudeAndLongitude)
 {
-	ExpectPointCoordinatesWithinTolerances({ kWgs84Point[0], kWgs84Point[1] }, TransformPointWithEpsgOperation1946(4955, 4326, kNad83CsrsPoint), kLatitudeLongitudeHeightTolerances);
+	ExpectPointCoordinatesWithinTolerances(kExpectedWgs84LatitudeAndLongitudeForZeroEllipsoidalHeight, TransformPointWithEpsgOperation1946(4955, 4326, kNad83CsrsLatitudeAndLongitude), kLatitudeLongitudeHeightTolerances);
 }
 
-// NAD83(CSRS) two-dimensional to WGS 84 three-dimensional uses an ellipsoidal height of 0 metres because the input point
-// contains only latitude and longitude.
-TEST(Geographic3DDatumShift, Nad83Csrs2DToWgs84ThreeDimensionalUsesZeroMetresAsInputEllipsoidalHeight)
+// The transformation from two-dimensional North American Datum 1983 (Canadian Spatial Reference System) to
+// three-dimensional World Geodetic System 1984 receives and returns latitude and longitude.
+TEST(Geographic3DDatumShift, Nad83Csrs2DToWgs84ThreeDimensionalTransformsLatitudeAndLongitude)
 {
-	ExpectPointCoordinatesWithinTolerances({ 45.000009002478, -75.000001910865, -1.124226 }, TransformPointWithEpsgOperation1946(4617, 4979, { kNad83CsrsPoint[0], kNad83CsrsPoint[1] }), kLatitudeLongitudeHeightTolerances);
+	ExpectPointCoordinatesWithinTolerances(kExpectedWgs84LatitudeAndLongitudeForZeroEllipsoidalHeight, TransformPointWithEpsgOperation1946(4617, 4979, kNad83CsrsLatitudeAndLongitude), kLatitudeLongitudeHeightTolerances);
+}
+
+// The transformation from the coordinate reference system with European Petroleum Survey Group (EPSG) code 4979 to a
+// compound coordinate reference system of European Datum 1950 (ED50), defined in Well-Known Text version 1 with
+// TOWGS84 parameters for the datum transformation from ED50 to World Geodetic System 1984 (WGS 84) and with longitude
+// and latitude axes, and Earth Gravitational Model 1996 (EGM96) height (EPSG code 5773) applies the datum shift to the
+// horizontal coordinates and uses the EGM96 geoid grid to convert the ellipsoidal height to EGM96 height. The test is
+// skipped when the grid WW15MGH.GRD is missing.
+TEST(Geographic3DDatumShift, Wgs84ToCompoundOfEd50AndEgm96HeightTransformsTheHorizontalCoordinatesWithTowgs84)
+{
+	auto const compoundCoordinateSystem = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"WKT(COMPD_CS["ED50 + EGM96 height",GEOGCS["ED50",DATUM["European_Datum_1950",SPHEROID["International 1924",6378388,297],TOWGS84[-87,-98,-121,0,0,0,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],VERT_CS["EGM96 height",VERT_DATUM["EGM96 geoid",2005,AUTHORITY["EPSG","5171"]],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Up",UP],AUTHORITY["EPSG","5773"]]])WKT");
+	try
+	{
+		auto const point = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4979), compoundCoordinateSystem)
+			->GetMathTransform()->Transform({ 40.0, -3.0, 100.0 });
+		ExpectPointCoordinatesWithinTolerances({ -2.998800648958, 40.001171406487, 47.613998 }, point, kLatitudeLongitudeHeightTolerances);
+	}
+	catch (GridFileNotFoundException const& exception)
+	{
+		GTEST_SKIP() << exception.what();
+	}
 }

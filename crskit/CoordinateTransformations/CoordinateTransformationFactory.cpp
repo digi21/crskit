@@ -400,14 +400,13 @@ namespace CrsKit::CoordinateTransformations
 
 	auto StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(std::string const& transformationName, std::string const& description, std::string const& areaName, std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<GeographicCoordinateSystem> const& target, std::shared_ptr<IMathTransform> const& mathTransform, bool inverse, int authorityCode) -> std::shared_ptr<CoordinateTransformation>
 	{
-		// When source or target is three-dimensional, mathTransform receives and returns longitude and latitude in degrees and
-		// the ellipsoidal height in metres: the transformation inserts an ellipsoidal height of 0 metres when source is
-		// two-dimensional and removes the ellipsoidal height when target is two-dimensional.
-		auto const requiresThreeCoordinates = 3 == source->GetDimension() || 3 == target->GetDimension();
+		// When source and target are three-dimensional, mathTransform receives and returns longitude and latitude in degrees
+		// and the ellipsoidal height in metres. Otherwise the transformation receives and returns the two horizontal
+		// coordinates, also for a three-dimensional source or target: FindTransformsGeographic3DToCompound and
+		// FindTransformsCompoundToGeographic3D apply it to the horizontal coordinates through PassThrough.
+		auto const requiresThreeCoordinates = 3 == source->GetDimension() && 3 == target->GetDimension();
 
-		auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(source, source->GetDimension());
-		if (requiresThreeCoordinates && 2 == source->GetDimension())
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
+		auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(source, requiresThreeCoordinates ? 3 : 2);
 
 		if (nullptr != mathTransform)
 		{
@@ -423,10 +422,7 @@ namespace CrsKit::CoordinateTransformations
 			}
 		}
 
-		if (requiresThreeCoordinates && 2 == target->GetDimension())
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
-
-		if (3 == target->GetDimension())
+		if (requiresThreeCoordinates)
 		{
 			for (auto const& transformation : CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(target, 3) | std::views::reverse)
 				transformations.push_back(transformation->GetInverse());
