@@ -103,6 +103,25 @@ TEST(Towgs84Transform, MatchesEpsg1133WhenTargetDatumIsWgs84EnsembleWithoutId)
 	EXPECT_NEAR(expectedCoordinates[0], actualCoordinates[1], 1e-7);
 }
 
+// The test compares the output in grads of the TOWGS84 transformation with the coordinates returned by EPSG operation
+// 1133, converted from degrees to grads by multiplying each coordinate by 10/9.
+TEST(Towgs84Transform, ConvertsTheResultToTheGradsOfTheTarget)
+{
+	char const* sourceCrsWkt = R"WKT(GEOGCS["ED50",DATUM["European_Datum_1950",SPHEROID["International 1924",6378388,297],TOWGS84[-87,-98,-121,0,0,0,0]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AXIS["Lat", NORTH],AXIS["Long", EAST]])WKT";
+	char const* targetCrsWkt = R"WKT(GEOGCS["WGS 84 in grads",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["grad",0.01570796326794897],AXIS["Lat", NORTH],AXIS["Long", EAST]])WKT";
+
+	auto const towgs84Ct = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(Crs(sourceCrsWkt), Crs(targetCrsWkt));
+	ASSERT_NE(nullptr, towgs84Ct);
+
+	auto const source = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4230);
+	auto const target = GetCoordinateSystemAuthorityFactory()->CreateCoordinateSystem(4326);
+	auto const epsg1133Transforms = BuildDirectInverseWithOperation(source, target, 1133);
+
+	auto const actualCoordinatesInGrads = towgs84Ct->GetMathTransform()->Transform({ 40.0, -3.0 });
+	auto const expectedCoordinatesInDegrees = epsg1133Transforms.d->Transform({ 40.0, -3.0 });
+	EXPECT_NEAR(expectedCoordinatesInDegrees[0] * 10.0 / 9.0, actualCoordinatesInGrads[0], 1e-7);
+	EXPECT_NEAR(expectedCoordinatesInDegrees[1] * 10.0 / 9.0, actualCoordinatesInGrads[1], 1e-7);
+}
 // Safety rule: if a datum neither carries TOWGS84 nor is WGS 84, its relation to WGS 84 is unknown.
 // The library must refuse rather than silently assume the identity (which would be wrong coordinates).
 TEST(Towgs84Transform, RefusesWhenDatumRelationUnknown)

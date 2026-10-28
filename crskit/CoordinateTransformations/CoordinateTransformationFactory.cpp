@@ -323,7 +323,7 @@ namespace CrsKit::CoordinateTransformations
 		vector<shared_ptr<IMathTransform>> transformations;
 
 		if (fabs(geo->GetAngularUnit().GetRadiansPerUnit() - M_PI / 180.0) > 1E-15)
-			transformations.push_back(Affine::AffineMainDiagonalTransform(M_PI / geo->GetAngularUnit().GetRadiansPerUnit() * 180, 2));
+			transformations.push_back(Affine::AffineMainDiagonalTransform(M_PI / 180.0 / geo->GetAngularUnit().GetRadiansPerUnit(), 2));
 
 		if (geo->GetAxis(0).GetName() == "Lat" && (geo->GetAxis(1).GetName() == "Long" || geo->GetAxis(1).GetName() == "Lon"))
 			transformations.push_back(Affine::AffineSwapAxesTransform(2));
