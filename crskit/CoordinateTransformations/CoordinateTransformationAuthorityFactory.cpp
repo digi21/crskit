@@ -17,6 +17,7 @@
 #include "Algorithms/CoordinateFrameRotation.h"
 #include "ConcatenatedTransform.h"
 #include "CoordinateOperation.h"
+#include "Passthrough.h"
 
 using namespace CrsKit::CoordinateSystems;
 using namespace CrsKit::CoordinateTransformations;
@@ -37,6 +38,15 @@ namespace CrsKit::Epsg
 		auto CatalogueCode(CoordinateSystem const& coordinateSystem) -> int
 		{
 			return GetDefaultContext()->aliases.FindCrs(coordinateSystem.GetAuthority(), coordinateSystem.GetAuthorityCode()).value_or(coordinateSystem.GetAuthorityCode());
+		}
+
+		// Returns the geographic 2D CRS of the catalogue with the first two axes of a geographic 3D CRS, or geographicSystem
+		// when it is not three-dimensional.
+		auto CreateTwoDimensionalGeographicSystem(std::shared_ptr<GeographicCoordinateSystem> const& geographicSystem) -> std::shared_ptr<GeographicCoordinateSystem>
+		{
+			if (3 != geographicSystem->GetDimension())
+				return geographicSystem;
+			return GetCoordinateSystemAuthorityFactory()->CreateGeographic2DSystemForGeographic3DSystem(geographicSystem->GetAuthorityCode(), geographicSystem->GetAxis(0), geographicSystem->GetAxis(1));
 		}
 	}
 
@@ -130,42 +140,39 @@ namespace CrsKit::Epsg
 		operationCode = ResolveOperationAlias(operationCode);
 		auto const algorithmCode = _provider->GetAlgorithmCodeForOperation(operationCode);
 
-		// The operation may be a geocentric operation, for which there is no class because 1: there are no standardized names for the parameters of the two
-		// ellipsoids involved and 2: I cannot think of another cause.
+		// When source or target is three-dimensional, the math operation receives and returns longitude and latitude in degrees
+		// and the ellipsoidal height in metres; otherwise it receives and returns longitude and latitude in degrees.
+		auto const requiresThreeCoordinates = 3 == source->GetDimension() || 3 == target->GetDimension();
 
+		// geocentricDatumShift receives and returns geocentric coordinates. When source and target are two-dimensional, the
+		// chain inserts an ellipsoidal height of 0 metres before the geocentric conversion of source and removes the
+		// ellipsoidal height after the inverse geocentric conversion of target.
+		auto const createDatumShiftThroughGeocentricCoordinates = [&](std::shared_ptr<IMathTransform> const& geocentricDatumShift) -> std::shared_ptr<IMathTransform>
+		{
+			vector<shared_ptr<IMathTransform>> transformations;
+			if (!requiresThreeCoordinates)
+				transformations.push_back(make_shared<Geographic2D2Geographic3D>());
+			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
+			transformations.push_back(geocentricDatumShift);
+			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
+			if (!requiresThreeCoordinates)
+				transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
+			return make_shared<ConcatenatedTransform>(transformations);
+		};
+
+		std::shared_ptr<IMathTransform> mathTransform;
 		if (9603 == algorithmCode)
 		{
 			auto parameters = _provider->GetTransformationParameters(operationCode, algorithmCode);
-
-			vector<shared_ptr<IMathTransform>> transformations;
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
-			transformations.push_back(make_shared<GeocentricTranslations>(
+			mathTransform = createDatumShiftThroughGeocentricCoordinates(make_shared<GeocentricTranslations>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
 				get<double>(parameters[2])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
-
-			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
-				_provider->GetCoordinateOperationName(operationCode),
-				_provider->GetCoordinateOperationDescription(operationCode),
-				_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(operationCode)),
-				source,
-				target,
-				make_shared<ConcatenatedTransform>(transformations),
-				inverse,
-				operationCode);
 		}
-
-		if (9606 == algorithmCode)
+		else if (9606 == algorithmCode)
 		{
 			auto parameters = _provider->GetTransformationParameters(operationCode, algorithmCode);
-
-			vector<shared_ptr<IMathTransform>> transformations;
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
-			transformations.push_back(make_shared<PositionVectorTransformation>(
+			mathTransform = createDatumShiftThroughGeocentricCoordinates(make_shared<PositionVectorTransformation>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
 				get<double>(parameters[2]),
@@ -173,28 +180,11 @@ namespace CrsKit::Epsg
 				get<double>(parameters[4]),
 				get<double>(parameters[5]),
 				get<double>(parameters[6])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
-
-			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
-				_provider->GetCoordinateOperationName(operationCode),
-				_provider->GetCoordinateOperationDescription(operationCode),
-				_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(operationCode)),
-				source,
-				target,
-				make_shared<ConcatenatedTransform>(transformations),
-				inverse,
-				operationCode);
 		}
-
-		if (9607 == algorithmCode)
+		else if (9607 == algorithmCode)
 		{
 			auto parameters = _provider->GetTransformationParameters(operationCode, algorithmCode);
-
-			vector<shared_ptr<IMathTransform>> transformations;
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
-			transformations.push_back(make_shared<CoordinateFrameRotation>(
+			mathTransform = createDatumShiftThroughGeocentricCoordinates(make_shared<CoordinateFrameRotation>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
 				get<double>(parameters[2]),
@@ -202,40 +192,22 @@ namespace CrsKit::Epsg
 				get<double>(parameters[4]),
 				get<double>(parameters[5]),
 				get<double>(parameters[6])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
-
-			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
-				_provider->GetCoordinateOperationName(operationCode),
-				_provider->GetCoordinateOperationDescription(operationCode),
-				_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(operationCode)),
-				source,
-				target,
-				make_shared<ConcatenatedTransform>(transformations),
-				inverse,
-				operationCode);
 		}
-
 		// Molodensky-Badekas (Coordinate Frame, geographic 2D domain): the math transform of the operation receives and
 		// returns geocentric coordinates.
-		if (9636 == algorithmCode)
+		else if (9636 == algorithmCode)
+			mathTransform = createDatumShiftThroughGeocentricCoordinates(CreateMathTransform(operationCode));
+		else
 		{
-			vector<shared_ptr<IMathTransform>> transformations;
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
-			transformations.push_back(CreateMathTransform(operationCode));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
-			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
+			mathTransform = CreateMathTransform(operationCode);
 
-			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
-				_provider->GetCoordinateOperationName(operationCode),
-				_provider->GetCoordinateOperationDescription(operationCode),
-				_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(operationCode)),
-				source,
-				target,
-				make_shared<ConcatenatedTransform>(transformations),
-				inverse,
-				operationCode);
+			// With three coordinates, an operation that receives longitude and latitude leaves the ellipsoidal height unchanged:
+			// TransformXyzToZxy moves the height to the first coordinate, which PassThrough does not change.
+			if (requiresThreeCoordinates && 2 == mathTransform->GetSourceDimension())
+				mathTransform = make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{
+					Affine::TransformXyzToZxy(),
+					make_shared<PassThrough>(1, mathTransform),
+					Affine::TransformXyzToZxy()->GetInverse() });
 		}
 
 		return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
@@ -244,7 +216,7 @@ namespace CrsKit::Epsg
 			_provider->GetAreaName(_provider->GetCoordinateOperationAreaOfUse(operationCode)),
 			source,
 			target,
-			CreateMathTransform(operationCode),
+			mathTransform,
 			inverse,
 			operationCode);
 	}
@@ -407,24 +379,23 @@ namespace CrsKit::Epsg
 		//WHERE        (COORD_REF_SYS_KIND = 'geographic 3D')))
 		//
 		//
-		// Only two appear: "RGPF to WGS 84 (1)" and "RGPF to WGS 84 (2)", which I am not going to implement; therefore, if any of the CRSs passed as parameter is Geographic 3D, I will
-		// locate its 2D equivalent and I will look for the transformation between these two 
-		if (3 == source->GetDimension())
-			source = GetCoordinateSystemAuthorityFactory()->CreateGeographic2DSystemForGeographic3DSystem(source->GetAuthorityCode(), source->GetAxis(0), source->GetAxis(1));
-		if (3 == target->GetDimension())
-			target = GetCoordinateSystemAuthorityFactory()->CreateGeographic2DSystemForGeographic3DSystem(target->GetAuthorityCode(), target->GetAxis(0), target->GetAxis(1));
+		// This query returns only "RGPF to WGS 84 (1)" and "RGPF to WGS 84 (2)". The operation lookup uses the geographic 2D
+		// equivalents of source and target; the transformation receives the coordinates of source and returns the coordinates
+		// of target, including the ellipsoidal height of a three-dimensional CRS.
+		auto const sourceForOperationLookup = CreateTwoDimensionalGeographicSystem(source);
+		auto const targetForOperationLookup = CreateTwoDimensionalGeographicSystem(target);
 
 		// There is a datum change. We locate the best transformation:
 
 		auto transformations = _provider->OperationCodesToTransformSystemAtoB(
-			CatalogueCode(*source),
-			CatalogueCode(*target));
+			CatalogueCode(*sourceForOperationLookup),
+			CatalogueCode(*targetForOperationLookup));
 
 		if (0 == transformations.size())
 		{
 			transformations = _provider->OperationCodesToTransformSystemAtoB(
-				CatalogueCode(*target),
-				CatalogueCode(*source));
+				CatalogueCode(*targetForOperationLookup),
+				CatalogueCode(*sourceForOperationLookup));
 
 			if (transformations.size() > 1)
 			{
@@ -689,7 +660,7 @@ namespace CrsKit::Epsg
 			}
 
 			vector<shared_ptr<IMathTransform>> transformations;
-			transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(s, dynamic_pointer_cast<GeographicCoordinateSystem>(t->GetGeographicCoordinateSystem()), options)->GetMathTransform());
+			transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(CreateTwoDimensionalGeographicSystem(s), CreateTwoDimensionalGeographicSystem(dynamic_pointer_cast<GeographicCoordinateSystem>(t->GetGeographicCoordinateSystem())), options)->GetMathTransform());
 			transformations.push_back(StaticCoordinateTransformationFactory::CreateProjectionTransforms(t));
 
 			return make_shared<CoordinateTransformation>(
@@ -713,7 +684,7 @@ namespace CrsKit::Epsg
 			else
 			{
 				transformations.push_back(StaticCoordinateTransformationFactory::CreateProjectionTransforms(s)->GetInverse());
-				transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(dynamic_pointer_cast<GeographicCoordinateSystem>(s->GetGeographicCoordinateSystem()), t, options)->GetMathTransform());
+				transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(CreateTwoDimensionalGeographicSystem(dynamic_pointer_cast<GeographicCoordinateSystem>(s->GetGeographicCoordinateSystem())), CreateTwoDimensionalGeographicSystem(t), options)->GetMathTransform());
 			}
 
 			return make_shared<CoordinateTransformation>(
@@ -749,7 +720,7 @@ namespace CrsKit::Epsg
 
 			vector<shared_ptr<IMathTransform>> transformations;
 			transformations.push_back(StaticCoordinateTransformationFactory::CreateProjectionTransforms(s)->GetInverse());
-			transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(dynamic_pointer_cast<GeographicCoordinateSystem>(s->GetGeographicCoordinateSystem()), dynamic_pointer_cast<GeographicCoordinateSystem>(t->GetGeographicCoordinateSystem()), options)->GetMathTransform());
+			transformations.push_back(CreateCoordinateTransformBetweenGeographicSystems(CreateTwoDimensionalGeographicSystem(dynamic_pointer_cast<GeographicCoordinateSystem>(s->GetGeographicCoordinateSystem())), CreateTwoDimensionalGeographicSystem(dynamic_pointer_cast<GeographicCoordinateSystem>(t->GetGeographicCoordinateSystem())), options)->GetMathTransform());
 			transformations.push_back(StaticCoordinateTransformationFactory::CreateProjectionTransforms(t));
 
 			return make_shared<CoordinateTransformation>(

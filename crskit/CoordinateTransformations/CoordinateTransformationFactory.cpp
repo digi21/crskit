@@ -400,7 +400,14 @@ namespace CrsKit::CoordinateTransformations
 
 	auto StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(std::string const& transformationName, std::string const& description, std::string const& areaName, std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<GeographicCoordinateSystem> const& target, std::shared_ptr<IMathTransform> const& mathTransform, bool inverse, int authorityCode) -> std::shared_ptr<CoordinateTransformation>
 	{
-		auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(source, 2);
+		// When source or target is three-dimensional, mathTransform receives and returns longitude and latitude in degrees and
+		// the ellipsoidal height in metres: the transformation inserts an ellipsoidal height of 0 metres when source is
+		// two-dimensional and removes the ellipsoidal height when target is two-dimensional.
+		auto const requiresThreeCoordinates = 3 == source->GetDimension() || 3 == target->GetDimension();
+
+		auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(source, source->GetDimension());
+		if (requiresThreeCoordinates && 2 == source->GetDimension())
+			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
 
 		if (nullptr != mathTransform)
 		{
@@ -416,8 +423,19 @@ namespace CrsKit::CoordinateTransformations
 			}
 		}
 
-		for (auto const& transformation : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(target))
-			transformations.push_back(transformation);
+		if (requiresThreeCoordinates && 2 == target->GetDimension())
+			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
+
+		if (3 == target->GetDimension())
+		{
+			for (auto const& transformation : CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(target, 3) | std::views::reverse)
+				transformations.push_back(transformation->GetInverse());
+		}
+		else
+		{
+			for (auto const& transformation : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(target))
+				transformations.push_back(transformation);
+		}
 
 		if (0 == transformations.size())
 			return make_shared<CoordinateTransformation>(transformationName, description, areaName, source, target, Affine::AffineMainDiagonalTransform(1.0, std::max(source->GetDimension(), target->GetDimension())), authorityCode);
