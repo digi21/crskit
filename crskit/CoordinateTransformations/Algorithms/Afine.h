@@ -36,6 +36,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		static auto TransformXyzToYxz() -> std::shared_ptr<Affine>;
 		static auto TransformXyzToXyXyz() -> std::shared_ptr<Affine>;
 		static auto AffineMainDiagonalTransform(double value, unsigned int componentes) -> std::shared_ptr<Affine>;
+		// (x1, ..., xn) -> (diagonal[0] x1, ..., diagonal[n - 1] xn).
+		static auto AffineMainDiagonalTransform(std::vector<double> const& diagonal) -> std::shared_ptr<Affine>;
 
 		static auto AffineSwapAxesTransform(unsigned int componentes) -> std::shared_ptr<Affine>;
 		// (x, y) -> (m00 x + m01 y, m10 x + m11 y).

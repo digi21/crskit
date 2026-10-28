@@ -324,9 +324,31 @@ namespace CrsKit::CoordinateTransformations
 				transformations.push_back(Affine::TransformXyzToYxz());
 
 		if (fabs(geo->GetAngularUnit().GetRadiansPerUnit() - M_PI / 180.0) > 1E-15)
-			transformations.push_back(Affine::AffineMainDiagonalTransform(geo->GetAngularUnit().GetRadiansPerUnit() * 180 / M_PI, 2));
+		{
+			auto const degreesPerUnit = geo->GetAngularUnit().GetRadiansPerUnit() * 180 / M_PI;
+			if (2 == pointDimensions)
+				transformations.push_back(Affine::AffineMainDiagonalTransform(degreesPerUnit, 2));
+			else if (3 == pointDimensions)
+				transformations.push_back(Affine::AffineMainDiagonalTransform({ degreesPerUnit, degreesPerUnit, 1.0 }));
+		}
+
+		if (3 == pointDimensions)
+			if (auto const heightConversion = CreateHeightConversionToMetres(*geo))
+				transformations.push_back(heightConversion);
 
 		return transformations;
+	}
+
+	auto StaticCoordinateTransformationFactory::CreateHeightConversionToMetres(GeographicCoordinateSystem const& geo) -> shared_ptr<IMathTransform>
+	{
+		if (3 != geo.GetDimension() || geo.GetUnits().size() < 3)
+			return nullptr;
+
+		auto const* heightUnit = std::get_if<LinearUnit>(&geo.GetUnits()[2]);
+		if (nullptr == heightUnit || fabs(heightUnit->GetMetersPerUnit() - 1.0) <= 1E-15)
+			return nullptr;
+
+		return Affine::AffineMainDiagonalTransform({ 1.0, 1.0, heightUnit->GetMetersPerUnit() });
 	}
 
 	auto StaticCoordinateTransformationFactory::CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<GeographicCoordinateSystem> const& geo) -> vector<shared_ptr<IMathTransform>>
@@ -1003,7 +1025,17 @@ namespace CrsKit::CoordinateTransformations
 			// horizontalSteps convert the first two from the axis order and angular unit of sourceCS to longitude and latitude in
 			// degrees; if it also returns three coordinates, the inverses of horizontalSteps convert them back to the axis order
 			// and angular unit of sourceCS.
-			auto const horizontalSteps = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS, 3);
+			auto horizontalSteps = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS, 3);
+
+			// The transformation receives the ellipsoidal height in metres. When CreateHeightConversionToMetres returns a step, the
+			// code removes the final step, the height conversion, from horizontalSteps and appends heightConversion to
+			// transformations. The remaining horizontalSteps keep the third coordinate, as ThreeCoordinateHeightTransform requires.
+			if (auto const heightConversion = CreateHeightConversionToMetres(*sourceCS))
+			{
+				horizontalSteps.pop_back();
+				transformations.push_back(heightConversion);
+			}
+
 			if (1 == transformation->GetSourceDimension())
 				transformations.push_back(make_shared<PassThrough>(2, transformation));
 			else if (1 == transformation->GetTargetDimension())

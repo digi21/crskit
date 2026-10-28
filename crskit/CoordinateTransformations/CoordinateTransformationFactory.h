@@ -46,7 +46,15 @@ namespace CrsKit::CoordinateTransformations
 		[[nodiscard]] static auto CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(std::shared_ptr<CoordinateSystems::GeocentricCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 		[[nodiscard]] static auto CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<CoordinateSystems::GeocentricCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 
+		// Returns the steps that convert the first two coordinates from the axes and angular unit of system to longitude
+		// and latitude in degrees. For three coordinates, the conversions of the axis order and the angular unit keep the third
+		// coordinate; if CreateHeightConversionToMetres returns a step, a final step converts the third coordinate to metres.
 		[[nodiscard]] static auto CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& system, int pointDimensions) -> std::vector<std::shared_ptr<IMathTransform>>;
+		// Returns the step that converts the third of three coordinates from the unit of the ellipsoidal height of system
+		// to metres and keeps the first two. Returns nullptr when system does not have three axes or has fewer than three
+		// units, when its third unit is not linear, or when the conversion factor of that unit to metres differs from 1 by
+		// 1e-15 or less.
+		[[nodiscard]] static auto CreateHeightConversionToMetres(CoordinateSystems::GeographicCoordinateSystem const& system) -> std::shared_ptr<IMathTransform>;
 		[[nodiscard]] static auto CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 
 		static auto LocateFromVerticalCoordinateSystems(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::vector<std::shared_ptr<IMathTransform>>;

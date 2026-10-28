@@ -443,13 +443,8 @@ namespace CrsKit
 			geographicSystem = dynamic_pointer_cast<GeographicCoordinateSystem>(source->GetGeographicCoordinateSystem());
 		}
 
-		// Mathematical operations expect (Longitude, Latitude) and not (Latitude, Longitude)
-		if (StaticCoordinateTransformationFactory::HasLatitudeFirst(*geographicSystem))
-			horizontalTransformations.push_back(Affine::TransformXyzToYxz());
-
-		// The units of the transformations are always sexagesimal
-		if (fabs(geographicSystem->GetAngularUnit().GetRadiansPerUnit() - M_PI / 180.0) > 1E-15)
-			horizontalTransformations.push_back(Affine::AffineMainDiagonalTransform(geographicSystem->GetAngularUnit().GetRadiansPerUnit() * 180 / M_PI, 2));
+		// GeographicToGeocentric receives longitude and latitude in degrees and the ellipsoidal height in metres.
+		std::ranges::copy(StaticCoordinateTransformationFactory::CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographicSystem, 3), std::back_inserter(horizontalTransformations));
 
 		std::ranges::copy(horizontalTransformations, std::back_inserter(direct));
 

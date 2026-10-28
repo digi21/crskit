@@ -63,6 +63,28 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
 	}
 
+	auto Affine::AffineMainDiagonalTransform(std::vector<double> const& diagonal) -> std::shared_ptr<Affine>
+	{
+		auto const matrixRowAndColumnCount = diagonal.size() + 1;
+
+		std::vector<Parameter> parameters;
+		parameters.push_back(Parameter("num_row", static_cast<double>(matrixRowAndColumnCount)));
+		parameters.push_back(Parameter("num_col", static_cast<double>(matrixRowAndColumnCount)));
+
+		for (auto row = 0u; row < matrixRowAndColumnCount; row++)
+		{
+			for (auto column = 0u; column < matrixRowAndColumnCount; column++)
+			{
+				auto value = 0.0;
+				if (row == column)
+					value = row < diagonal.size() ? diagonal[row] : 1.0;
+				parameters.push_back(Parameter(std::format("elt_{}_{}", row, column), value));
+			}
+		}
+
+		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
+	}
+
 	auto Affine::Affine2DTo3DTransform() -> std::shared_ptr<Affine>
 	{
 		return make_shared<Affine>(CreateAffine2DTo3DParameters(), false);
