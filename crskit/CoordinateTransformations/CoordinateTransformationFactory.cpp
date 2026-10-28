@@ -658,11 +658,15 @@ namespace CrsKit::CoordinateTransformations
 			if (!sourceToWgs84 && !targetToWgs84)
 				return nullptr;
 
+			// When source and target are three-dimensional, the chain receives and returns longitude and latitude in degrees and
+			// ellipsoidal height in metres; otherwise it receives and returns longitude and latitude in degrees.
+			auto const requiresThreeCoordinates = 3 == source->GetDimension() && 3 == target->GetDimension();
+
 			// The direct GeographicToGeocentric receives longitudes from Greenwich and its inverse returns longitudes from
 			// Greenwich; the chain receives longitudes from the prime meridian of source and returns longitudes from the prime
 			// meridian of target.
-			auto const sourcePrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*source, 2);
-			auto const targetPrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*target, 2);
+			auto const sourcePrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*source, requiresThreeCoordinates ? 3 : 2);
+			auto const targetPrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*target, requiresThreeCoordinates ? 3 : 2);
 
 			// Same datum on both sides (same ellipsoid, same Bursa-Wolf parameters and same prime meridian): the geographic
 			// step would be the identity, so there is nothing to shift. Return null and let the caller
@@ -702,7 +706,8 @@ namespace CrsKit::CoordinateTransformations
 			std::vector<std::shared_ptr<IMathTransform>> chain;
 			if (sourcePrimeMeridianToGreenwichLongitudeConversion)
 				chain.push_back(sourcePrimeMeridianToGreenwichLongitudeConversion);
-			chain.push_back(std::make_shared<Geographic2D2Geographic3D>());
+			if (!requiresThreeCoordinates)
+				chain.push_back(std::make_shared<Geographic2D2Geographic3D>());
 			chain.push_back(std::make_shared<GeographicToGeocentric>(sourceEllipsoid, false));
 
 			// source geocentric -> WGS 84 geocentric
@@ -718,7 +723,8 @@ namespace CrsKit::CoordinateTransformations
 					targetToWgs84->GetEx() * rotationFactor, targetToWgs84->GetEy() * rotationFactor, targetToWgs84->GetEz() * rotationFactor, targetToWgs84->GetPpm())->GetInverse());
 
 			chain.push_back(std::make_shared<GeographicToGeocentric>(targetEllipsoid, true));
-			chain.push_back(std::make_shared<Geographic2D2Geographic3D>(true));
+			if (!requiresThreeCoordinates)
+				chain.push_back(std::make_shared<Geographic2D2Geographic3D>(true));
 			if (targetPrimeMeridianToGreenwichLongitudeConversion)
 				chain.push_back(targetPrimeMeridianToGreenwichLongitudeConversion->GetInverse());
 
@@ -1399,23 +1405,19 @@ namespace CrsKit::CoordinateTransformations
 
 			if (nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS))
 			{
-				// Both are geographic 3D. 
-
-				// If we run the following query:
-				// 
-				//SELECT        COORD_OP_CODE, COORD_OP_NAME, COORD_OP_TYPE, SOURCE_CRS_CODE, TARGET_CRS_CODE, COORD_TFM_VERSION, COORD_OP_VARIANT, AREA_OF_USE_CODE, COORD_OP_SCOPE, 
-				//	COORD_OP_ACCURACY, COORD_OP_METHOD_CODE, UOM_CODE_SOURCE_COORD_DIFF, UOM_CODE_TARGET_COORD_DIFF, REMARKS, INFORMATION_SOURCE, DATA_SOURCE, REVISION_DATE, 
-				//	CHANGE_ID, SHOW_OPERATION, DEPRECATED
-				//	FROM            Coordinate_Operation
-				//	WHERE        (SOURCE_CRS_CODE IN
-				//	(SELECT        COORD_REF_SYS_CODE
-				//	FROM            [Coordinate Reference System]
-				//WHERE        (COORD_REF_SYS_KIND = 'geographic 3D'))) AND (TARGET_CRS_CODE IN
-				//	(SELECT        COORD_REF_SYS_CODE
-				//	FROM            [Coordinate Reference System] AS [Coordinate Reference System_1]
-				//WHERE        (COORD_REF_SYS_KIND = 'geographic 3D')))
-				//
-				// Only two appear: "RGPF to WGS 84 (1)" and "RGPF to WGS 84 (2)", which I am not going to implement, so we do nothing.
+				// The source and target coordinate reference systems (CRS) are geographic and three-dimensional.
+				// CreateFromCoordinateSystems sends two CRS with codes of the European Petroleum Survey Group (EPSG) catalogue to
+				// the authority factory, so at least one of these CRS has no EPSG code. The
+				// transformation applies the TOWGS84 parameters of the datums or, when the two CRS share a geodetic frame,
+				// converts the axes and the units.
+				auto const sourceGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
+				auto const targetGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS);
+				if (auto const datumShift = TryCreateTowgs84Core(sourceGeographic, targetGeographic, options.towgs84RotationConvention))
+					transformations.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems("", "", "", sourceGeographic, targetGeographic, datumShift, false)->GetMathTransform());
+				else if (ShareGeodeticFrame(*sourceGeographic, *targetGeographic))
+					transformations.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems("", "", "", sourceGeographic, targetGeographic, nullptr, false)->GetMathTransform());
+				else
+					throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", sourceCS->GetName().c_str(), targetCS->GetName().c_str()));
 			}
 			else
 			{
