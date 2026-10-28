@@ -27,6 +27,14 @@ namespace
 			kWgs84DatumAndPrimeMeridianWkt, angleUnit, angleUnit, heightUnit));
 	}
 
+	// World Geodetic System 1984 (WGS 84) geocentric coordinate reference system with X, Y and Z in lengthUnit.
+	auto CreateWgs84GeocentricCoordinateSystem(std::string const& lengthUnit) -> std::shared_ptr<CoordinateSystem>
+	{
+		return GetCoordinateSystemFactory()->CreateFromWkt(std::format(
+			R"WKT(GEODCRS["WGS 84 geocentric",{},CS[Cartesian,3],AXIS["(X)",geocentricX],AXIS["(Y)",geocentricY],AXIS["(Z)",geocentricZ],{}])WKT",
+			kWgs84DatumAndPrimeMeridianWkt, lengthUnit));
+	}
+
 	auto Transform(std::shared_ptr<CoordinateSystem> const& source, std::shared_ptr<CoordinateSystem> const& target, std::vector<double> const& point) -> std::vector<double>
 	{
 		return GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(source, target)->GetMathTransform()->Transform(point);
@@ -88,4 +96,21 @@ TEST(ThreeCoordinateUnits, DirectAndInverseGeocentricTransformsRecoverEpsg4807Co
 	EXPECT_NEAR(startingPoint[0], point[0], 1e-8);
 	EXPECT_NEAR(startingPoint[1], point[1], 1e-8);
 	EXPECT_NEAR(startingPoint[2], point[2], 1e-3);
+}
+
+// Converts World Geodetic System 1984 (WGS 84) 3D coordinates (European Petroleum Survey Group (EPSG) code 4979) to WGS
+// 84 geocentric coordinates in kilometres and converts the result back to EPSG 4979.
+TEST(ThreeCoordinateUnits, ConvertsGeographicCoordinatesToGeocentricCoordinatesInKilometresAndBack)
+{
+	auto const geocentricInKilometres = CreateWgs84GeocentricCoordinateSystem(R"WKT(LENGTHUNIT["kilometre",1000])WKT");
+	std::vector<double> const geographicPoint{ kLatitudeInDegrees, kLongitudeInDegrees, kEllipsoidalHeightInMetres };
+	auto const geocentricPointInKilometres = Transform(CreateCatalogueCoordinateSystem(4979), geocentricInKilometres, geographicPoint);
+	auto const expectedGeocentricPointInMetres = CalculateExpectedGeocentricCoordinates();
+	for (std::size_t coordinateIndex = 0; coordinateIndex < 3; ++coordinateIndex)
+		EXPECT_NEAR(expectedGeocentricPointInMetres[coordinateIndex] / 1000.0, geocentricPointInKilometres[coordinateIndex], 1e-6) << coordinateIndex;
+
+	auto const recoveredGeographicPoint = Transform(geocentricInKilometres, CreateCatalogueCoordinateSystem(4979), geocentricPointInKilometres);
+	EXPECT_NEAR(geographicPoint[0], recoveredGeographicPoint[0], 1e-8);
+	EXPECT_NEAR(geographicPoint[1], recoveredGeographicPoint[1], 1e-8);
+	EXPECT_NEAR(geographicPoint[2], recoveredGeographicPoint[2], 1e-3);
 }

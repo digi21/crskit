@@ -368,8 +368,9 @@ namespace CrsKit::CoordinateTransformations
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
 
+		// The affine transformation converts X, Y and Z from the linear unit of system to metres.
 		if (fabs(system->GetLinearUnit().GetMetersPerUnit() - 1.0) > 1E-15)
-			transformations.push_back(Affine::AffineMainDiagonalTransform(1.0 / system->GetLinearUnit().GetMetersPerUnit(), 2));
+			transformations.push_back(Affine::AffineMainDiagonalTransform(system->GetLinearUnit().GetMetersPerUnit(), 3));
 
 		return transformations;
 	}
@@ -378,8 +379,9 @@ namespace CrsKit::CoordinateTransformations
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
 
+		// The affine transformation converts X, Y and Z from metres to the linear unit of system.
 		if (fabs(system->GetLinearUnit().GetMetersPerUnit() - 1.0) > 1E-15)
-			transformations.push_back(Affine::AffineMainDiagonalTransform(system->GetLinearUnit().GetMetersPerUnit(), 2));
+			transformations.push_back(Affine::AffineMainDiagonalTransform(1.0 / system->GetLinearUnit().GetMetersPerUnit(), 3));
 
 		return transformations;
 	}
