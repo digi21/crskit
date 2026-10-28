@@ -7,6 +7,7 @@ using namespace CrsKit::Math;
 #include "CoordinateTransformations/CoordinateTransformationFactory.h"
 #include "CoordinateTransformations/Algorithms/Afine.h"
 #include "CoordinateTransformations/Passthrough.h"
+#include "CoordinateTransformations/ThreeCoordinateHeightTransform.h"
 #include "CoordinateTransformations/Algorithms/GeocentricToTopocentric.h"
 #include "CoordinateTransformations/Algorithms/Geographic2D2Geocentric.h"
 #include "CoordinateTransformations/Algorithms/ObliqueStereographic.h"
@@ -42,7 +43,7 @@ namespace CrsKit
 				return { make_shared<PassThrough>(2, heightTransformation) };
 
 			if (1 == heightTransformation->GetTargetDimension())
-				return { Affine::TransformXyzToXyXyz(), make_shared<PassThrough>(2, heightTransformation) };
+				return { make_shared<ThreeCoordinateHeightTransform>(nullptr, heightTransformation) };
 
 			return { heightTransformation };
 		}
@@ -465,7 +466,7 @@ namespace CrsKit
 			// The height conversion steps receive and return longitude and latitude in degrees and a height. The direct
 			// chain converts the orthometric height to ellipsoidal height and the inverse chain converts the ellipsoidal
 			// height to orthometric height. With a geographic 3D CRS, the factory builds the conversion of each chain in the
-			// direction of that chain, because the inverse of a chain with TransformXyzToXyXyz does not exist.
+			// direction of that chain.
 			std::vector<std::shared_ptr<IMathTransform>> orthometricToEllipsoidalHeightSteps;
 			std::vector<std::shared_ptr<IMathTransform>> ellipsoidalToOrthometricHeightSteps;
 			if (nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(vertical))

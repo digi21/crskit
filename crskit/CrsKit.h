@@ -99,6 +99,7 @@ namespace CrsKit
 #include "CoordinateTransformations/MathTransformBase.h"
 #include "CoordinateTransformations/ConcatenatedTransform.h"
 #include "CoordinateTransformations/Passthrough.h"
+#include "CoordinateTransformations/ThreeCoordinateHeightTransform.h"
 
 #include "CoordinateTransformationOptions.h"
 

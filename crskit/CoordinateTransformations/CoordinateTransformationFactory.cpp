@@ -8,6 +8,7 @@ using namespace CrsKit::Math;
 #include "CoordinateTransformationFactory.h"
 #include "ConcatenatedTransform.h"
 #include "Passthrough.h"
+#include "ThreeCoordinateHeightTransform.h"
 #include "Algorithms/Afine.h"
 #include "Algorithms/Geographic2D2Geocentric.h"
 #include "Algorithms/Geographic2D2Geographic3D.h"
@@ -82,11 +83,14 @@ namespace
 		using namespace CrsKit::CoordinateTransformations;
 		auto const source = vertical->GetSourceDimension();
 		auto const target = vertical->GetTargetDimension();
-		if (1 == target && (1 == source || 3 == source))
+		if (1 == source && 1 == target)
 		{
-			if (3 == source)
-				chain.push_back(Algorithms::Affine::TransformXyzToXyXyz());
 			chain.push_back(std::make_shared<PassThrough>(2, vertical));
+			return;
+		}
+		if (3 == source && 1 == target)
+		{
+			chain.push_back(std::make_shared<ThreeCoordinateHeightTransform>(nullptr, vertical));
 			return;
 		}
 		if (3 == source && 3 == target)
@@ -815,24 +819,16 @@ namespace CrsKit::CoordinateTransformations
 
 			// Some Geo-to-Vertical transformations return three coordinates and others only one coordinate
 
+			// ThreeCoordinateHeightTransform keeps the first two coordinates and replaces the third with the result of
+			// verticalTransformation.
 			if (1 == verticalTransformation->GetTargetDimension())
-			{
-				// The transformation receives XYZ and returns Z
-				// but what we must return is XYZ, so I do the following:
-				// XYZ -> XYXYZ
-				// PASSTHROUGH(2, transformation)
-				transformations.clear();
-				transformations.push_back(Affine::TransformXyzToXyXyz());
-				transformations.push_back(make_shared<PassThrough>(2, verticalTransformation));
-
 				return make_shared<CoordinateTransformation>(
 					"",
 					"",
 					"",
 					sourceCS,
 					targetCS,
-					make_shared<ConcatenatedTransform>(transformations));
-			}
+					make_shared<ThreeCoordinateHeightTransform>(nullptr, verticalTransformation));
 
 			return make_shared<CoordinateTransformation>(
 				"",
@@ -846,10 +842,9 @@ namespace CrsKit::CoordinateTransformations
 		throw runtime_error(std::format("The coordinate reference system {} is neither 1 nor 3 dimensional.", sourceCS->GetName().c_str()));
 	}
 
-	// Vertical -> geographic 3D: undoing a geoid. LocateFromVerticalCoordinateSystems already knows how
-	// to build the inverse chain with the axes and the angular unit normalized (it is what a compound
-	// source has always used); all that is left is to carry the horizontal coordinates through, so the
-	// point comes back with its latitude and longitude untouched and its height now ellipsoidal.
+	// From vertical to geographic 3D: LocateFromVerticalCoordinateSystems(targetCS, sourceCS, options, true) returns steps
+	// that receive and return three coordinates in the axes of the geographic 3D coordinate reference system, keep the
+	// latitude and the longitude and replace the gravity-related height with the ellipsoidal height.
 	auto StaticCoordinateTransformationFactory::CreateFromVerticalCoordinateSystems(std::shared_ptr<VerticalCoordinateSystem> const& sourceCS, std::shared_ptr<GeographicCoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 	{
 		auto transformations = LocateFromVerticalCoordinateSystems(targetCS, sourceCS, options, true);
@@ -873,22 +868,16 @@ namespace CrsKit::CoordinateTransformations
 		else
 			verticalTransformation = make_shared<ConcatenatedTransform>(transformations);
 
-		// The chain receives XYZ and returns just the height, so the horizontal coordinates are
-		// duplicated (XYZ -> XYXYZ) and passed around it, exactly as the direct path does.
+		// ThreeCoordinateHeightTransform keeps the first two coordinates and replaces the third with the result of
+		// verticalTransformation.
 		if (3 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
-		{
-			vector<shared_ptr<IMathTransform>> chain;
-			chain.push_back(Affine::TransformXyzToXyXyz());
-			chain.push_back(make_shared<PassThrough>(2, verticalTransformation));
-
 			return make_shared<CoordinateTransformation>(
 				"",
 				"",
 				"",
 				sourceCS,
 				targetCS,
-				make_shared<ConcatenatedTransform>(chain));
-		}
+				make_shared<ThreeCoordinateHeightTransform>(nullptr, verticalTransformation));
 
 		if (1 == verticalTransformation->GetSourceDimension() && 1 == verticalTransformation->GetTargetDimension())
 		{
@@ -966,24 +955,16 @@ namespace CrsKit::CoordinateTransformations
 
 			// Some Geo-to-Vertical transformations return three coordinates and others only one coordinate
 
+			// ThreeCoordinateHeightTransform keeps the first two coordinates and replaces the third with the result of
+			// verticalTransformation.
 			if (1 == verticalTransformation->GetTargetDimension())
-			{
-				// The transformation receives XYZ and returns Z
-				// but what we must return is XYZ, so I do the following:
-				// XYZ -> XYXYZ
-				// PASSTHROUGH(2, transformation)
-				transformations.clear();
-				transformations.push_back(Affine::TransformXyzToXyXyz());
-				transformations.push_back(make_shared<PassThrough>(2, verticalTransformation));
-
 				return make_shared<CoordinateTransformation>(
 					"",
 					"",
 					"",
 					sourceCS,
 					targetCS,
-					make_shared<ConcatenatedTransform>(transformations));
-			}
+					make_shared<ThreeCoordinateHeightTransform>(nullptr, verticalTransformation));
 			return make_shared<CoordinateTransformation>(
 				"",
 				"",
@@ -1012,25 +993,46 @@ namespace CrsKit::CoordinateTransformations
 
 		if (sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG")
 		{
-			auto transformation = GetCoordinateTransformationAuthorityFactory()->CreateCoordinateTransformBetweenGeographicVerticalSystems(
+			auto const transformation = GetCoordinateTransformationAuthorityFactory()->CreateCoordinateTransformBetweenGeographicVerticalSystems(
 				sourceCS,
 				targetCS,
 				false,
 				options)->GetMathTransform();
-			if (inverse)
-				transformation = transformation->GetInverse();
 
-			if (3 == transformation->GetSourceDimension())
+			// The steps receive and return three coordinates in the axes of sourceCS. If transformation receives three coordinates,
+			// horizontalSteps convert the first two from the axis order and angular unit of sourceCS to longitude and latitude in
+			// degrees; if it also returns three coordinates, the inverses of horizontalSteps convert them back to the axis order
+			// and angular unit of sourceCS.
+			auto const horizontalSteps = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS, 3);
+			if (1 == transformation->GetSourceDimension())
+				transformations.push_back(make_shared<PassThrough>(2, transformation));
+			else if (1 == transformation->GetTargetDimension())
 			{
-				// Three coordinates are received. Let us make sure they come in the proper format (Longitude, Latitude), sexagesimal...
-				for (auto const& t : CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS, 3))
-					transformations.push_back(t);
+				std::shared_ptr<IMathTransform> horizontalConversion;
+				if (1 == horizontalSteps.size())
+					horizontalConversion = horizontalSteps[0];
+				else if (1 < horizontalSteps.size())
+					horizontalConversion = make_shared<ConcatenatedTransform>(horizontalSteps);
+				transformations.push_back(make_shared<ThreeCoordinateHeightTransform>(horizontalConversion, transformation));
+			}
+			else
+			{
+				std::ranges::copy(horizontalSteps, std::back_inserter(transformations));
+				transformations.push_back(transformation);
+				for (auto const& step : horizontalSteps | std::views::reverse)
+					transformations.push_back(step->GetInverse());
 			}
 
-			transformations.push_back(transformation);
+			for (auto const& step : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(targetCS))
+				transformations.push_back(make_shared<PassThrough>(2, step));
 
-			for (auto const& t : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(targetCS))
-				transformations.push_back(t);
+			// The inverse of the steps applies the inverse of the height unit conversion to the gravity-related height before the
+			// inverse of the transformation.
+			if (inverse)
+			{
+				auto const geographicToVerticalTransformation = make_shared<ConcatenatedTransform>(transformations);
+				return { geographicToVerticalTransformation->GetInverse() };
+			}
 		}
 
 		return transformations;
