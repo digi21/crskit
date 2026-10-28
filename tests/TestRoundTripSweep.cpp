@@ -79,7 +79,7 @@ namespace
 	// Angular tolerance, in degrees, of the methods whose reverse computation does not invert the forward computation exactly.
 	std::map<int, double> const kAngleTolerancesInDegreesByMethod{
 		// Geographic 2D domain: the forward computation discards the ellipsoidal height in the target CRS, which the reverse takes as 0.
-		{ 9603, 1e-6 }, { 9606, 1e-6 }, { 9607, 1e-6 },
+		{ 9603, 1e-6 }, { 9606, 1e-6 }, { 9607, 1e-6 }, { 9636, 1e-6 },
 	};
 
 	struct LatitudeLongitude
