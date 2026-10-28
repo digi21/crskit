@@ -1,6 +1,8 @@
 // The tests check that HasLatitudeFirst reads the axis orientations, and that the factory transforms the coordinates of a
 // geographic coordinate reference system written by PROJ in Well-Known Text version 2 (WKT2), whose axes are named
-// "geodetic latitude (Lat)" and "geodetic longitude (Lon)", in the axis order that the definition declares.
+// "geodetic latitude (Lat)" and "geodetic longitude (Lon)", taking the input coordinates in the axis order that the
+// definition declares, and compare the EPSG:25830 coordinates obtained from the WKT2 definition with the EPSG:25830
+// coordinates obtained from the catalogue definition of EPSG:4258.
 
 #include "TestBase.h"
 #include "../crskit/CoordinateTransformations/CoordinateTransformationFactory.h"
