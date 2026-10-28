@@ -515,8 +515,10 @@ namespace CrsKit::CoordinateTransformations
 		// CRS declares it silently sampled the geoid at the transposed location (over Madrid, an
 		// undulation of -32 m instead of +52 m: an 84 m error in the height). CreateFromVerticalCoordinateSystems
 		// normalizes the axes and the angular unit first, and carries the horizontal coordinates through,
-		// so a 3D point comes back as a 3D point with its height converted.
-		if (3 == sourceCS->GetDimension() && 1 == targetCS->GetDimension())
+		// so the transformation returns three coordinates with the converted height. For a geographic 2D CRS, the
+		// transformation created by CreateFromVerticalCoordinateSystems receives the ellipsoidal height in metres as third
+		// coordinate.
+		if ((2 == sourceCS->GetDimension() || 3 == sourceCS->GetDimension()) && 1 == targetCS->GetDimension())
 		{
 			auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
 			auto const vertical = dynamic_pointer_cast<VerticalCoordinateSystem>(targetCS);
@@ -528,7 +530,7 @@ namespace CrsKit::CoordinateTransformations
 		// same grid at the same point, so a raw operation transposes it just as badly (Madrid came back
 		// 84 m below where it went in). The height travels with the horizontal coordinates the geoid
 		// needs to interpolate, so this pair is 3D in and 3D out too.
-		if (1 == sourceCS->GetDimension() && 3 == targetCS->GetDimension())
+		if (1 == sourceCS->GetDimension() && (2 == targetCS->GetDimension() || 3 == targetCS->GetDimension()))
 		{
 			auto const vertical = dynamic_pointer_cast<VerticalCoordinateSystem>(sourceCS);
 			auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS);
@@ -857,7 +859,8 @@ namespace CrsKit::CoordinateTransformations
 			throw runtime_error("The selected transformation does not allow to transform coordinates from a vertical coordinate system to a vertical one.");
 		}
 
-		if (3 == sourceCS->GetDimension())
+		// For a geographic 2D sourceCS, the transformation receives the ellipsoidal height in metres as third coordinate.
+		if (2 == sourceCS->GetDimension() || 3 == sourceCS->GetDimension())
 		{
 			if (1 == verticalTransformation->GetSourceDimension())
 			{
@@ -892,7 +895,7 @@ namespace CrsKit::CoordinateTransformations
 				verticalTransformation);
 		}
 
-		throw runtime_error(std::format("The coordinate reference system {} is neither 1 nor 3 dimensional.", sourceCS->GetName().c_str()));
+		throw runtime_error(std::format("The coordinate reference system {} is neither 1, 2 nor 3 dimensional.", sourceCS->GetName().c_str()));
 	}
 
 	// From vertical to geographic 3D: LocateFromVerticalCoordinateSystems(targetCS, sourceCS, options, true) returns steps
@@ -1053,9 +1056,9 @@ namespace CrsKit::CoordinateTransformations
 				options)->GetMathTransform();
 
 			// The steps receive and return three coordinates in the axes of sourceCS. If transformation receives three coordinates,
-			// horizontalSteps convert the first two from the axis order and angular unit of sourceCS to longitude and latitude in
-			// degrees; if it also returns three coordinates, the inverses of horizontalSteps convert them back to the axis order
-			// and angular unit of sourceCS.
+			// horizontalSteps convert the first two from the axis order, angular unit and prime meridian of sourceCS to longitude
+			// from Greenwich and latitude in degrees; if it also returns three coordinates, the inverses of horizontalSteps
+			// convert them back to the axis order, angular unit and prime meridian of sourceCS.
 			auto horizontalSteps = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(sourceCS, 3);
 
 			// The transformation receives the ellipsoidal height in metres. When CreateHeightConversionToMetres returns a step, the
@@ -1066,6 +1069,11 @@ namespace CrsKit::CoordinateTransformations
 				horizontalSteps.pop_back();
 				transformations.push_back(heightConversion);
 			}
+
+			// If transformation receives three coordinates, horizontalSteps convert the longitude from the prime meridian of
+			// sourceCS to the longitude from Greenwich.
+			if (auto const primeMeridianToGreenwichLongitudeConversion = CreatePrimeMeridianToGreenwichLongitudeConversion(*sourceCS, 3))
+				horizontalSteps.push_back(primeMeridianToGreenwichLongitudeConversion);
 
 			if (1 == transformation->GetSourceDimension())
 				transformations.push_back(make_shared<PassThrough>(2, transformation));
