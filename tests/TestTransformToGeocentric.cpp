@@ -83,8 +83,8 @@ TEST(TransformToGeocentric, AlicanteHeightRoundTripsThroughGeocentricCoordinates
 	EXPECT_NEAR(projectedPoint[2], returnedPoint[2], 1e-3);
 }
 
-// EGM2008 height (EPSG 3855) has two geoid operations from WGS 84 3D (EPSG 3858 and 3859). CreateTransformToGeocentric
-// builds both chains with the operation that the user chooses and asks for it once.
+// EGM2008 height (EPSG 3855) has two geoid operations from WGS 84 3D (EPSG 3858 and 3859), offered in both directions.
+// CreateTransformToGeocentric calls selectTransformationCallback once and reuses the selected operation code for both chains.
 TEST(TransformToGeocentric, AsksOnceForTheGeoidOperationOfBothChains)
 {
 	std::vector<std::shared_ptr<IMathTransform>> direct;
@@ -114,9 +114,8 @@ TEST(TransformToGeocentric, AsksOnceForTheGeoidOperationOfBothChains)
 	// Latitude, longitude (degrees) and EGM2008 height (metres) in Madrid.
 	std::vector<double> const geographicPoint{ 40.4, -3.7, 650.0 };
 
-	// The ellipsoidal height of the direct chain equals, within 1 mm, the height of the point transformed with EPSG operation
-	// 3858 from WGS 84 + EGM2008 height to WGS 84 3D (EPSG 4979), so the geoid is interpolated at the latitude and longitude
-	// of the point.
+	// The ellipsoidal height after all the steps of the direct chain but the last, GeographicToGeocentric, equals, within 1 mm,
+	// the height of the point transformed with EPSG operation 3858 from WGS 84 + EGM2008 height to WGS 84 3D (EPSG 4979).
 	CoordinateTransformationOptions options;
 	options.selectOperation = [](std::string const&, std::string const&, std::vector<CoordinateOperation> const&) { return 3858; };
 	auto const compoundCoordinateSystem = std::dynamic_pointer_cast<CoordinateSystem>(GetCoordinateSystemAuthorityFactory()->CreateCompoundCoordinateSystem(4326, 3855));
@@ -130,8 +129,8 @@ TEST(TransformToGeocentric, AsksOnceForTheGeoidOperationOfBothChains)
 	EXPECT_NEAR(geographicPoint[2], returnedPoint[2], 1e-3);
 }
 
-// A vertical CRS without code has no operation in the catalogue: the dialog creates once a vertical offset from the
-// geographic CRS to the vertical CRS, the direct chain applies its inverse and the inverse chain applies it.
+// The catalogue has no operation for the vertical CRS without code of this test: the dialog callback returns verticalOffset
+// once, the direct chain applies verticalOffset->GetInverse() and the inverse chain applies verticalOffset.
 TEST(TransformToGeocentric, UsesTheVerticalOffsetOfTheDialogWhenTheCatalogueHasNoOperation)
 {
 	auto const verticalCoordinateSystem = GetCoordinateSystemFactory()->CreateFromWkt(

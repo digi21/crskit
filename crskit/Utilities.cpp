@@ -503,8 +503,9 @@ namespace CrsKit
 
 					try
 					{
-						// From the vertical CRS to the geographic 3D CRS and back; both receive and return three coordinates in the
-						// axes of geographicSystem3D.
+						// The factory builds the transformation from the vertical CRS to geographicSystem3D and the transformation from
+						// geographicSystem3D to the vertical CRS. Both transformations receive and return three coordinates in the axes
+						// of geographicSystem3D.
 						orthometricToEllipsoidalHeightSteps = CreateStepsWithLongitudeLatitudeInDegreesAndHeight(geographicSystem3D,
 							StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(vertical, geographicSystem3D, options)->GetMathTransform());
 						ellipsoidalToOrthometricHeightSteps = CreateStepsWithLongitudeLatitudeInDegreesAndHeight(geographicSystem3D,
@@ -512,9 +513,9 @@ namespace CrsKit
 					}
 					catch (TransformationNotFoundException const&)
 					{
-						// Without an operation between the two CRSs, the dialog creates once the transformation from the geographic CRS
-						// to the vertical CRS, which receives longitude and latitude in degrees, as in the branch without a geographic
-						// 3D CRS.
+						// If createVerticalSystemDialogCallback is set and returns a non-null transformation from the geographic CRS to the
+						// vertical CRS, CreateThreeCoordinateHeightSteps adapts that transformation and its inverse to steps that receive
+						// and return longitude and latitude in degrees and a height.
 						auto const selectedVerticalTransformation = createVerticalSystemDialogCallback ? createVerticalSystemDialogCallback(geographicSystem3D->GetName(), vertical->GetName()) : nullptr;
 						if (!selectedVerticalTransformation)
 							throw;
