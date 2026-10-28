@@ -15,6 +15,14 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		ComputeConstants();
 	}
 
+	GeographicToGeocentric::GeographicToGeocentric(Ellipsoid const& ellipsoid, bool inverse)
+		: GeographicToGeocentric{
+			ellipsoid.GetSemiMajorAxis() * ellipsoid.GetLinearUnit().GetMetersPerUnit(),
+			ellipsoid.GetSemiMinorAxis() * ellipsoid.GetLinearUnit().GetMetersPerUnit(),
+			inverse }
+	{
+	}
+
 	GeographicToGeocentric::GeographicToGeocentric(std::shared_ptr<IProjection> const& parameters)
 		: _inverse{0 == compareNoCase(parameters->GetClassName().c_str(), "Geocentric_To_Ellipsoid")}
 		, _a{std::get<double>(parameters->GetParameter("semi_major").GetValue())}

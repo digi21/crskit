@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "../../CoordinateSystems/Ellipsoid.h"
 #include "../../CoordinateSystems/IProjection.h"
 #include "../IMathTransform.h"
 
@@ -23,6 +24,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 
 	public:
 		GeographicToGeocentric(double semiMajorAxis, double semiMinorAxis, bool inverse);
+		// Converts the semi-axes of the ellipsoid from its linear unit to metres, so that the geocentric coordinates are in metres.
+		GeographicToGeocentric(CoordinateSystems::Ellipsoid const& ellipsoid, bool inverse);
 		explicit GeographicToGeocentric(std::shared_ptr<CoordinateSystems::IProjection> const& parameters);
 		GeographicToGeocentric(std::shared_ptr<CoordinateSystems::IProjection> const& parameters, bool inverse);
 

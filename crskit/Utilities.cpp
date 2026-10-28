@@ -455,7 +455,7 @@ namespace CrsKit
 
 		if (geographicSystem->GetDimension() == 3)
 		{
-			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false);
+			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid(), false);
 			direct.push_back(geographicToGeocentric);
 
 			// We compute the inverse
@@ -529,7 +529,7 @@ namespace CrsKit
 
 			std::ranges::copy(orthometricToEllipsoidalHeightSteps, std::back_inserter(direct));
 
-			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), geographicSystem->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false);
+			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid(), false);
 			direct.push_back(geographicToGeocentric);
 
 			inverse.push_back(geographicToGeocentric->GetInverse());

@@ -139,12 +139,12 @@ namespace CrsKit::Epsg
 
 			vector<shared_ptr<IMathTransform>> transformations;
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), source->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false));
+			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
 			transformations.push_back(make_shared<GeocentricTranslations>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
 				get<double>(parameters[2])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), target->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), true));
+			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
@@ -164,7 +164,7 @@ namespace CrsKit::Epsg
 
 			vector<shared_ptr<IMathTransform>> transformations;
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), source->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false));
+			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
 			transformations.push_back(make_shared<PositionVectorTransformation>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
@@ -173,7 +173,7 @@ namespace CrsKit::Epsg
 				get<double>(parameters[4]),
 				get<double>(parameters[5]),
 				get<double>(parameters[6])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), target->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), true));
+			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
@@ -193,7 +193,7 @@ namespace CrsKit::Epsg
 
 			vector<shared_ptr<IMathTransform>> transformations;
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>());
-			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), source->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), false));
+			transformations.push_back(make_shared<GeographicToGeocentric>(source->GetHorizontalDatum()->GetEllipsoid(), false));
 			transformations.push_back(make_shared<CoordinateFrameRotation>(
 				get<double>(parameters[0]),
 				get<double>(parameters[1]),
@@ -202,7 +202,7 @@ namespace CrsKit::Epsg
 				get<double>(parameters[4]),
 				get<double>(parameters[5]),
 				get<double>(parameters[6])));
-			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid().GetSemiMajorAxis(), target->GetHorizontalDatum()->GetEllipsoid().GetSemiMinorAxis(), true));
+			transformations.push_back(make_shared<GeographicToGeocentric>(target->GetHorizontalDatum()->GetEllipsoid(), true));
 			transformations.push_back(make_shared<Geographic2D2Geographic3D>(true));
 
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(

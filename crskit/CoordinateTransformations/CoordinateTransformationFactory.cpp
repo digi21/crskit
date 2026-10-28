@@ -459,7 +459,7 @@ namespace CrsKit::CoordinateTransformations
 				auto const ellipsoid = geographic->GetHorizontalDatum()->GetEllipsoid();
 
 				auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographic, 3);
-				transformations.push_back(make_shared<GeographicToGeocentric>(ellipsoid.GetSemiMajorAxis(), ellipsoid.GetSemiMinorAxis(), false));
+				transformations.push_back(make_shared<GeographicToGeocentric>(ellipsoid, false));
 				for (auto const& t : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(geocentric))
 					transformations.push_back(t);
 
@@ -628,7 +628,7 @@ namespace CrsKit::CoordinateTransformations
 
 			std::vector<std::shared_ptr<IMathTransform>> chain;
 			chain.push_back(std::make_shared<Geographic2D2Geographic3D>());
-			chain.push_back(std::make_shared<GeographicToGeocentric>(sourceEllipsoid.GetSemiMajorAxis(), sourceEllipsoid.GetSemiMinorAxis(), false));
+			chain.push_back(std::make_shared<GeographicToGeocentric>(sourceEllipsoid, false));
 
 			// source geocentric -> WGS 84 geocentric
 			if (sourceToWgs84)
@@ -642,7 +642,7 @@ namespace CrsKit::CoordinateTransformations
 					targetToWgs84->GetDx(), targetToWgs84->GetDy(), targetToWgs84->GetDz(),
 					targetToWgs84->GetEx() * rotationFactor, targetToWgs84->GetEy() * rotationFactor, targetToWgs84->GetEz() * rotationFactor, targetToWgs84->GetPpm())->GetInverse());
 
-			chain.push_back(std::make_shared<GeographicToGeocentric>(targetEllipsoid.GetSemiMajorAxis(), targetEllipsoid.GetSemiMinorAxis(), true));
+			chain.push_back(std::make_shared<GeographicToGeocentric>(targetEllipsoid, true));
 			chain.push_back(std::make_shared<Geographic2D2Geographic3D>(true));
 
 			return std::make_shared<ConcatenatedTransform>(chain);
