@@ -448,12 +448,20 @@ namespace CrsKit
 
 		std::ranges::copy(horizontalTransformations, std::back_inserter(direct));
 
+		// GeographicToGeocentric receives the longitude from Greenwich; applying the steps in horizontalTransformations gives
+		// the longitude from the prime meridian of geographicSystem.
+		auto const primeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*geographicSystem, 3);
+
 		if (geographicSystem->GetDimension() == 3)
 		{
 			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid(), false);
+			if (primeMeridianToGreenwichLongitudeConversion)
+				direct.push_back(primeMeridianToGreenwichLongitudeConversion);
 			direct.push_back(geographicToGeocentric);
 
 			inverse.push_back(geographicToGeocentric->GetInverse());
+			if (primeMeridianToGreenwichLongitudeConversion)
+				inverse.push_back(primeMeridianToGreenwichLongitudeConversion->GetInverse());
 		}
 		else
 		{
@@ -524,9 +532,13 @@ namespace CrsKit
 			std::ranges::copy(orthometricToEllipsoidalHeightSteps, std::back_inserter(direct));
 
 			auto const geographicToGeocentric = make_shared<GeographicToGeocentric>(geographicSystem->GetHorizontalDatum()->GetEllipsoid(), false);
+			if (primeMeridianToGreenwichLongitudeConversion)
+				direct.push_back(primeMeridianToGreenwichLongitudeConversion);
 			direct.push_back(geographicToGeocentric);
 
 			inverse.push_back(geographicToGeocentric->GetInverse());
+			if (primeMeridianToGreenwichLongitudeConversion)
+				inverse.push_back(primeMeridianToGreenwichLongitudeConversion->GetInverse());
 			std::ranges::copy(ellipsoidalToOrthometricHeightSteps, std::back_inserter(inverse));
 		}
 

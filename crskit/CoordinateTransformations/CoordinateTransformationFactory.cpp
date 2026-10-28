@@ -351,6 +351,18 @@ namespace CrsKit::CoordinateTransformations
 		return Affine::AffineMainDiagonalTransform({ 1.0, 1.0, heightUnit->GetMetersPerUnit() });
 	}
 
+	auto StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(GeographicCoordinateSystem const& geographicSystem, int pointDimensionCount) -> shared_ptr<IMathTransform>
+	{
+		auto const primeMeridian = geographicSystem.GetPrimeMeridian();
+		auto const primeMeridianLongitudeInDegrees = primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit() * 180.0 / M_PI;
+		if (0.0 == primeMeridianLongitudeInDegrees)
+			return nullptr;
+
+		std::vector<double> translationOffsets(static_cast<std::size_t>(pointDimensionCount), 0.0);
+		translationOffsets[0] = primeMeridianLongitudeInDegrees;
+		return Affine::CreateAffineTranslationTransform(translationOffsets);
+	}
+
 	auto StaticCoordinateTransformationFactory::CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<GeographicCoordinateSystem> const& geo) -> vector<shared_ptr<IMathTransform>>
 	{
 		vector<shared_ptr<IMathTransform>> transformations;
@@ -483,6 +495,8 @@ namespace CrsKit::CoordinateTransformations
 				auto const ellipsoid = geographic->GetHorizontalDatum()->GetEllipsoid();
 
 				auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographic, 3);
+				if (auto const primeMeridianToGreenwichLongitudeConversion = CreatePrimeMeridianToGreenwichLongitudeConversion(*geographic, 3))
+					transformations.push_back(primeMeridianToGreenwichLongitudeConversion);
 				transformations.push_back(make_shared<GeographicToGeocentric>(ellipsoid, false));
 				for (auto const& t : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(geocentric))
 					transformations.push_back(t);
@@ -621,10 +635,21 @@ namespace CrsKit::CoordinateTransformations
 			if (!sourceToWgs84 && !targetToWgs84)
 				return nullptr;
 
-			// Same datum on both sides (same ellipsoid and same Bursa-Wolf parameters): the geographic
+			// The direct GeographicToGeocentric receives longitudes from Greenwich and its inverse returns longitudes from
+			// Greenwich; the chain receives longitudes from the prime meridian of source and returns longitudes from the prime
+			// meridian of target.
+			auto const sourcePrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*source, 2);
+			auto const targetPrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*target, 2);
+
+			// Same datum on both sides (same ellipsoid, same Bursa-Wolf parameters and same prime meridian): the geographic
 			// step would be the identity, so there is nothing to shift. Return null and let the caller
 			// fall through to its plain same-datum (un)projection handling.
 			{
+				auto const calculatePrimeMeridianLongitudeInDegrees = [](GeographicCoordinateSystem const& geographic)
+				{
+					auto const primeMeridian = geographic.GetPrimeMeridian();
+					return primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit() * 180.0 / M_PI;
+				};
 				auto const sameTowgs84 = [](std::shared_ptr<Wgs84ConversionInfo> const& a, std::shared_ptr<Wgs84ConversionInfo> const& b)
 				{
 					if (static_cast<bool>(a) != static_cast<bool>(b))
@@ -637,7 +662,8 @@ namespace CrsKit::CoordinateTransformations
 				};
 				if (fabs(sourceDatum->GetEllipsoid().GetSemiMajorAxis() - targetDatum->GetEllipsoid().GetSemiMajorAxis()) < 1e-6
 					&& fabs(sourceDatum->GetEllipsoid().GetSemiMinorAxis() - targetDatum->GetEllipsoid().GetSemiMinorAxis()) < 1e-6
-					&& sameTowgs84(sourceToWgs84, targetToWgs84))
+					&& sameTowgs84(sourceToWgs84, targetToWgs84)
+					&& fabs(calculatePrimeMeridianLongitudeInDegrees(*source) - calculatePrimeMeridianLongitudeInDegrees(*target)) < 1e-12)
 					return nullptr;
 			}
 
@@ -651,6 +677,8 @@ namespace CrsKit::CoordinateTransformations
 			double const rotationFactor = (Towgs84RotationConvention::CoordinateFrame == rotationConvention ? -1.0 : 1.0) / 3600.0;
 
 			std::vector<std::shared_ptr<IMathTransform>> chain;
+			if (sourcePrimeMeridianToGreenwichLongitudeConversion)
+				chain.push_back(sourcePrimeMeridianToGreenwichLongitudeConversion);
 			chain.push_back(std::make_shared<Geographic2D2Geographic3D>());
 			chain.push_back(std::make_shared<GeographicToGeocentric>(sourceEllipsoid, false));
 
@@ -668,6 +696,8 @@ namespace CrsKit::CoordinateTransformations
 
 			chain.push_back(std::make_shared<GeographicToGeocentric>(targetEllipsoid, true));
 			chain.push_back(std::make_shared<Geographic2D2Geographic3D>(true));
+			if (targetPrimeMeridianToGreenwichLongitudeConversion)
+				chain.push_back(targetPrimeMeridianToGreenwichLongitudeConversion->GetInverse());
 
 			return std::make_shared<ConcatenatedTransform>(chain);
 		}
