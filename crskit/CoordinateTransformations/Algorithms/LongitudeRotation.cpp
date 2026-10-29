@@ -58,34 +58,16 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		if (point.size() != this->GetSourceDimension())
 			throw DimensionMismatchException(std::format("The point passed by parameters does not have {} dimensions", this->GetSourceDimension()));
 
-		// The coordinates after the latitude, such as the ellipsoidal height, are copied unchanged.
+		// The latitude and the coordinates after it, such as the ellipsoidal height, are copied unchanged.
 		auto result = point;
 
-		auto lambda = DEGREES_TO_RADIANS(point[0]);
-		auto const phi = DEGREES_TO_RADIANS(point[1]);
-
-		// O(1) normalisation to [-pi, pi]; a while-loop hangs on huge/non-finite lambda.
-		if (std::isfinite(lambda))
-			lambda = std::remainder(lambda, 2 * M_PI);
-
-		result[1] = point[1];
-
-		if (phi < -90 || phi > 90)
-			lambda = 0.0;
-		else
-		{
-			if (_inverse)
-				lambda -= _angle;
-			else
-				lambda += _angle;
-		}
+		auto lambda = DEGREES_TO_RADIANS(point[0]) + (_inverse ? -_angle : _angle);
 
 		// O(1) normalisation to [-pi, pi]; a while-loop hangs on huge/non-finite lambda.
 		if (std::isfinite(lambda))
 			lambda = std::remainder(lambda, 2 * M_PI);
 
 		result[0] = RADIANS_TO_DEGREES(lambda);
-		result[1] = RADIANS_TO_DEGREES(phi);
 		return result;
 	}
 
