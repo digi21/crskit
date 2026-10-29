@@ -253,23 +253,23 @@ namespace CrsKit::CoordinateSystems
 			coordinateSystem->GetAxis(1).GetOrientation() == AxisOrientationEnum::North)
 			return coordinateSystem;
 
-		if (auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem); nullptr != geographic)
+		if (auto const geographicCoordinateSystem = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem); nullptr != geographicCoordinateSystem)
 		{
 			auto axis = AxesOf(*coordinateSystem);
 			axis[0] = AxisInfo("Lon", AxisOrientationEnum::East);
 			axis[1] = AxisInfo("Lat", AxisOrientationEnum::North);
 
 			return make_shared<GeographicCoordinateSystem>(
-				geographic->GetName(),
-				geographic->GetAuthority(),
-				geographic->GetAuthorityCode(),
-				geographic->GetAlias(),
-				geographic->GetRemarks(),
-				geographic->GetAngularUnit(),
-				dynamic_pointer_cast<IHorizontalDatum>(geographic->GetHorizontalDatum()),
-				geographic->GetPrimeMeridian(),
+				geographicCoordinateSystem->GetName(),
+				geographicCoordinateSystem->GetAuthority(),
+				geographicCoordinateSystem->GetAuthorityCode(),
+				geographicCoordinateSystem->GetAlias(),
+				geographicCoordinateSystem->GetRemarks(),
+				geographicCoordinateSystem->GetAngularUnit(),
+				dynamic_pointer_cast<IHorizontalDatum>(geographicCoordinateSystem->GetHorizontalDatum()),
+				geographicCoordinateSystem->GetPrimeMeridian(),
 				axis,
-				geographic->GetUnits());
+				geographicCoordinateSystem->GetUnits());
 		}
 
 		if (auto const projected = dynamic_pointer_cast<ProjectedCoordinateSystem>(coordinateSystem); nullptr != projected)
@@ -296,24 +296,24 @@ namespace CrsKit::CoordinateSystems
 			coordinateSystem->GetAxis(1).GetOrientation() == AxisOrientationEnum::East)
 			return coordinateSystem;
 
-		auto const geographic = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
-		if (nullptr != geographic)
+		auto const geographicCoordinateSystem = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
+		if (nullptr != geographicCoordinateSystem)
 		{
 			auto axis = AxesOf(*coordinateSystem);
 			axis[0] = AxisInfo("Lat", AxisOrientationEnum::North);
 			axis[1] = AxisInfo("Lon", AxisOrientationEnum::East);
 
 			return make_shared<GeographicCoordinateSystem>(
-				geographic->GetName(),
-				geographic->GetAuthority(),
-				geographic->GetAuthorityCode(),
-				geographic->GetAlias(),
-				geographic->GetRemarks(),
-				geographic->GetAngularUnit(),
-				dynamic_pointer_cast<IHorizontalDatum>(geographic->GetHorizontalDatum()),
-				geographic->GetPrimeMeridian(),
+				geographicCoordinateSystem->GetName(),
+				geographicCoordinateSystem->GetAuthority(),
+				geographicCoordinateSystem->GetAuthorityCode(),
+				geographicCoordinateSystem->GetAlias(),
+				geographicCoordinateSystem->GetRemarks(),
+				geographicCoordinateSystem->GetAngularUnit(),
+				dynamic_pointer_cast<IHorizontalDatum>(geographicCoordinateSystem->GetHorizontalDatum()),
+				geographicCoordinateSystem->GetPrimeMeridian(),
 				axis,
-				geographic->GetUnits());
+				geographicCoordinateSystem->GetUnits());
 		}
 
 		if (auto const projected = dynamic_pointer_cast<ProjectedCoordinateSystem>(coordinateSystem); nullptr != projected)
@@ -341,7 +341,36 @@ namespace CrsKit::CoordinateSystems
 		if (coordinateSystem->GetAuthority() == "EPSG")
 			return GetCoordinateSystemAuthorityFactory()->CreateGeographic2DSystemForGeographic3DSystem(coordinateSystem->GetAuthorityCode(), coordinateSystem->GetAxis(0), coordinateSystem->GetAxis(1));
 
-		return nullptr;
+		auto const geographicCoordinateSystem = dynamic_pointer_cast<GeographicCoordinateSystem>(coordinateSystem);
+		if (nullptr == geographicCoordinateSystem)
+			return nullptr;
+
+		// The horizontal axes are the axes whose orientation is neither up nor down, in their order in the three-dimensional
+		// coordinate reference system.
+		vector<AxisInfo> horizontalAxes;
+		vector<AnyUnit> horizontalAxisUnits;
+		for (auto axisIndex = 0; axisIndex < geographicCoordinateSystem->GetDimension(); ++axisIndex)
+		{
+			auto const axis = geographicCoordinateSystem->GetAxis(axisIndex);
+			if (AxisOrientationEnum::Up == axis.GetOrientation() || AxisOrientationEnum::Down == axis.GetOrientation())
+				continue;
+			horizontalAxes.push_back(axis);
+			horizontalAxisUnits.push_back(geographicCoordinateSystem->GetUnits(axisIndex));
+		}
+		if (2 != horizontalAxes.size())
+			return nullptr;
+
+		return make_shared<GeographicCoordinateSystem>(
+			geographicCoordinateSystem->GetName(),
+			"",
+			0,
+			geographicCoordinateSystem->GetAlias(),
+			geographicCoordinateSystem->GetRemarks(),
+			geographicCoordinateSystem->GetAngularUnit(),
+			geographicCoordinateSystem->GetHorizontalDatum(),
+			geographicCoordinateSystem->GetPrimeMeridian(),
+			horizontalAxes,
+			horizontalAxisUnits);
 	}
 
 	auto CoordinateSystemFactory::FindGeographicSystem3D(std::shared_ptr<GeographicCoordinateSystem> const& coordinateSystem) -> std::shared_ptr<GeographicCoordinateSystem>

@@ -865,8 +865,14 @@ namespace CrsKit::CoordinateTransformations
 
 	auto StaticCoordinateTransformationFactory::CreateFromHorizontalCoordinateSystems(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 	{
+		if (nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(sourceCS) || nullptr != dynamic_pointer_cast<VerticalCoordinateSystem>(targetCS))
+			throw runtime_error("A vertical coordinate reference system cannot be the source or target of this horizontal transformation.");
+
+		// The transformation receives and returns the coordinates of the horizontal components of sourceCS and targetCS.
 		auto [horizontalSource, verticalSource] = dynamic_pointer_cast<CoordinateSystem>(sourceCS)->ExtractHorizontalVertical();
 		auto [horizontalTarget, verticalTarget] = dynamic_pointer_cast<CoordinateSystem>(targetCS)->ExtractHorizontalVertical();
+		if (nullptr == horizontalSource || nullptr == horizontalTarget)
+			throw TransformationNotFoundException(std::format("No horizontal coordinate system could be obtained from the coordinate system {}.", (nullptr == horizontalSource ? sourceCS : targetCS)->GetName()));
 
 		if (horizontalSource->GetAuthority() == "EPSG" && horizontalTarget->GetAuthority() == "EPSG")
 		{
@@ -879,36 +885,31 @@ namespace CrsKit::CoordinateTransformations
 		// Equivalent coordinate systems (same object, same definition, or both local): the library builds
 		// the axis-handling transform itself -- identity if the axes match, swap if they are reordered.
 		// Axis orientation differences (e.g. a sign flip) fall through to the normal same-datum path below.
-		if (sourceCS == targetCS || AreEquivalent(sourceCS, targetCS) || (nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(sourceCS) && nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(targetCS)))
+		if (horizontalSource == horizontalTarget || AreEquivalent(horizontalSource, horizontalTarget) || (nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalSource) && nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalTarget)))
 		{
-			auto const sourceAxis0 = sourceCS->GetAxis(0).GetOrientation();
-			auto const sourceAxis1 = sourceCS->GetAxis(1).GetOrientation();
-			auto const targetAxis0 = targetCS->GetAxis(0).GetOrientation();
-			auto const targetAxis1 = targetCS->GetAxis(1).GetOrientation();
+			auto const sourceAxis0 = horizontalSource->GetAxis(0).GetOrientation();
+			auto const sourceAxis1 = horizontalSource->GetAxis(1).GetOrientation();
+			auto const targetAxis0 = horizontalTarget->GetAxis(0).GetOrientation();
+			auto const targetAxis1 = horizontalTarget->GetAxis(1).GetOrientation();
 
 			if (sourceAxis0 == targetAxis0 && sourceAxis1 == targetAxis1)
-				return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, Affine::AffineMainDiagonalTransform(1.0, sourceCS->GetDimension()));
+				return make_shared<CoordinateTransformation>("", "", "", horizontalSource, horizontalTarget, Affine::AffineMainDiagonalTransform(1.0, horizontalSource->GetDimension()));
 
 			if (sourceAxis0 == targetAxis1 && sourceAxis1 == targetAxis0)
-				return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, Affine::AffineSwapAxesTransform(2));
+				return make_shared<CoordinateTransformation>("", "", "", horizontalSource, horizontalTarget, Affine::AffineSwapAxesTransform(2));
 
 			// Axis orientations differ: fall through to the normal path (same-datum axis/sign handling).
 		}
 
-		if ((nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(sourceCS) || nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(targetCS)) &&
-			(nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(sourceCS) || nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(targetCS)))
-			return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, ResolveUnknownCrs(sourceCS, targetCS, options));
+		if ((nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalSource) || nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalTarget)) &&
+			(nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(horizontalSource) || nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(horizontalTarget)))
+			return make_shared<CoordinateTransformation>("", "", "", horizontalSource, horizontalTarget, ResolveUnknownCrs(horizontalSource, horizontalTarget, options));
 
-		auto sourceAsProjected = dynamic_pointer_cast<ProjectedCoordinateSystem>(sourceCS);
-		auto const sourceAsGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
-		auto const sourceAsVertical = dynamic_pointer_cast<VerticalCoordinateSystem>(sourceCS);
+		auto sourceAsProjected = dynamic_pointer_cast<ProjectedCoordinateSystem>(horizontalSource);
+		auto const sourceAsGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(horizontalSource);
 
-		auto targetAsProjected = dynamic_pointer_cast<ProjectedCoordinateSystem>(targetCS);
-		auto const targetAsGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS);
-		auto const targetAsVertical = dynamic_pointer_cast<VerticalCoordinateSystem>(targetCS);
-
-		if (nullptr != sourceAsVertical || targetAsVertical != nullptr)
-			throw runtime_error("This method only allows the transformation of horizontal reference coordinate systems");
+		auto targetAsProjected = dynamic_pointer_cast<ProjectedCoordinateSystem>(horizontalTarget);
+		auto const targetAsGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(horizontalTarget);
 
 		// Datum shift between two CRS (geographic and/or projected) that are not EPSG-identified, using
 		// their embedded TOWGS84 (Bursa-Wolf) parameters via WGS 84. Reuses the axis/unit handling of the
@@ -933,8 +934,8 @@ namespace CrsKit::CoordinateTransformations
 					// Pure geographic <-> geographic: no projection wrapping needed.
 					if (nullptr == sourceAsProjected && nullptr == targetAsProjected)
 						return make_shared<CoordinateTransformation>(
-							sourceCS->GetName() + " to " + targetCS->GetName() + " (Bursa-Wolf)", "", "",
-							sourceCS, targetCS, geographicTransform);
+							horizontalSource->GetName() + " to " + horizontalTarget->GetName() + " (Bursa-Wolf)", "", "",
+							horizontalSource, horizontalTarget, geographicTransform);
 
 					vector<shared_ptr<IMathTransform>> chain;
 					if (nullptr != sourceAsProjected)
@@ -944,8 +945,8 @@ namespace CrsKit::CoordinateTransformations
 						chain.push_back(CreateProjectionTransforms(targetAsProjected));
 
 					return make_shared<CoordinateTransformation>(
-						sourceCS->GetName() + " to " + targetCS->GetName() + " (Bursa-Wolf)", "", "",
-						sourceCS, targetCS, make_shared<ConcatenatedTransform>(chain));
+						horizontalSource->GetName() + " to " + horizontalTarget->GetName() + " (Bursa-Wolf)", "", "",
+						horizontalSource, horizontalTarget, make_shared<ConcatenatedTransform>(chain));
 				}
 		}
 
@@ -970,7 +971,7 @@ namespace CrsKit::CoordinateTransformations
 				if (nullptr != targetAsProjected)
 					transforms.push_back(CreateProjectionTransforms(targetAsProjected));
 
-				return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, make_shared<ConcatenatedTransform>(transforms));
+				return make_shared<CoordinateTransformation>("", "", "", horizontalSource, horizontalTarget, make_shared<ConcatenatedTransform>(transforms));
 			}
 		}
 		throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", sourceCS->GetName().c_str(), targetCS->GetName().c_str()));

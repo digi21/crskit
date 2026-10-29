@@ -122,6 +122,10 @@ namespace CrsKit::CoordinateSystems
 		///	</summary>
 		static auto WithAxesEastNorth(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<CoordinateSystem>;
 		static auto WithAxesNorthEast(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<CoordinateSystem>;
+		// Returns the geographic 2D coordinate reference system (CRS) of a three-dimensional CRS: the CRS of the European
+		// Petroleum Survey Group (EPSG) catalogue for an EPSG CRS, a CRS without authority code with the two horizontal axes,
+		// datum and prime meridian of a geographic 3D CRS without EPSG authority that has exactly two axes whose orientation is
+		// neither up nor down, and nullptr otherwise.
 		[[nodiscard]] static auto Create2DSystemFor3DSystem(std::shared_ptr<CoordinateSystem> const& coordinateSystem) -> std::shared_ptr<CoordinateSystem>;
 		[[nodiscard]] static auto FindGeographicSystem3D(std::shared_ptr<GeographicCoordinateSystem> const& coordinateSystem) -> std::shared_ptr<GeographicCoordinateSystem>;
 		[[nodiscard]] static auto CreateUnknownCompound() -> std::shared_ptr<CompoundCoordinateSystem>;
