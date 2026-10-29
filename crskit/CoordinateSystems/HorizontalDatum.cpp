@@ -6,10 +6,39 @@
 #include "HorizontalDatum.h"
 #include "CoordinateSystemAuthorityFactory.h"
 
+#include <cctype>
+#include <string_view>
+
 using namespace std;
 
 namespace CrsKit::CoordinateSystems
 {
+	namespace
+	{
+		// Returns name in lower case, with each underscore replaced by a space, consecutive spaces reduced to one, leading and
+		// trailing spaces removed, and the suffix " ensemble" removed. The catalogue names a datum ensemble, such as
+		// "European Terrestrial Reference System 1989 ensemble", with the suffix " ensemble", and datum names in
+		// Well-Known Text version 1 can contain underscores, such as European_Terrestrial_Reference_System_1989.
+		auto NormalizeDatumName(std::string const& name) -> std::string
+		{
+			std::string normalizedName;
+			for (auto const character : name)
+			{
+				auto const normalizedCharacter = '_' == character ? ' ' : static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+				if (' ' == normalizedCharacter && (normalizedName.empty() || ' ' == normalizedName.back()))
+					continue;
+				normalizedName.push_back(normalizedCharacter);
+			}
+			if (!normalizedName.empty() && ' ' == normalizedName.back())
+				normalizedName.pop_back();
+
+			constexpr std::string_view ensembleSuffix{ " ensemble" };
+			if (normalizedName.ends_with(ensembleSuffix))
+				normalizedName.erase(normalizedName.size() - ensembleSuffix.size());
+			return normalizedName;
+		}
+	}
+
 	HorizontalDatum::HorizontalDatum(std::string const& name, std::string const& authority, int code, std::string const& alias, std::string const& info, int datumType, Ellipsoid const& ellipsoid, std::shared_ptr<Wgs84ConversionInfo> const& toWgs84)
 		: Datum{name, authority, code, alias, info, datumType}
 		, _ellipsoid{ellipsoid}
@@ -84,9 +113,8 @@ namespace CrsKit::CoordinateSystems
 	{
 		auto const info = dynamic_pointer_cast<IInfo>(obj);
 
-		// If either datum has UnknownAuthorityCode, CompareTo compares the datum names without regard to case. A datum defined
-		// in Well-Known Text 2 without an ID element, such as a datum represented by an ENSEMBLE element, then matches the
-		// catalogue datum of the same name in either order.
+		// If either datum has UnknownAuthorityCode, CompareTo compares the names returned by NormalizeDatumName. A datum defined
+		// in Well-Known Text without an authority code then matches the catalogue datum of the same name in either order.
 		if (GetAuthorityCode() != UnknownAuthorityCode && info->GetAuthorityCode() != UnknownAuthorityCode)
 		{
 			if (GetAuthority() != info->GetAuthority())
@@ -98,7 +126,7 @@ namespace CrsKit::CoordinateSystems
 			return 0;
 		}
 
-		return compareNoCase(GetName().c_str(), info->GetName().c_str());
+		return NormalizeDatumName(GetName()).compare(NormalizeDatumName(info->GetName()));
 	}
 #pragma endregion
 }
