@@ -108,6 +108,7 @@ namespace CrsKit::Epsg
 		[[nodiscard]] auto GetOriginDescriptionOfDatum(int code) const -> std::string override;
 		[[nodiscard]] auto GetDescriptionAreaApplicationDatum(int code) const -> std::string override;
 		[[nodiscard]] auto GetCodeOfEllipsoidAssociatedWithDatum(int code) const -> int override;
+		[[nodiscard]] auto GetCodeOfGeographic2DSystemAssociatedWithDatum(int code) const -> int override;
 
 		[[nodiscard]] auto GetCodeOfPrimeMeridianAssociatedWithCrs(int code) const -> int override;
 		[[nodiscard]] auto GetNameOfPrimeMeridian(int code) const -> std::string override;

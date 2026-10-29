@@ -117,6 +117,9 @@ namespace CrsKit::CoordinateSystems
 		[[nodiscard]] virtual auto GetOriginDescriptionOfDatum(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetDescriptionAreaApplicationDatum(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetCodeOfEllipsoidAssociatedWithDatum(int code) const -> int = 0;
+		// Returns the code of a geographic 2D coordinate reference system that is not deprecated and whose datum has the
+		// given code, or 0 when the catalogue has none.
+		[[nodiscard]] virtual auto GetCodeOfGeographic2DSystemAssociatedWithDatum(int code) const -> int = 0;
 
 		[[nodiscard]] virtual auto GetNameOfPrimeMeridian(int code) const -> std::string = 0;
 		[[nodiscard]] virtual auto GetNameOfEllipsoid(int code) const -> std::string = 0;

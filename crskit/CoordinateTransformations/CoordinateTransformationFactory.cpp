@@ -487,15 +487,37 @@ namespace CrsKit::CoordinateTransformations
 		throw runtime_error("It is not possible to transform between two reference coordinate systems if one of them is unknown or local.");
 	}
 
+	namespace
+	{
+		auto AreSameDatum(std::shared_ptr<IHorizontalDatum> const& firstDatum, std::shared_ptr<IHorizontalDatum> const& secondDatum) -> bool;
+		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
+
+		// Returns the conversion of three coordinates from geographic to geocentric with the ellipsoid of geographic; it
+		// does not shift the datum.
+		auto CreateGeographicToGeocentricConversion(std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric) -> std::shared_ptr<IMathTransform>
+		{
+			auto transformations = StaticCoordinateTransformationFactory::CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographic, 3);
+			if (auto const primeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*geographic, 3))
+				transformations.push_back(primeMeridianToGreenwichLongitudeConversion);
+			transformations.push_back(make_shared<GeographicToGeocentric>(geographic->GetHorizontalDatum()->GetEllipsoid(), false));
+			for (auto const& geocentricSystemTransform : StaticCoordinateTransformationFactory::CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(geocentric))
+				transformations.push_back(geocentricSystemTransform);
+
+			return make_shared<ConcatenatedTransform>(transformations);
+		}
+	}
+
 	auto StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 	{
 		if ((nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(sourceCS) || nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(targetCS)) &&
 			(nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(sourceCS) || nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(targetCS)))
 			return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, ResolveUnknownCrs(sourceCS, targetCS, options));
 
-		// Geographic <-> geocentric conversion (same geodetic network). It is not an operation of
-		// datum, so it is built here (axis reordering + Ellipsoid_To_Geocentric) in
-		// instead of delegating to the authority factory, which does not handle geocentric systems.
+		// CreateFromCoordinateSystems builds the transformation between geographic and geocentric coordinate reference systems
+		// (CRS) because the authority factory does not handle this pair. With the same datum, CreateFromCoordinateSystems uses
+		// the conversion returned by CreateGeographicToGeocentricConversion for a geographic source and the inverse conversion
+		// for a geocentric source; with different datums, the transformation also shifts the datum between the geographic CRS
+		// and the geographic CRS of the geocentric datum.
 		{
 			auto const sourceGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
 			auto const sourceGeocentric = dynamic_pointer_cast<GeocentricCoordinateSystem>(sourceCS);
@@ -505,16 +527,10 @@ namespace CrsKit::CoordinateTransformations
 			{
 				auto const geographic = sourceGeographic ? sourceGeographic : targetGeographic;
 				auto const geocentric = sourceGeocentric ? sourceGeocentric : targetGeocentric;
-				auto const ellipsoid = geographic->GetHorizontalDatum()->GetEllipsoid();
+				if (!AreSameDatum(geographic->GetHorizontalDatum(), geocentric->GetHorizontalDatum()))
+					return CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(sourceCS, targetCS, geographic, geocentric, options);
 
-				auto transformations = CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographic, 3);
-				if (auto const primeMeridianToGreenwichLongitudeConversion = CreatePrimeMeridianToGreenwichLongitudeConversion(*geographic, 3))
-					transformations.push_back(primeMeridianToGreenwichLongitudeConversion);
-				transformations.push_back(make_shared<GeographicToGeocentric>(ellipsoid, false));
-				for (auto const& t : CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(geocentric))
-					transformations.push_back(t);
-
-				auto const geographicToGeocentric = make_shared<ConcatenatedTransform>(transformations);
+				auto const geographicToGeocentric = CreateGeographicToGeocentricConversion(geographic, geocentric);
 				std::shared_ptr<IMathTransform> mt = sourceGeographic
 					? std::static_pointer_cast<IMathTransform>(geographicToGeocentric)
 					: geographicToGeocentric->GetInverse();
@@ -599,20 +615,26 @@ namespace CrsKit::CoordinateTransformations
 			return false;
 		}
 
-		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when their datums are the same datum, the
-		// corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of their prime meridians
-		// from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may differ. Two datums
-		// are the same datum when IsWgs84Datum returns true for both, or when HorizontalDatum::CompareTo returns 0. CompareTo
+		// Returns true when IsWgs84Datum returns true for both datums or HorizontalDatum::CompareTo returns 0. CompareTo
 		// compares a datum without an authority code with the other datum by name, and the catalogue names the WGS 84 datum
 		// "World Geodetic System 1984 ensemble", whereas Well-Known Text without a code names it WGS_1984, D_WGS_1984 or World
-		// Geodetic System 1984.
+		// Geodetic System 1984. Returns false when a datum is not a HorizontalDatum.
+		auto AreSameDatum(std::shared_ptr<IHorizontalDatum> const& firstDatum, std::shared_ptr<IHorizontalDatum> const& secondDatum) -> bool
+		{
+			auto const firstHorizontalDatum = std::dynamic_pointer_cast<HorizontalDatum>(firstDatum);
+			auto const secondHorizontalDatum = std::dynamic_pointer_cast<HorizontalDatum>(secondDatum);
+			if (!firstHorizontalDatum || !secondHorizontalDatum)
+				return false;
+			return (IsWgs84Datum(firstHorizontalDatum) && IsWgs84Datum(secondHorizontalDatum)) || 0 == firstHorizontalDatum->CompareTo(secondHorizontalDatum);
+		}
+
+		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when AreSameDatum returns true for their
+		// datums, the corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of their
+		// prime meridians from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may
+		// differ.
 		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
 		{
-			auto const firstDatum = std::dynamic_pointer_cast<HorizontalDatum>(firstGeographicCoordinateSystem.GetHorizontalDatum());
-			auto const secondDatum = std::dynamic_pointer_cast<HorizontalDatum>(secondGeographicCoordinateSystem.GetHorizontalDatum());
-			if (!firstDatum || !secondDatum)
-				return false;
-			if (!(IsWgs84Datum(firstDatum) && IsWgs84Datum(secondDatum)) && 0 != firstDatum->CompareTo(secondDatum))
+			if (!AreSameDatum(firstGeographicCoordinateSystem.GetHorizontalDatum(), secondGeographicCoordinateSystem.GetHorizontalDatum()))
 				return false;
 
 			// An ellipsoid can be defined in a linear unit other than the metre.
@@ -729,6 +751,79 @@ namespace CrsKit::CoordinateTransformations
 				chain.push_back(targetPrimeMeridianToGreenwichLongitudeConversion->GetInverse());
 
 			return std::make_shared<ConcatenatedTransform>(chain);
+		}
+
+		// Returns a geographic coordinate reference system (CRS) with the datum of geocentric and dimensionCount axes. When
+		// geocentric has a code of the European Petroleum Survey Group (EPSG) catalogue, CreateGeographicSystemOfGeocentricDatum
+		// returns the geographic CRS of the catalogue for that datum and dimension, if the catalogue has one. Otherwise,
+		// CreateGeographicSystemOfGeocentricDatum returns a CRS without authority code with the prime meridian of geocentric,
+		// latitude and longitude in degrees and, for three axes, the ellipsoidal height in metres.
+		auto CreateGeographicSystemOfGeocentricDatum(GeocentricCoordinateSystem const& geocentric, int dimensionCount) -> std::shared_ptr<GeographicCoordinateSystem>
+		{
+			if ("EPSG" == geocentric.GetAuthority() && 0 != geocentric.GetAuthorityCode())
+			{
+				auto const factory = CrsKit::GetCoordinateSystemAuthorityFactory();
+				auto const geographic2DCode = factory->GetCodeOfGeographic2DSystemAssociatedWithDatum(factory->GetCodeOfDatumAssociatedWithCrs(geocentric.GetAuthorityCode()));
+				if (0 != geographic2DCode)
+				{
+					auto const geographic2D = factory->CreateGeographicCoordinateSystem(geographic2DCode);
+					if (2 == dimensionCount)
+						return geographic2D;
+					if (auto const geographic3D = factory->FindGeographicSystem3D(geographic2DCode, geographic2D->GetAxis(0), geographic2D->GetAxis(1)))
+						return geographic3D;
+				}
+			}
+
+			AngularUnit const degree{ "degree", M_PI / 180.0 };
+			vector<AxisInfo> axes{ AxisInfo("Lat", AxisOrientationEnum::North), AxisInfo("Lon", AxisOrientationEnum::East) };
+			vector<AnyUnit> units{ degree, degree };
+			if (3 == dimensionCount)
+			{
+				axes.emplace_back("h", AxisOrientationEnum::Up);
+				units.emplace_back(LinearUnit{ "metre", 1.0 });
+			}
+			return make_shared<GeographicCoordinateSystem>(geocentric.GetName(), "", 0, "", "", degree, geocentric.GetHorizontalDatum(), geocentric.GetPrimeMeridian(), axes, units);
+		}
+
+		// Returns the transformation between a geographic and a geocentric coordinate reference system (CRS) whose datums
+		// differ; one of sourceCS and targetCS is geographic and the other is geocentric. The transformation receives and
+		// returns three coordinates. The transformation shifts the datum between geographic and the geographic CRS that
+		// CreateGeographicSystemOfGeocentricDatum returns, and converts between that CRS and geocentric. For a geographic 2D
+		// CRS, the datum shift uses the geographic 3D CRS of the catalogue for the same datum when FindGeographicSystem3D
+		// returns one with the same angular unit; otherwise the datum shift transforms latitude and longitude and returns the
+		// third coordinate, the ellipsoidal height, unchanged.
+		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
+		{
+			auto geographicForDatumShift = geographic;
+			if (2 == geographic->GetDimension())
+				if (auto const geographic3D = CoordinateSystemFactory::FindGeographicSystem3D(geographic); geographic3D && fabs(geographic3D->GetAngularUnit().GetRadiansPerUnit() - geographic->GetAngularUnit().GetRadiansPerUnit()) <= 1E-15)
+					geographicForDatumShift = geographic3D;
+
+			auto const dimensionCount = geographicForDatumShift->GetDimension();
+			auto const geographicOfGeocentricDatum = CreateGeographicSystemOfGeocentricDatum(*geocentric, dimensionCount);
+
+			auto const createDatumShift = [&](std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<GeographicCoordinateSystem> const& target) -> std::shared_ptr<IMathTransform>
+			{
+				auto const datumShift = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(source, target, options)->GetMathTransform();
+				if (3 == dimensionCount)
+					return datumShift;
+
+				// The datum shift receives latitude and longitude; the third coordinate passes unchanged.
+				return make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{ Affine::TransformXyzToZxy(), make_shared<PassThrough>(1, datumShift), Affine::TransformZxyToXyz() });
+			};
+			auto const conversion = CreateGeographicToGeocentricConversion(geographicOfGeocentricDatum, geocentric);
+
+			vector<shared_ptr<IMathTransform>> geographicToGeocentricTransforms{ createDatumShift(geographicForDatumShift, geographicOfGeocentricDatum), conversion };
+			vector<shared_ptr<IMathTransform>> geocentricToGeographicTransforms{ conversion->GetInverse(), createDatumShift(geographicOfGeocentricDatum, geographicForDatumShift) };
+			auto const sourceIsGeographic = nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
+			auto const directTransformation = make_shared<ConcatenatedTransform>(sourceIsGeographic ? geographicToGeocentricTransforms : geocentricToGeographicTransforms);
+			auto const inverseTransformation = make_shared<ConcatenatedTransform>(sourceIsGeographic ? geocentricToGeographicTransforms : geographicToGeocentricTransforms);
+			directTransformation->SetInverseTransformation(inverseTransformation);
+			inverseTransformation->SetInverseTransformation(directTransformation);
+
+			auto const transformation = make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, directTransformation);
+			transformation->SetInverseMathTransform(inverseTransformation);
+			return transformation;
 		}
 	}
 

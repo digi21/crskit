@@ -617,6 +617,11 @@ namespace CrsKit::Epsg
 		return _provider->GetEllipsoidCodeForDatum(code);
 	}
 
+	auto CoordinateSystemAuthorityFactory::GetCodeOfGeographic2DSystemAssociatedWithDatum(int code) const -> int
+	{
+		return _provider->GetGeographicCrsCodeForDatum(code);
+	}
+
 	auto CoordinateSystemAuthorityFactory::GetNameOfEllipsoid(int code) const->std::string
 	{
 		return _provider->GetEllipsoidName(code);
