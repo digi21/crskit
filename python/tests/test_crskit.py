@@ -162,6 +162,14 @@ def test_malformed_wkt_raises():
         crskit.crs_from_wkt("this is not WKT")
 
 
+def test_an_ambiguous_pair_without_select_operation_raises_multiple_transformations_found():
+    # The European Petroleum Survey Group (EPSG) catalogue defines several coordinate operations from European Datum
+    # 1950 (EPSG:4230) to European Terrestrial Reference System 1989 (EPSG:4258).
+    with pytest.raises(crskit.MultipleTransformationsFoundError) as exception_info:
+        crskit.transformation(crskit.crs_from_epsg(4230), crskit.crs_from_epsg(4258))
+    assert isinstance(exception_info.value, crskit.TransformationNotFoundError)
+
+
 class TestNumPy:
     """transform_points() is the bulk path: one crossing of the boundary for N points."""
 

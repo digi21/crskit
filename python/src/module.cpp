@@ -104,7 +104,8 @@ PYBIND11_MODULE(_crskit, m)
 	auto const crsError = py::register_exception<CrsKit::OpenGisException>(m, "CrsError", PyExc_RuntimeError);
 	py::register_exception<CrsKit::AuthorityCodeNotFoundException>(m, "AuthorityCodeNotFoundError", crsError.ptr());
 	py::register_exception<CrsKit::WktParseException>(m, "WktParseError", crsError.ptr());
-	py::register_exception<CrsKit::TransformationNotFoundException>(m, "TransformationNotFoundError", crsError.ptr());
+	auto const transformationNotFoundError = py::register_exception<CrsKit::TransformationNotFoundException>(m, "TransformationNotFoundError", crsError.ptr());
+	py::register_exception<CrsKit::MultipleTransformationsFoundException>(m, "MultipleTransformationsFoundError", transformationNotFoundError.ptr());
 	py::register_exception<CrsKit::DimensionMismatchException>(m, "DimensionMismatchError", crsError.ptr());
 	py::register_exception<CrsKit::CoordinateOutsideDomainException>(m, "CoordinateOutsideDomainError", crsError.ptr());
 	py::register_exception<CrsKit::UnsupportedFormatException>(m, "UnsupportedFormatError", crsError.ptr());

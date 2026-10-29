@@ -175,7 +175,7 @@ Perciò CrsKit si rifiuta di tirare a indovinare:
 
 ```python
 >>> crskit.transformation(crskit.crs_from_epsg(4230), crskit.crs_from_epsg(4258))
-TransformationNotFoundError: Multiple transformations were located between the 4230 (ED50)
+MultipleTransformationsFoundError: Multiple transformations were located between the 4230 (ED50)
 coordinate system and the 4258 (ETRS89) coordinate system.
 ```
 
@@ -319,7 +319,8 @@ tutti. I tipi specifici ci sono per i casi in cui puoi davvero farci qualcosa:
 |---|---|
 | `AuthorityCodeNotFoundError` | quel codice EPSG non esiste |
 | `WktParseError` | il WKT è malformato |
-| `TransformationNotFoundError` | nessuna operazione fra quei sistemi — oppure diverse, e non hai scelto (§5) |
+| `TransformationNotFoundError` | nessuna operazione di coordinate fra i sistemi di riferimento delle coordinate di origine e destinazione |
+| `MultipleTransformationsFoundError` | diverse operazioni di coordinate fra i sistemi di riferimento delle coordinate di origine e destinazione, ma nessuna operazione selezionata tramite `select_operation`; sottoclasse di `TransformationNotFoundError` (§5) |
 | `GridFileNotFoundError` | manca un file di griglia; l'eccezione dice quale (§6) |
 | `CoordinateOutsideDomainError` | il punto è fuori dalla griglia o dall'area di validità della proiezione |
 | `DimensionMismatchError` | hai dato un punto 2D a una trasformazione 3D, o viceversa |

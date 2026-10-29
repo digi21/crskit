@@ -91,7 +91,8 @@ True
 Between two datums there is rarely a single transformation. EPSG defines **twelve** from ED50 to
 ETRS89, differing in accuracy, in the area they are valid in, and in whether they need a grid file.
 Choosing for you would mean silently deciding how wrong your coordinates are, so an ambiguous pair
-raises `TransformationNotFoundError` unless you say which one to use:
+causes `crskit.transformation` to raise `MultipleTransformationsFoundError`, a subclass of
+`TransformationNotFoundError`, unless `select_operation` selects a coordinate operation:
 
 ```python
 def for_mainland_spain(source_name, target_name, operations):
@@ -188,8 +189,8 @@ licence; the originals live at [datos-geodesia.ign.es](https://datos-geodesia.ig
 application can offer to fetch it when `GridFileNotFoundError` is raised.
 
 Every error the library raises derives from `crskit.CrsError`, so one `except` catches them all;
-`AuthorityCodeNotFoundError`, `WktParseError`, `TransformationNotFoundError`,
-`DimensionMismatchError`, `CoordinateOutsideDomainError` and `UnsupportedFormatError` let you
+`AuthorityCodeNotFoundError`, `WktParseError`, `TransformationNotFoundError` (with its subclass
+`MultipleTransformationsFoundError`), `DimensionMismatchError`, `CoordinateOutsideDomainError` and `UnsupportedFormatError` let you
 discriminate when you care.
 
 ## The EPSG database

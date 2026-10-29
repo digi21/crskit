@@ -171,7 +171,7 @@ So CrsKit refuses to guess:
 
 ```python
 >>> crskit.transformation(crskit.crs_from_epsg(4230), crskit.crs_from_epsg(4258))
-TransformationNotFoundError: Multiple transformations were located between the 4230 (ED50)
+MultipleTransformationsFoundError: Multiple transformations were located between the 4230 (ED50)
 coordinate system and the 4258 (ETRS89) coordinate system.
 ```
 
@@ -314,7 +314,8 @@ specific types are there for when you can actually do something about it:
 |---|---|
 | `AuthorityCodeNotFoundError` | there is no such EPSG code |
 | `WktParseError` | the WKT is malformed |
-| `TransformationNotFoundError` | no operation between those systems — or several, and you did not choose (§5) |
+| `TransformationNotFoundError` | no coordinate operation between the source and target coordinate reference systems |
+| `MultipleTransformationsFoundError` | several coordinate operations between the source and target coordinate reference systems, with no operation selected through `select_operation`; a subclass of `TransformationNotFoundError` (§5) |
 | `GridFileNotFoundError` | a grid file is missing; the exception says which (§6) |
 | `CoordinateOutsideDomainError` | the point is outside the grid or the projection's valid area |
 | `DimensionMismatchError` | you gave a 2D point to a 3D transformation, or the reverse |
