@@ -527,8 +527,13 @@ namespace CrsKit::CoordinateTransformations
 			{
 				auto const geographic = sourceGeographic ? sourceGeographic : targetGeographic;
 				auto const geocentric = sourceGeocentric ? sourceGeocentric : targetGeocentric;
+				// If CreateFromCoordinateSystems throws TransformationNotFoundException for the datum shift and
+				// HaveSameEllipsoidAndPrimeMeridian returns true, CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums
+				// returns nullptr, and CreateFromCoordinateSystems converts with the ellipsoid of the geographic coordinate reference
+				// system (CRS).
 				if (!AreSameDatum(geographic->GetHorizontalDatum(), geocentric->GetHorizontalDatum()))
-					return CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(sourceCS, targetCS, geographic, geocentric, options);
+					if (auto const transformation = CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(sourceCS, targetCS, geographic, geocentric, options))
+						return transformation;
 
 				auto const geographicToGeocentric = CreateGeographicToGeocentricConversion(geographic, geocentric);
 				std::shared_ptr<IMathTransform> mt = sourceGeographic
@@ -628,15 +633,11 @@ namespace CrsKit::CoordinateTransformations
 			return (IsWgs84Datum(firstHorizontalDatum) && IsWgs84Datum(secondHorizontalDatum)) || 0 == firstHorizontalDatum->CompareTo(secondHorizontalDatum);
 		}
 
-		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when AreSameDatum returns true for their
-		// datums, the corresponding semi-axes of their ellipsoids differ by at most 1e-6 metres and the longitudes of their
-		// prime meridians from Greenwich differ by less than 1e-12 radians. The axes and angular units of the two CRSs may
-		// differ.
-		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		// Returns true when the corresponding semi-axes of the ellipsoids of the two geographic coordinate reference systems
+		// differ by at most 1e-6 metres and the longitudes of their prime meridians from Greenwich differ by less than 1e-12
+		// radians.
+		auto HaveSameEllipsoidAndPrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
 		{
-			if (!AreSameDatum(firstGeographicCoordinateSystem.GetHorizontalDatum(), secondGeographicCoordinateSystem.GetHorizontalDatum()))
-				return false;
-
 			// An ellipsoid can be defined in a linear unit other than the metre.
 			auto const calculateSemiAxesInMetres = [](Ellipsoid const& ellipsoid)
 			{
@@ -654,6 +655,14 @@ namespace CrsKit::CoordinateTransformations
 			};
 			return fabs(calculateLongitudeFromGreenwichInRadians(firstGeographicCoordinateSystem.GetPrimeMeridian())
 				- calculateLongitudeFromGreenwichInRadians(secondGeographicCoordinateSystem.GetPrimeMeridian())) < 1e-12;
+		}
+
+		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when AreSameDatum returns true for their
+		// datums and HaveSameEllipsoidAndPrimeMeridian returns true. The axes and angular units of the two CRSs may differ.
+		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		{
+			return AreSameDatum(firstGeographicCoordinateSystem.GetHorizontalDatum(), secondGeographicCoordinateSystem.GetHorizontalDatum())
+				&& HaveSameEllipsoidAndPrimeMeridian(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem);
 		}
 
 		// Builds the datum shift between two geographic systems from their TOWGS84 (Bursa-Wolf)
@@ -791,7 +800,9 @@ namespace CrsKit::CoordinateTransformations
 		// CreateGeographicSystemOfGeocentricDatum returns, and converts between that CRS and geocentric. For a geographic 2D
 		// CRS, the datum shift uses the geographic 3D CRS of the catalogue for the same datum when FindGeographicSystem3D
 		// returns one with the same angular unit; otherwise the datum shift transforms latitude and longitude and returns the
-		// third coordinate, the ellipsoidal height, unchanged.
+		// third coordinate, the ellipsoidal height, unchanged. When CreateFromCoordinateSystems throws
+		// TransformationNotFoundException for the datum shift, the function returns nullptr if HaveSameEllipsoidAndPrimeMeridian
+		// returns true for geographic and the geographic CRS of the geocentric datum, and propagates the exception otherwise.
 		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 		{
 			auto geographicForDatumShift = geographic;
@@ -804,7 +815,17 @@ namespace CrsKit::CoordinateTransformations
 
 			// CreateFromCoordinateSystems is called once, so selectOperation is called at most once; the inverse datum shift is
 			// the inverse of the returned transformation.
-			auto const datumShiftCoordinateTransformation = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(geographicForDatumShift, geographicOfGeocentricDatum, options);
+			std::shared_ptr<ICoordinateTransformation> datumShiftCoordinateTransformation;
+			try
+			{
+				datumShiftCoordinateTransformation = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(geographicForDatumShift, geographicOfGeocentricDatum, options);
+			}
+			catch (TransformationNotFoundException const&)
+			{
+				if (!HaveSameEllipsoidAndPrimeMeridian(*geographic, *geographicOfGeocentricDatum))
+					throw;
+				return nullptr;
+			}
 			auto const datumShift = datumShiftCoordinateTransformation->GetMathTransform();
 			auto const inverseDatumShift = datumShift->GetInverse();
 			auto const adaptDatumShiftToThreeCoordinates = [dimensionCount](std::shared_ptr<IMathTransform> const& datumShiftTransform) -> std::shared_ptr<IMathTransform>

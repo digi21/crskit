@@ -140,3 +140,45 @@ TEST(GeographicToGeocentricDatumShift, Ed50TwoDimensionalToWgs84GeocentricCallsS
 	EXPECT_EQ(1, selectOperationCallCount);
 	ExpectPointCoordinatesWithinTolerances(kEd50Point, transformation->GetInverse()->Transform(kWgs84GeocentricPointOfEd50PointWithUnchangedHeight), kLatitudeLongitudeHeightTolerancesAfterTwoDimensionalDatumShift);
 }
+
+// World Geodetic System 1984 (WGS 84), realization G1762, geographic 3D (European Petroleum Survey Group (EPSG) code 7665)
+// and WGS 84 geocentric (EPSG 4978) have different datums and the catalogue has no operation between EPSG 7665 and EPSG
+// 4979, but the two datums have the WGS 84 ellipsoid and the Greenwich meridian, so the transformation converts with the
+// WGS 84 ellipsoid.
+TEST(GeographicToGeocentricDatumShift, Wgs84RealizationToWgs84GeocentricConvertsWithoutDatumShift)
+{
+	ExpectPointCoordinatesWithinTolerances({ 4886078.813811, -256068.540034, 4078049.850961 }, Transform(CreateCrs(7665), CreateCrs(4978), kEd50Point), kGeocentricTolerances);
+}
+
+// European Terrestrial Reference System 1989 (ETRS89) defined in Well-Known Text version 1 with the datum name D_ETRS_1989
+// of the Environmental Systems Research Institute (ESRI) and ETRS89 geocentric (European Petroleum Survey Group (EPSG)
+// code 4936) use the Geodetic Reference System 1980 (GRS 1980) ellipsoid and the Greenwich meridian, so the
+// transformation converts with the GRS 1980 ellipsoid.
+TEST(GeographicToGeocentricDatumShift, Etrs89WithEsriDatumNameToEtrs89GeocentricConvertsWithoutDatumShift)
+{
+	auto const etrs89 = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"WKT(GEOGCS["GCS_ETRS_1989",DATUM["D_ETRS_1989",SPHEROID["GRS_1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AXIS["h",UP]])WKT");
+	ExpectPointCoordinatesWithinTolerances({ 4886078.813845, -256068.540036, 4078049.850855 }, Transform(etrs89, CreateCrs(4936), kEd50Point), kGeocentricTolerances);
+}
+
+// CreateFromCoordinateSystems converts coordinates from a European Datum 1950 (ED50) geographic 3D coordinate reference
+// system whose datum is named European_Datum_1950 to an ED50 geocentric system whose datum is named ED50. Neither datum
+// defines TOWGS84 parameters for the transformation to World Geodetic System 1984. The datum names differ, but both
+// systems use the International 1924 ellipsoid and the Greenwich prime meridian.
+TEST(GeographicToGeocentricDatumShift, Ed50WithoutTowgs84ToGeocentricWithDatumNameEd50ConvertsWithoutDatumShift)
+{
+	auto const ed50 = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"WKT(GEOGCS["ED50 3D",DATUM["European_Datum_1950",SPHEROID["International 1924",6378388,297]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AXIS["Ellipsoidal height",UP]])WKT");
+	auto const ed50Geocentric = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"WKT(GEOCCS["ED50 geocentric",DATUM["ED50",SPHEROID["International 1924",6378388,297]],PRIMEM["Greenwich",0],UNIT["metre",1])WKT");
+	ExpectPointCoordinatesWithinTolerances(kEd50GeocentricPointOfEd50Point, Transform(ed50, ed50Geocentric, kEd50Point), kGeocentricTolerances);
+}
+
+// The catalogue has no operation between Nouvelle Triangulation Française (NTF) with the Paris prime meridian (European
+// Petroleum Survey Group (EPSG) code 4807) and World Geodetic System 1984 (WGS 84; EPSG 4326), and the Clarke 1880 (Institut
+// géographique national, IGN) ellipsoid of NTF differs from the WGS 84 ellipsoid, so CreateFromCoordinateSystems throws
+// TransformationNotFoundException from EPSG 4807 to WGS 84 geocentric (EPSG 4978).
+TEST(GeographicToGeocentricDatumShift, NtfParisToWgs84GeocentricThrowsTransformationNotFoundException)
+{
+	EXPECT_THROW(static_cast<void>(GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCrs(4807), CreateCrs(4978))), TransformationNotFoundException);
+}
