@@ -802,9 +802,10 @@ namespace CrsKit::CoordinateTransformations
 		// CRS, the datum shift uses the geographic 3D CRS of the catalogue for the same datum when FindGeographicSystem3D
 		// returns one with the same angular unit; otherwise the datum shift transforms latitude and longitude and returns the
 		// third coordinate, the ellipsoidal height, unchanged. When CreateFromCoordinateSystems throws
-		// TransformationNotFoundException for the datum shift, the function returns nullptr if HaveSameEllipsoidAndPrimeMeridian
-		// returns true for geographic and the geographic CRS of the geocentric datum with a maximum semi-axis difference of
-		// 4e-4 metres, and propagates the exception otherwise.
+		// TransformationNotFoundException for the datum shift, the function returns nullptr if the exception is not a
+		// MultipleTransformationsFoundException, which reports several datum shifts without selectOperation, and
+		// HaveSameEllipsoidAndPrimeMeridian returns true for geographic and the geographic CRS of the geocentric datum with a
+		// maximum semi-axis difference of 4e-4 metres; otherwise the function propagates the exception.
 		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 		{
 			auto geographicForDatumShift = geographic;
@@ -821,6 +822,10 @@ namespace CrsKit::CoordinateTransformations
 			try
 			{
 				datumShiftCoordinateTransformation = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(geographicForDatumShift, geographicOfGeocentricDatum, options);
+			}
+			catch (MultipleTransformationsFoundException const&)
+			{
+				throw;
 			}
 			catch (TransformationNotFoundException const&)
 			{

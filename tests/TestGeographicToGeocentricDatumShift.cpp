@@ -198,6 +198,16 @@ TEST(GeographicToGeocentricDatumShift, Geographic3DCrsWithEllipsoidSemiMajorAxis
 	EXPECT_THROW(static_cast<void>(GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(geographic, CreateCrs(4978))), TransformationNotFoundException);
 }
 
+// The catalogue has two operations from Israel 1993 (European Petroleum Survey Group (EPSG) code 4141) to World Geodetic
+// System 1984 (WGS 84; EPSG 4326), 1073 and 9676, whose results differ by 77.9 metres at latitude 31.5 degrees, longitude
+// 34.9 degrees and ellipsoidal height 100 metres. Without CoordinateTransformationOptions::selectOperation,
+// CreateFromCoordinateSystems throws MultipleTransformationsFoundException when asked to create a transformation from EPSG
+// 4141 to WGS 84 geocentric (EPSG 4978).
+TEST(GeographicToGeocentricDatumShift, Israel1993ToWgs84GeocentricWithoutSelectOperationThrowsMultipleTransformationsFoundException)
+{
+	EXPECT_THROW(static_cast<void>(GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCrs(4141), CreateCrs(4978))), MultipleTransformationsFoundException);
+}
+
 // The catalogue has no operation between Nouvelle Triangulation Française (NTF) with the Paris prime meridian (European
 // Petroleum Survey Group (EPSG) code 4807) and World Geodetic System 1984 (WGS 84; EPSG 4326), and the Clarke 1880 (Institut
 // géographique national, IGN) ellipsoid of NTF differs from the WGS 84 ellipsoid, so CreateFromCoordinateSystems throws

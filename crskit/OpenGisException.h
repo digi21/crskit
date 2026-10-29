@@ -44,6 +44,14 @@ namespace CrsKit
 		using OpenGisException::OpenGisException;
 	};
 
+	// The catalogue has more than one coordinate operation between two coordinate systems and
+	// CoordinateTransformationOptions::selectOperation is not set.
+	class _visibleCrsKit MultipleTransformationsFoundException : public TransformationNotFoundException
+	{
+	public:
+		using TransformationNotFoundException::TransformationNotFoundException;
+	};
+
 	// A point or coordinate buffer does not have the dimensions the transform expects.
 	class _visibleCrsKit DimensionMismatchException : public OpenGisException
 	{

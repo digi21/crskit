@@ -250,7 +250,7 @@ namespace CrsKit::Epsg
 		if (transformations.size() > 1)
 		{
 			if (nullptr == options.selectOperation)
-				throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
+				throw MultipleTransformationsFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
 
 			auto const operationCode = ResolveOperationAlias(options.selectOperation(source->GetName(), target->GetName(), transformations));
 
@@ -290,7 +290,7 @@ namespace CrsKit::Epsg
 		if (inverseTransformations.size() > 1)
 		{
 			if (nullptr == options.selectOperation)
-				throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", target->GetAuthorityCode(), source->GetAuthorityCode()));
+				throw MultipleTransformationsFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", target->GetAuthorityCode(), source->GetAuthorityCode()));
 
 			auto const operationCode = ResolveOperationAlias(options.selectOperation(target->GetName(), source->GetName(), inverseTransformations));
 			return StaticCoordinateTransformationFactory::CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
@@ -400,7 +400,7 @@ namespace CrsKit::Epsg
 			if (transformations.size() > 1)
 			{
 				if (nullptr == options.selectOperation)
-					throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
+					throw MultipleTransformationsFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
 
 				return CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 					dynamic_pointer_cast<GeographicCoordinateSystem>(target),
@@ -430,7 +430,7 @@ namespace CrsKit::Epsg
 		{
 			if (nullptr == options.selectOperation)
 			{
-				throw TransformationNotFoundException(
+				throw MultipleTransformationsFoundException(
 					std::format("Multiple transformations were located between the {} ({}) coordinate system and the {} ({}) coordinate system.",
 						source->GetAuthorityCode(),
 						source->GetName().c_str(),
@@ -485,7 +485,7 @@ namespace CrsKit::Epsg
 			{
 				if (nullptr == options.selectOperation)
 				{
-					throw TransformationNotFoundException(
+					throw MultipleTransformationsFoundException(
 						std::format("Multiple transformations were located between the {} ({}) coordinate system and the {} ({}) coordinate system.",
 							source->GetAuthorityCode(),
 							static_cast<const char*>(source->GetName().c_str()),
@@ -523,7 +523,7 @@ namespace CrsKit::Epsg
 		{
 			if (nullptr == options.selectOperation)
 			{
-				throw TransformationNotFoundException(
+				throw MultipleTransformationsFoundException(
 					std::format("Multiple transformations were located between the {} ({}) coordinate system and the {} ({}) coordinate system.",
 						source->GetAuthorityCode(),
 						source->GetName().c_str(),
@@ -767,7 +767,7 @@ namespace CrsKit::Epsg
 			if (geoidOperations.size() > 1)
 			{
 				if (nullptr == options.selectOperation)
-					throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
+					throw MultipleTransformationsFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
 
 				return CreateCoordinateTransformBetweenGeographicVerticalSystems(
 					source,
@@ -790,7 +790,7 @@ namespace CrsKit::Epsg
 		if (transformations.size() > 1)
 		{
 			if (nullptr == options.selectOperation)
-				throw TransformationNotFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
+				throw MultipleTransformationsFoundException(std::format("Multiple transformations between the {} coordinate system and the {} coordinate system were located.", source->GetAuthorityCode(), target->GetAuthorityCode()));
 
 			return CreateCoordinateTransformBetweenGeographicVerticalSystems(
 				dynamic_pointer_cast<GeographicCoordinateSystem>(source),
