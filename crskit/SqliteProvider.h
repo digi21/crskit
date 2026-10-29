@@ -645,14 +645,37 @@ namespace CrsKit::Epsg
 			return files;
 		}
 
-		// Fill in each candidate operation's area of use and required grid file(s) from its code, so the
-		// caller can present both (choose by geography, and know which file to obtain).
+		// Rectangle of the extent, std::nullopt when the extent does not exist or any of its four bounds is NULL.
+		auto GetAreaOfUseBoundingBox(int areaOfUseCode) -> std::optional<Positioning::GeographicBoundingBox>
+		{
+			auto const sql = std::format("SELECT BBOX_SOUTH_BOUND_LAT, BBOX_NORTH_BOUND_LAT, BBOX_WEST_BOUND_LON, BBOX_EAST_BOUND_LON FROM epsg_extent WHERE EXTENT_CODE={}", areaOfUseCode);
+
+			Stmt const stmt{ _db.get(), sql };
+			if (!stmt.Step())
+				return std::nullopt;
+
+			auto const data = stmt.GetData();
+			auto const south = TypeOrDefaultValue<double>(data.at("BBOX_SOUTH_BOUND_LAT"));
+			auto const north = TypeOrDefaultValue<double>(data.at("BBOX_NORTH_BOUND_LAT"));
+			auto const west = TypeOrDefaultValue<double>(data.at("BBOX_WEST_BOUND_LON"));
+			auto const east = TypeOrDefaultValue<double>(data.at("BBOX_EAST_BOUND_LON"));
+			if (!south || !north || !west || !east)
+				return std::nullopt;
+
+			return Positioning::GeographicBoundingBox{ .SouthBoundLatitudeDegrees = *south, .NorthBoundLatitudeDegrees = *north, .WestBoundLongitudeDegrees = *west, .EastBoundLongitudeDegrees = *east };
+		}
+
+		// Fills AreaOfUse with the extent name, AreaOfUseBoundingBox with the extent bounds and GridFiles with the required grid
+		// file names of each candidate operation, from its EPSG code.
 		void EnrichWithAreaAndGrids(std::vector<CoordinateTransformations::CoordinateOperation>& operations)
 		{
 			for (auto& op : operations)
 			{
-				// An operation without a usage extent gets extent code 0 and an empty area name.
-				op.AreaOfUse = GetAreaName(GetCoordinateOperationAreaOfUse(op.Code));
+				// For an operation without a usage extent, GetCoordinateOperationAreaOfUse returns 0, AreaOfUse is empty and
+				// AreaOfUseBoundingBox is std::nullopt.
+				auto const areaOfUseCode = GetCoordinateOperationAreaOfUse(op.Code);
+				op.AreaOfUse = GetAreaName(areaOfUseCode);
+				op.AreaOfUseBoundingBox = GetAreaOfUseBoundingBox(areaOfUseCode);
 				op.GridFiles = GetCoordinateOperationGridFiles(op.Code);
 			}
 		}

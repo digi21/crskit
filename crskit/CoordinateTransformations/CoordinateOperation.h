@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "../Positioning/GeographicBoundingBox.h"
+
 namespace CrsKit::CoordinateTransformations
 {
 	struct CoordinateOperation final
@@ -25,6 +27,9 @@ namespace CrsKit::CoordinateTransformations
 		// Grid file(s) the operation needs (EPSG PARAM_VALUE_FILE_REF), empty for non-grid operations.
 		// The caller can surface these so the user knows which file to obtain (e.g. an EGM2008 geoid grid).
 		std::vector<std::string> GridFiles;
+		// Rectangle of the extent named by AreaOfUse, std::nullopt when the operation has no extent in the catalogue
+		// or the extent lacks any of its four bounds. See GeographicBoundingBox for extents that cross the antimeridian.
+		std::optional<Positioning::GeographicBoundingBox> AreaOfUseBoundingBox;
 	};
 
 }
