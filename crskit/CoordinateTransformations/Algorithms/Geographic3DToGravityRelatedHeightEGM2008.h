@@ -10,6 +10,11 @@
 
 namespace CrsKit::CoordinateTransformations::Algorithms
 {
+	// Names that the Earth Gravitational Model 2008 (EGM2008) reader and IsGridFileInstalled search for in the data
+	// directory for gridFileName, in search order: gridFileName and, if gridFileName ends in ".gz", the name without
+	// ".gz". The readers of the other grid formats open only gridFileName.
+	[[nodiscard]] auto GetGridFileSearchNames(std::string const& gridFileName) -> std::vector<std::string>;
+
 	struct IGridInterpolation
 	{
 		virtual ~IGridInterpolation() = default;

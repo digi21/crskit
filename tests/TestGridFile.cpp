@@ -5,6 +5,7 @@
 #include "TestBase.h"
 #include "../crskit/CoordinateTransformations/Algorithms/GridFiles/Inflate.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -45,6 +46,35 @@ namespace
 		std::string saved{ context->dataDirectory };
 		explicit DataDirectoryGuard(std::string dir) { context->dataDirectory = std::move(dir); }
 		~DataDirectoryGuard() { context->dataDirectory = saved; }
+	};
+
+	// Name of the 1 arc-minute Earth Gravitational Model 2008 (EGM2008) global grid file in the European Petroleum Survey
+	// Group (EPSG) catalogue, used by operation 3859.
+	constexpr char kEgm2008GridFileName[]{ "Und_min1x1_egm2008_isw=82_WGS84_TideFree" };
+
+	// Creates an empty temporary directory and sets it as the data directory. On destruction, restores the previous data
+	// directory and removes the temporary directory.
+	struct TemporaryDataDirectory
+	{
+		std::filesystem::path directoryPath;
+		std::unique_ptr<DataDirectoryGuard> dataDirectoryGuard;
+
+		explicit TemporaryDataDirectory(std::string const& directoryName)
+			: directoryPath{ std::filesystem::temp_directory_path() / directoryName }
+		{
+			std::filesystem::remove_all(directoryPath);
+			std::filesystem::create_directories(directoryPath);
+			auto directoryPathString = directoryPath.string();
+			directoryPathString += '/';
+			dataDirectoryGuard = std::make_unique<DataDirectoryGuard>(directoryPathString);
+		}
+
+		~TemporaryDataDirectory()
+		{
+			dataDirectoryGuard.reset();
+			std::error_code directoryRemovalError;
+			std::filesystem::remove_all(directoryPath, directoryRemovalError);
+		}
 	};
 }
 using namespace CrsKit::CoordinateSystems;
@@ -387,6 +417,53 @@ TEST(GridFile, CandidateOperationsCarryAreaOfUseAndGridFile)
 
 	EXPECT_TRUE(anyArea) << "no candidate reported an area of use";
 	EXPECT_TRUE(foundEgm2008Grid) << "no candidate reported an EGM2008 grid file";
+}
+
+// IsGridFileInstalled checks for regular files in the data directory and also tries the name without ".gz" when the
+// name ends in ".gz"; GetMissingGridFiles returns the grid files of an operation that are not installed.
+TEST(GridFile, IsGridFileInstalledChecksRegularFilesAndTheNameWithoutGz)
+{
+	TemporaryDataDirectory const directory{ "crskit_grid_installed" };
+
+	auto const operations = GetCurrentEnvironment()->Provider->GeographicToVerticalOperationCodes(3855);
+	auto const egm2008Operation = std::ranges::find(operations, 3859, &CoordinateOperation::Code);
+	ASSERT_NE(operations.end(), egm2008Operation);
+	ASSERT_EQ(std::vector<std::string>{ kEgm2008GridFileName }, egm2008Operation->GridFiles);
+
+	EXPECT_FALSE(IsGridFileInstalled("synthetic.gsb"));
+	EXPECT_FALSE(IsGridFileInstalled(kEgm2008GridFileName));
+	EXPECT_EQ(std::vector<std::string>{ kEgm2008GridFileName }, GetMissingGridFiles(*egm2008Operation));
+
+	std::ofstream{ directory.directoryPath / "synthetic.gsb" } << "x";
+	EXPECT_TRUE(IsGridFileInstalled("synthetic.gsb"));
+	EXPECT_FALSE(IsGridFileInstalled("other.gsb"));
+
+	// The Earth Gravitational Model 2008 (EGM2008) reader opens the name without ".gz" for a name that ends in ".gz".
+	std::ofstream{ directory.directoryPath / kEgm2008GridFileName } << "x";
+	EXPECT_TRUE(IsGridFileInstalled(kEgm2008GridFileName));
+	EXPECT_TRUE(IsGridFileInstalled(std::string{ kEgm2008GridFileName } + ".gz"));
+	EXPECT_TRUE(GetMissingGridFiles(*egm2008Operation).empty());
+
+	// A directory with the name of the grid file is not a grid file.
+	std::filesystem::create_directory(directory.directoryPath / "directory.gsb");
+	EXPECT_FALSE(IsGridFileInstalled("directory.gsb"));
+}
+
+// The operations of the method Norway Offshore Interpolation (code 9620 of the European Petroleum Survey Group (EPSG)
+// catalogue) list names of coordinate operations in GridFiles; GetMissingGridFiles does not report them as missing files.
+TEST(GridFile, GetMissingGridFilesReturnsEmptyForNorwayOffshoreInterpolation)
+{
+	TemporaryDataDirectory const directory{ "crskit_grid_norway" };
+
+	auto const operations = GetCurrentEnvironment()->Provider->OperationCodesToTransformSystemAtoB(4230, 4326);
+	for (auto const operationCode : { 1450, 1590 })
+	{
+		auto const operation = std::ranges::find(operations, operationCode, &CoordinateOperation::Code);
+		ASSERT_NE(operations.end(), operation) << operationCode;
+		EXPECT_EQ(9620, operation->MethodCode);
+		EXPECT_FALSE(operation->GridFiles.empty());
+		EXPECT_TRUE(GetMissingGridFiles(*operation).empty()) << operationCode;
+	}
 }
 
 // The EPSG dataset version is read straight from the database's version history (e.g. "12.057").

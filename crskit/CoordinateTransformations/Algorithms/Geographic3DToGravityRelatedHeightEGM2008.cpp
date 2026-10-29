@@ -310,6 +310,11 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		}
 	}
 
+	auto GetGridFileSearchNames(std::string const& gridFileName) -> std::vector<std::string>
+	{
+		return egm2008CandidateNames(gridFileName);
+	}
+
 	// Locates the geoid grid reader for the given (EPSG) model-file name. Two passes: first recognise
 	// the grid by its CONTENT (so a present file is accepted regardless of its exact name), then fall
 	// back to recognising the FAMILY by name so an absent file is routed to its reader, which reports
