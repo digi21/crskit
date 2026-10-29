@@ -490,6 +490,7 @@ namespace CrsKit::CoordinateTransformations
 	namespace
 	{
 		auto AreSameDatum(std::shared_ptr<IHorizontalDatum> const& firstDatum, std::shared_ptr<IHorizontalDatum> const& secondDatum) -> bool;
+		auto CreateGeographicSystemOfGeocentricDatum(GeocentricCoordinateSystem const& geocentric, int dimensionCount) -> std::shared_ptr<GeographicCoordinateSystem>;
 		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
 
 		// Returns the conversion of three coordinates from geographic to geocentric with the ellipsoid of geographic; it
@@ -540,6 +541,25 @@ namespace CrsKit::CoordinateTransformations
 					? std::static_pointer_cast<IMathTransform>(geographicToGeocentric)
 					: geographicToGeocentric->GetInverse();
 				return make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, mt);
+			}
+
+			// Between two geocentric coordinate reference systems (CRSs), at least one of them without a code of the European
+			// Petroleum Survey Group (EPSG) catalogue, the transformation converts the coordinates to the geographic 3D CRS of the
+			// source datum and transforms them from that CRS to the target geocentric CRS.
+			if (sourceGeocentric && targetGeocentric && !(sourceCS->GetAuthority() == "EPSG" && targetCS->GetAuthority() == "EPSG"))
+			{
+				auto const geographicOfSourceDatum = CreateGeographicSystemOfGeocentricDatum(*sourceGeocentric, 3);
+				auto const sourceToGeographic = CreateFromCoordinateSystems(sourceCS, geographicOfSourceDatum, options);
+				auto const geographicToTarget = CreateFromCoordinateSystems(geographicOfSourceDatum, targetCS, options);
+
+				auto const directTransformation = make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{ sourceToGeographic->GetMathTransform(), geographicToTarget->GetMathTransform() });
+				auto const inverseTransformation = make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{ geographicToTarget->GetMathTransform()->GetInverse(), sourceToGeographic->GetMathTransform()->GetInverse() });
+				directTransformation->SetInverseTransformation(inverseTransformation);
+				inverseTransformation->SetInverseTransformation(directTransformation);
+
+				auto const transformation = make_shared<CoordinateTransformation>("", "", "", sourceCS, targetCS, directTransformation);
+				transformation->SetInverseMathTransform(inverseTransformation);
+				return transformation;
 			}
 		}
 
