@@ -634,9 +634,8 @@ namespace CrsKit::CoordinateTransformations
 		}
 
 		// Returns true when the corresponding semi-axes of the ellipsoids of the two geographic coordinate reference systems
-		// differ by at most maximumSemiAxisDifferenceInMetres and the longitudes of their prime meridians from Greenwich differ
-		// by less than 1e-12 radians.
-		auto HaveSameEllipsoidAndPrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem, double maximumSemiAxisDifferenceInMetres) -> bool
+		// differ by at most maximumSemiAxisDifferenceInMetres.
+		auto HaveSameEllipsoid(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem, double maximumSemiAxisDifferenceInMetres) -> bool
 		{
 			// An ellipsoid can be defined in a linear unit other than the metre.
 			auto const calculateSemiAxesInMetres = [](Ellipsoid const& ellipsoid)
@@ -646,9 +645,13 @@ namespace CrsKit::CoordinateTransformations
 			};
 			auto const [firstSemiMajorAxis, firstSemiMinorAxis] = calculateSemiAxesInMetres(firstGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
 			auto const [secondSemiMajorAxis, secondSemiMinorAxis] = calculateSemiAxesInMetres(secondGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
-			if (fabs(firstSemiMajorAxis - secondSemiMajorAxis) > maximumSemiAxisDifferenceInMetres || fabs(firstSemiMinorAxis - secondSemiMinorAxis) > maximumSemiAxisDifferenceInMetres)
-				return false;
+			return fabs(firstSemiMajorAxis - secondSemiMajorAxis) <= maximumSemiAxisDifferenceInMetres && fabs(firstSemiMinorAxis - secondSemiMinorAxis) <= maximumSemiAxisDifferenceInMetres;
+		}
 
+		// Returns true when the longitudes of the prime meridians of the two geographic coordinate reference systems from
+		// Greenwich differ by less than 1e-12 radians.
+		auto HaveSamePrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		{
 			auto const calculateLongitudeFromGreenwichInRadians = [](PrimeMeridian const& primeMeridian)
 			{
 				return primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit();
@@ -657,13 +660,37 @@ namespace CrsKit::CoordinateTransformations
 				- calculateLongitudeFromGreenwichInRadians(secondGeographicCoordinateSystem.GetPrimeMeridian())) < 1e-12;
 		}
 
-		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when AreSameDatum returns true for their
-		// datums and HaveSameEllipsoidAndPrimeMeridian returns true with a maximum semi-axis difference of 1e-6 metres. The
-		// axes and angular units of the two CRSs may differ.
-		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		// Returns true when HaveSameEllipsoid returns true with maximumSemiAxisDifferenceInMetres and HaveSamePrimeMeridian
+		// returns true.
+		auto HaveSameEllipsoidAndPrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem, double maximumSemiAxisDifferenceInMetres) -> bool
+		{
+			return HaveSameEllipsoid(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem, maximumSemiAxisDifferenceInMetres)
+				&& HaveSamePrimeMeridian(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem);
+		}
+
+		// Returns true when AreSameDatum returns true for the datums of the two geographic coordinate reference systems (CRSs)
+		// and HaveSameEllipsoid returns true with a maximum semi-axis difference of 1e-6 metres. The axes, angular units and
+		// prime meridians of the two CRSs may differ.
+		auto HaveSameDatumAndEllipsoid(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
 		{
 			return AreSameDatum(firstGeographicCoordinateSystem.GetHorizontalDatum(), secondGeographicCoordinateSystem.GetHorizontalDatum())
-				&& HaveSameEllipsoidAndPrimeMeridian(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem, 1e-6);
+				&& HaveSameEllipsoid(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem, 1e-6);
+		}
+
+		// Returns a transformation of points with pointDimensionCount coordinates, longitude in degrees first and latitude in
+		// degrees second, that converts the longitude from the prime meridian of source to Greenwich and then from Greenwich to
+		// the prime meridian of target, or nullptr when HaveSamePrimeMeridian returns true.
+		auto CreatePrimeMeridianChange(GeographicCoordinateSystem const& source, GeographicCoordinateSystem const& target, int pointDimensionCount) -> std::shared_ptr<IMathTransform>
+		{
+			if (HaveSamePrimeMeridian(source, target))
+				return nullptr;
+
+			vector<shared_ptr<IMathTransform>> primeMeridianLongitudeTransforms;
+			if (auto const sourcePrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(source, pointDimensionCount))
+				primeMeridianLongitudeTransforms.push_back(sourcePrimeMeridianToGreenwichLongitudeConversion);
+			if (auto const targetPrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(target, pointDimensionCount))
+				primeMeridianLongitudeTransforms.push_back(targetPrimeMeridianToGreenwichLongitudeConversion->GetInverse());
+			return make_shared<ConcatenatedTransform>(primeMeridianLongitudeTransforms);
 		}
 
 		// Builds the datum shift between two geographic systems from their TOWGS84 (Bursa-Wolf)
@@ -950,9 +977,10 @@ namespace CrsKit::CoordinateTransformations
 				}
 		}
 
-		// When the source and target geographic CRSs share a geodetic frame, including a CRS defined in Well-Known Text (WKT)
-		// without an authority code: remove the projection of the source if the source is projected, convert the axes and the
-		// angular unit between the geographic CRSs, and apply the projection of the target if the target is projected.
+		// When HaveSameDatumAndEllipsoid returns true for the source and target geographic CRSs, including a CRS defined in
+		// Well-Known Text (WKT) without an authority code: remove the projection of the source if the source is projected,
+		// convert the axes, the angular unit and the prime meridian between the geographic CRSs, and apply the projection of
+		// the target if the target is projected.
 		{
 			auto const sourceGeographicCoordinateSystem = sourceAsGeographic ? sourceAsGeographic
 				: (sourceAsProjected ? dynamic_pointer_cast<GeographicCoordinateSystem>(sourceAsProjected->GetGeographicCoordinateSystem()) : nullptr);
@@ -960,14 +988,16 @@ namespace CrsKit::CoordinateTransformations
 				: (targetAsProjected ? dynamic_pointer_cast<GeographicCoordinateSystem>(targetAsProjected->GetGeographicCoordinateSystem()) : nullptr);
 
 			if (nullptr != sourceGeographicCoordinateSystem && nullptr != targetGeographicCoordinateSystem
-				&& ShareGeodeticFrame(*sourceGeographicCoordinateSystem, *targetGeographicCoordinateSystem))
+				&& HaveSameDatumAndEllipsoid(*sourceGeographicCoordinateSystem, *targetGeographicCoordinateSystem))
 			{
 				vector<shared_ptr<IMathTransform>> transforms;
 				if (nullptr != sourceAsProjected)
 					transforms.push_back(CreateProjectionTransforms(sourceAsProjected)->GetInverse());
 				transforms.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems(
 					sourceGeographicCoordinateSystem->GetName() + " to " + targetGeographicCoordinateSystem->GetName(), "", "",
-					sourceGeographicCoordinateSystem, targetGeographicCoordinateSystem, nullptr, false)->GetMathTransform());
+					sourceGeographicCoordinateSystem, targetGeographicCoordinateSystem,
+					CreatePrimeMeridianChange(*sourceGeographicCoordinateSystem, *targetGeographicCoordinateSystem,
+						3 == sourceGeographicCoordinateSystem->GetDimension() && 3 == targetGeographicCoordinateSystem->GetDimension() ? 3 : 2), false)->GetMathTransform());
 				if (nullptr != targetAsProjected)
 					transforms.push_back(CreateProjectionTransforms(targetAsProjected));
 
@@ -1540,14 +1570,14 @@ namespace CrsKit::CoordinateTransformations
 				// The source and target coordinate reference systems (CRS) are geographic and three-dimensional.
 				// CreateFromCoordinateSystems sends two CRS with codes of the European Petroleum Survey Group (EPSG) catalogue to
 				// the authority factory, so at least one of these CRS has no EPSG code. The
-				// transformation applies the TOWGS84 parameters of the datums or, when the two CRS share a geodetic frame,
-				// converts the axes and the units.
+				// transformation applies the TOWGS84 parameters of the datums or, when HaveSameDatumAndEllipsoid returns true,
+				// converts the axes, the units and the prime meridian.
 				auto const sourceGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
 				auto const targetGeographic = dynamic_pointer_cast<GeographicCoordinateSystem>(targetCS);
 				if (auto const datumShift = TryCreateTowgs84Core(sourceGeographic, targetGeographic, options.towgs84RotationConvention))
 					transformations.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems("", "", "", sourceGeographic, targetGeographic, datumShift, false)->GetMathTransform());
-				else if (ShareGeodeticFrame(*sourceGeographic, *targetGeographic))
-					transformations.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems("", "", "", sourceGeographic, targetGeographic, nullptr, false)->GetMathTransform());
+				else if (HaveSameDatumAndEllipsoid(*sourceGeographic, *targetGeographic))
+					transformations.push_back(CreateAxisUnitChangeAndMathOperationTransformBetweenCoordinateSystems("", "", "", sourceGeographic, targetGeographic, CreatePrimeMeridianChange(*sourceGeographic, *targetGeographic, 3), false)->GetMathTransform());
 				else
 					throw TransformationNotFoundException(std::format("No transformations between the coordinate system {} and {} have been found.", sourceCS->GetName().c_str(), targetCS->GetName().c_str()));
 			}
