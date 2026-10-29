@@ -485,6 +485,20 @@ namespace CrsKit
 			// direction of that chain.
 			std::vector<std::shared_ptr<IMathTransform>> orthometricToEllipsoidalHeightSteps;
 			std::vector<std::shared_ptr<IMathTransform>> ellipsoidalToOrthometricHeightSteps;
+
+			// Returns the steps of heightTransformation, the transformation returned by createVerticalSystemDialogCallback or its
+			// inverse. The steps receive and return the longitude from the prime meridian of geographicSystem; heightTransformation
+			// receives the longitude from Greenwich.
+			auto const createDialogHeightSteps = [&primeMeridianToGreenwichLongitudeConversion](std::shared_ptr<IMathTransform> const& heightTransformation)
+			{
+				std::vector<std::shared_ptr<IMathTransform>> steps;
+				if (primeMeridianToGreenwichLongitudeConversion)
+					steps.push_back(primeMeridianToGreenwichLongitudeConversion);
+				std::ranges::copy(CreateThreeCoordinateHeightSteps(heightTransformation), std::back_inserter(steps));
+				if (primeMeridianToGreenwichLongitudeConversion)
+					steps.push_back(primeMeridianToGreenwichLongitudeConversion->GetInverse());
+				return steps;
+			};
 			if (nullptr == dynamic_pointer_cast<LocalCoordinateSystem>(vertical))
 			{
 				// Vertical transformations only exist between geographic 3D and vertical systems or between two vertical systems.
@@ -497,8 +511,8 @@ namespace CrsKit
 					if (!selectedVerticalTransformation)
 						throw runtime_error("The user has not selected a vertical coordinate system.");
 
-					orthometricToEllipsoidalHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation->GetInverse());
-					ellipsoidalToOrthometricHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation);
+					orthometricToEllipsoidalHeightSteps = createDialogHeightSteps(selectedVerticalTransformation->GetInverse());
+					ellipsoidalToOrthometricHeightSteps = createDialogHeightSteps(selectedVerticalTransformation);
 				}
 				else
 				{
@@ -531,14 +545,14 @@ namespace CrsKit
 					catch (TransformationNotFoundException const&)
 					{
 						// If createVerticalSystemDialogCallback is set and returns a non-null transformation from the geographic CRS to the
-						// vertical CRS, CreateThreeCoordinateHeightSteps adapts that transformation and its inverse to steps that receive
-						// and return longitude and latitude in degrees and a height.
+						// vertical CRS, createDialogHeightSteps adapts that transformation and its inverse to steps that receive and return
+						// longitude and latitude in degrees and a height.
 						auto const selectedVerticalTransformation = createVerticalSystemDialogCallback ? createVerticalSystemDialogCallback(geographicSystem3D->GetName(), vertical->GetName()) : nullptr;
 						if (!selectedVerticalTransformation)
 							throw;
 
-						orthometricToEllipsoidalHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation->GetInverse());
-						ellipsoidalToOrthometricHeightSteps = CreateThreeCoordinateHeightSteps(selectedVerticalTransformation);
+						orthometricToEllipsoidalHeightSteps = createDialogHeightSteps(selectedVerticalTransformation->GetInverse());
+						ellipsoidalToOrthometricHeightSteps = createDialogHeightSteps(selectedVerticalTransformation);
 					}
 				}
 			}

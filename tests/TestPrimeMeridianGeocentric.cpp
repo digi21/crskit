@@ -126,6 +126,51 @@ TEST(PrimeMeridianGeocentric, CreateFromCoordinateSystemsReturnsParisLongitudeBe
 	ExpectPointCoordinatesWithinTolerance({ kLatitudeInDegrees, CalculateLongitudeFromParisInDegrees(kLongitudeFromGreenwichNearTheAntimeridianInDegrees), 100.0 }, geographicPoint, 1e-8);
 }
 
+// The test calls CreateTransformToGeocentric for Nouvelle Triangulation Francaise (NTF) with the Paris prime meridian and
+// for NTF with the Greenwich prime meridian, both geographic coordinate reference systems (CRSs) defined in Well-Known Text
+// version 1 without authority code and with angles in degrees, and for NGF-IGN69 height (European Petroleum Survey Group
+// (EPSG) code 5720). The catalogue has no geographic 3D CRS for these CRSs, so createVerticalSystemDialogCallback returns the
+// transformation from the geographic CRS to the vertical CRS: an affine transformation that subtracts the longitude from
+// Greenwich in degrees from the ellipsoidal height in metres. The test compares the geocentric coordinates of the same point
+// returned by the Paris and Greenwich direct chains with a tolerance of 1e-3 metres per coordinate, and checks that the
+// Paris inverse chain returns the starting latitude and longitude within 1e-8 degrees and the starting height within 1e-8
+// metres.
+TEST(PrimeMeridianGeocentric, TransformToGeocentricPassesLongitudeFromGreenwichToTheTransformationOfTheDialog)
+{
+	auto const createChains = [](std::string const& horizontalWkt, std::vector<std::shared_ptr<IMathTransform>>& directTransformations, std::vector<std::shared_ptr<IMathTransform>>& inverseTransformations)
+	{
+		GetUtilities()->CreateTransformToGeocentric(GetCoordinateSystemFactory()->CreateFromWkt(horizontalWkt), CreateCatalogueCoordinateSystem(5720),
+			directTransformations, inverseTransformations,
+			[](std::string const&, std::string const&) -> std::shared_ptr<IMathTransform>
+			{
+				return GetMathTransformFactory()->CreateFromWkt(
+					R"WKT(PARAM_MT["Affine",PARAMETER["num_row",4],PARAMETER["num_col",4],PARAMETER["elt_0_0",1],PARAMETER["elt_0_1",0],PARAMETER["elt_0_2",0],PARAMETER["elt_0_3",0],PARAMETER["elt_1_0",0],PARAMETER["elt_1_1",1],PARAMETER["elt_1_2",0],PARAMETER["elt_1_3",0],PARAMETER["elt_2_0",-1],PARAMETER["elt_2_1",0],PARAMETER["elt_2_2",1],PARAMETER["elt_2_3",0],PARAMETER["elt_3_0",0],PARAMETER["elt_3_1",0],PARAMETER["elt_3_2",0],PARAMETER["elt_3_3",1]])WKT");
+			},
+			[](std::string const&, std::string const&, std::vector<CoordinateOperation> const& operations) { return operations.front().Code; });
+	};
+	auto const applySteps = [](std::vector<std::shared_ptr<IMathTransform>> const& steps, std::vector<double> point)
+	{
+		for (auto const& step : steps)
+			point = step->Transform(point);
+		return point;
+	};
+
+	std::vector<std::shared_ptr<IMathTransform>> parisDirectTransformations;
+	std::vector<std::shared_ptr<IMathTransform>> parisInverseTransformations;
+	createChains(R"WKT(GEOGCS["NTF (Paris) in degrees",DATUM["Test_NTF",SPHEROID["Clarke 1880 (IGN)",6378249.2,293.4660212936269]],PRIMEM["Paris",2.33722917],UNIT["degree",0.0174532925199433],AXIS["Latitude",NORTH],AXIS["Longitude",EAST]])WKT",
+		parisDirectTransformations, parisInverseTransformations);
+	std::vector<std::shared_ptr<IMathTransform>> greenwichDirectTransformations;
+	std::vector<std::shared_ptr<IMathTransform>> greenwichInverseTransformations;
+	createChains(R"WKT(GEOGCS["NTF (Greenwich) in degrees",DATUM["Test_NTF",SPHEROID["Clarke 1880 (IGN)",6378249.2,293.4660212936269]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AXIS["Latitude",NORTH],AXIS["Longitude",EAST]])WKT",
+		greenwichDirectTransformations, greenwichInverseTransformations);
+
+	std::vector<double> const parisPoint{ kLatitudeInDegrees, kLongitudeFromParisInDegrees, 100.0 };
+	auto const geocentricPointFromParisCoordinates = applySteps(parisDirectTransformations, parisPoint);
+	auto const geocentricPointFromGreenwichCoordinates = applySteps(greenwichDirectTransformations, { kLatitudeInDegrees, kLongitudeFromParisInDegrees + kParisLongitudeInDegrees, 100.0 });
+	ExpectPointCoordinatesWithinTolerance(geocentricPointFromGreenwichCoordinates, geocentricPointFromParisCoordinates, 1e-3);
+	ExpectPointCoordinatesWithinTolerance(parisPoint, applySteps(parisInverseTransformations, geocentricPointFromParisCoordinates), 1e-8);
+}
+
 // The datum shift from World Geodetic System 1984 (WGS 84; European Petroleum Survey Group (EPSG) code 4326) to Nouvelle
 // Triangulation Francaise (NTF) with the Paris prime meridian, defined in Well-Known Text version 1 (WKT1) with TOWGS84
 // parameters, returns for a point 179 degrees west of Greenwich the longitude from the Paris prime meridian in [-200, 200]
