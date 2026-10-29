@@ -42,6 +42,8 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		static auto AffineSwapAxesTransform(unsigned int componentes) -> std::shared_ptr<Affine>;
 		// (x, y) -> (m00 x + m01 y, m10 x + m11 y).
 		static auto Affine2D(double m00, double m01, double m10, double m11) -> std::shared_ptr<Affine>;
+		// (x, y, z) -> (cos(a) x - sin(a) y, sin(a) x + cos(a) y, z), with a = angleInRadians.
+		static auto CreateRotationAboutZAxis(double angleInRadians) -> std::shared_ptr<Affine>;
 		static auto CreateAffine2DTo3DParameters() -> std::shared_ptr<CoordinateSystems::IProjection>;
 		static auto Affine2DTo3DTransform() -> std::shared_ptr<Affine>;
 		static auto Affine2DTo3DSwapAxesTransform() -> std::shared_ptr<Affine>;

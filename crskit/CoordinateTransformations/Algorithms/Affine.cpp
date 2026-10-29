@@ -497,6 +497,19 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			{ "elt_2_0", 0.0 }, { "elt_2_1", 0.0 }, { "elt_2_2", 1.0 } };
 		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
 	}
+
+	auto Affine::CreateRotationAboutZAxis(double angleInRadians) -> std::shared_ptr<Affine>
+	{
+		auto const cosine = cos(angleInRadians);
+		auto const sine = sin(angleInRadians);
+		std::vector<Parameter> parameters{
+			{ "num_row", 4.0 }, { "num_col", 4.0 },
+			{ "elt_0_0", cosine }, { "elt_0_1", -sine }, { "elt_0_2", 0.0 }, { "elt_0_3", 0.0 },
+			{ "elt_1_0", sine }, { "elt_1_1", cosine }, { "elt_1_2", 0.0 }, { "elt_1_3", 0.0 },
+			{ "elt_2_0", 0.0 }, { "elt_2_1", 0.0 }, { "elt_2_2", 1.0 }, { "elt_2_3", 0.0 },
+			{ "elt_3_0", 0.0 }, { "elt_3_1", 0.0 }, { "elt_3_2", 0.0 }, { "elt_3_3", 1.0 } };
+		return make_shared<Affine>(make_shared<Projection>("affine", parameters), false);
+	}
 #pragma endregion
 
 	auto Affine::GetWkt() const -> std::string

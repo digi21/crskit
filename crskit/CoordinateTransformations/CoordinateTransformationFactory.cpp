@@ -354,7 +354,11 @@ namespace CrsKit::CoordinateTransformations
 
 	auto StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(GeographicCoordinateSystem const& geographicSystem, int pointDimensionCount) -> shared_ptr<IMathTransform>
 	{
-		auto const primeMeridian = geographicSystem.GetPrimeMeridian();
+		return CreatePrimeMeridianToGreenwichLongitudeConversion(geographicSystem.GetPrimeMeridian(), pointDimensionCount);
+	}
+
+	auto StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(PrimeMeridian const& primeMeridian, int pointDimensionCount) -> shared_ptr<IMathTransform>
+	{
 		auto const primeMeridianLongitudeInDegrees = primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit() * 180.0 / M_PI;
 		if (0.0 == primeMeridianLongitudeInDegrees)
 			return nullptr;
@@ -494,12 +498,15 @@ namespace CrsKit::CoordinateTransformations
 		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>;
 
 		// Returns the conversion of three coordinates from geographic to geocentric with the ellipsoid of geographic; it
-		// does not shift the datum.
+		// does not shift the datum. GeographicToGeocentric receives the longitude from the prime meridian of geocentric, the
+		// meridian of the plane that contains the X and Z axes of geocentric.
 		auto CreateGeographicToGeocentricConversion(std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric) -> std::shared_ptr<IMathTransform>
 		{
 			auto transformations = StaticCoordinateTransformationFactory::CreateTransformsFromSystemToSystemCompatibleWithTransformMethods(geographic, 3);
 			if (auto const primeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(*geographic, 3))
 				transformations.push_back(primeMeridianToGreenwichLongitudeConversion);
+			if (auto const geocentricPrimeMeridianToGreenwichLongitudeConversion = StaticCoordinateTransformationFactory::CreatePrimeMeridianToGreenwichLongitudeConversion(geocentric->GetPrimeMeridian(), 3))
+				transformations.push_back(geocentricPrimeMeridianToGreenwichLongitudeConversion->GetInverse());
 			transformations.push_back(make_shared<GeographicToGeocentric>(geographic->GetHorizontalDatum()->GetEllipsoid(), false));
 			for (auto const& geocentricSystemTransform : StaticCoordinateTransformationFactory::CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(geocentric))
 				transformations.push_back(geocentricSystemTransform);

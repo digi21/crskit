@@ -60,6 +60,10 @@ namespace CrsKit::CoordinateTransformations
 		// becomes the longitude from Greenwich in [-180, 180] degrees; the inverse step returns the longitude from the prime
 		// meridian in [-180, 180] degrees. Returns nullptr when the prime meridian of geographicSystem is Greenwich.
 		[[nodiscard]] static auto CreatePrimeMeridianToGreenwichLongitudeConversion(CoordinateSystems::GeographicCoordinateSystem const& geographicSystem, int pointDimensionCount) -> std::shared_ptr<IMathTransform>;
+		// Returns the step that converts the first of pointDimensionCount coordinates, a longitude in degrees from primeMeridian,
+		// to the longitude from Greenwich in [-180, 180] degrees; the inverse step converts the longitude from Greenwich to the
+		// longitude from primeMeridian in [-180, 180] degrees. Returns nullptr when primeMeridian is Greenwich.
+		[[nodiscard]] static auto CreatePrimeMeridianToGreenwichLongitudeConversion(CoordinateSystems::PrimeMeridian const& primeMeridian, int pointDimensionCount) -> std::shared_ptr<IMathTransform>;
 		[[nodiscard]] static auto CreateTransformsFromSystemCompatibleWithTransformMethodsToSystem(std::shared_ptr<CoordinateSystems::GeographicCoordinateSystem> const& system) -> std::vector<std::shared_ptr<IMathTransform>>;
 
 		static auto LocateFromVerticalCoordinateSystems(std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystems::VerticalCoordinateSystem> const& targetCS, CoordinateTransformationOptions const& options) -> std::vector<std::shared_ptr<IMathTransform>>;

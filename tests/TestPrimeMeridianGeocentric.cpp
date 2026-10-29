@@ -171,6 +171,55 @@ TEST(PrimeMeridianGeocentric, TransformToGeocentricPassesLongitudeFromGreenwichT
 	ExpectPointCoordinatesWithinTolerance(parisPoint, applySteps(parisInverseTransformations, geocentricPointFromParisCoordinates), 1e-8);
 }
 
+// A World Geodetic System 1984 (WGS 84) geocentric coordinate reference system with the Paris prime meridian, defined in
+// Well-Known Text version 1 without authority code, has its X axis in the plane of the Paris meridian. At the same latitude
+// and ellipsoidal height, a point with a given longitude from Paris has in this CRS the coordinate values that a point with
+// that longitude from Greenwich has in WGS 84 geocentric (EPSG code 4978). The tests obtain both sets of coordinates with
+// the transformation from WGS 84 3D (EPSG code 4979) to EPSG 4978.
+namespace
+{
+	constexpr char const* kWgs84GeocentricWithParisMeridianWkt = R"WKT(GEOCCS["WGS 84 geocentric (Paris)",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Paris",2.33722917],UNIT["metre",1]])WKT";
+
+	// Returns the coordinates in EPSG 4978 of the point at kLatitudeInDegrees, longitudeInDegrees from Greenwich and an
+	// ellipsoidal height of 100 metres.
+	auto CalculateWgs84GeocentricPoint(double longitudeInDegrees) -> std::vector<double>
+	{
+		return GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCatalogueCoordinateSystem(4979), CreateCatalogueCoordinateSystem(4978))->GetMathTransform()
+			->Transform({ kLatitudeInDegrees, longitudeInDegrees, 100.0 });
+	}
+}
+
+// The transformation from the WGS 84 geocentric CRS with the Paris prime meridian to EPSG 4978 rotates the coordinates by
+// the longitude of the Paris meridian about the Z axis, and its inverse rotates EPSG 4978 coordinates by the opposite angle.
+TEST(PrimeMeridianGeocentric, GeocentricWithParisPrimeMeridianToWgs84GeocentricRotatesAboutTheZAxis)
+{
+	auto const parisGeocentricPoint = CalculateWgs84GeocentricPoint(kLongitudeFromParisInDegrees);
+	auto const greenwichGeocentricPoint = CalculateWgs84GeocentricPoint(kLongitudeFromParisInDegrees + kParisLongitudeInDegrees);
+	auto const mathTransform = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(GetCoordinateSystemFactory()->CreateFromWkt(kWgs84GeocentricWithParisMeridianWkt), CreateCatalogueCoordinateSystem(4978))->GetMathTransform();
+	ExpectPointCoordinatesWithinTolerance(greenwichGeocentricPoint, mathTransform->Transform(parisGeocentricPoint), 1e-3);
+	ExpectPointCoordinatesWithinTolerance(parisGeocentricPoint, mathTransform->GetInverse()->Transform(greenwichGeocentricPoint), 1e-3);
+}
+
+// The transformation from EPSG 4979 to the WGS 84 geocentric CRS with the Paris prime meridian converts the longitude from
+// Greenwich to the longitude from Paris before the geocentric conversion.
+TEST(PrimeMeridianGeocentric, Wgs84ToGeocentricWithParisPrimeMeridianConvertsLongitudeFromGreenwichToParis)
+{
+	auto const mathTransform = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCatalogueCoordinateSystem(4979), GetCoordinateSystemFactory()->CreateFromWkt(kWgs84GeocentricWithParisMeridianWkt))->GetMathTransform();
+	ExpectPointCoordinatesWithinTolerance(CalculateWgs84GeocentricPoint(kLongitudeFromParisInDegrees), mathTransform->Transform({ kLatitudeInDegrees, kLongitudeFromParisInDegrees + kParisLongitudeInDegrees, 100.0 }), 1e-3);
+}
+
+// The direct chain of CreateTransformToGeocentric for the WGS 84 geocentric CRS with the Paris prime meridian returns the
+// coordinates in EPSG 4978, and the inverse chain converts EPSG 4978 coordinates to coordinates in the WGS 84 geocentric
+// CRS with the Paris prime meridian.
+TEST(PrimeMeridianGeocentric, TransformToGeocentricRotatesGeocentricCoordinatesWithParisPrimeMeridian)
+{
+	auto const geocentricWithParisMeridian = GetCoordinateSystemFactory()->CreateFromWkt(kWgs84GeocentricWithParisMeridianWkt);
+	auto const parisGeocentricPoint = CalculateWgs84GeocentricPoint(kLongitudeFromParisInDegrees);
+	auto const greenwichGeocentricPoint = ApplyGeocentricChain(geocentricWithParisMeridian, parisGeocentricPoint, true);
+	ExpectPointCoordinatesWithinTolerance(CalculateWgs84GeocentricPoint(kLongitudeFromParisInDegrees + kParisLongitudeInDegrees), greenwichGeocentricPoint, 1e-3);
+	ExpectPointCoordinatesWithinTolerance(parisGeocentricPoint, ApplyGeocentricChain(geocentricWithParisMeridian, greenwichGeocentricPoint, false), 1e-3);
+}
+
 // The datum shift from World Geodetic System 1984 (WGS 84; European Petroleum Survey Group (EPSG) code 4326) to Nouvelle
 // Triangulation Francaise (NTF) with the Paris prime meridian, defined in Well-Known Text version 1 (WKT1) with TOWGS84
 // parameters, returns for a point 179 degrees west of Greenwich the longitude from the Paris prime meridian in [-200, 200]

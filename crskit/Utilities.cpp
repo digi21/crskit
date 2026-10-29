@@ -427,10 +427,20 @@ namespace CrsKit
 		inverse.clear();
 
 		// For a geocentric coordinate reference system, direct converts X, Y and Z from its linear unit to metres and inverse
-		// converts them from metres to its linear unit, each with one affine step; vertical is not used.
+		// converts them from metres to its linear unit; vertical is not used. When the prime
+		// meridian of the system is not Greenwich, direct also rotates the coordinates about the Z axis by the longitude of
+		// the prime meridian, so that the X axis lies in the plane of the Greenwich meridian, and inverse rotates the coordinates
+		// by the opposite angle, so that the X axis lies in the plane of the prime meridian of the system.
 		if (auto const geocentricSystem = dynamic_pointer_cast<GeocentricCoordinateSystem>(horizontal))
 		{
 			direct.push_back(Affine::AffineMainDiagonalTransform(geocentricSystem->GetLinearUnit().GetMetersPerUnit(), 3));
+			auto const primeMeridian = geocentricSystem->GetPrimeMeridian();
+			auto const primeMeridianLongitudeInRadians = primeMeridian.GetLongitude() * primeMeridian.GetAngularUnit().GetRadiansPerUnit();
+			if (0.0 != primeMeridianLongitudeInRadians)
+			{
+				direct.push_back(Affine::CreateRotationAboutZAxis(primeMeridianLongitudeInRadians));
+				inverse.push_back(Affine::CreateRotationAboutZAxis(-primeMeridianLongitudeInRadians));
+			}
 			inverse.push_back(Affine::AffineMainDiagonalTransform(1.0 / geocentricSystem->GetLinearUnit().GetMetersPerUnit(), 3));
 			return;
 		}
