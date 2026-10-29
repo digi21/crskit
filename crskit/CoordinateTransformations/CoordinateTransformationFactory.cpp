@@ -802,19 +802,23 @@ namespace CrsKit::CoordinateTransformations
 			auto const dimensionCount = geographicForDatumShift->GetDimension();
 			auto const geographicOfGeocentricDatum = CreateGeographicSystemOfGeocentricDatum(*geocentric, dimensionCount);
 
-			auto const createDatumShift = [&](std::shared_ptr<GeographicCoordinateSystem> const& source, std::shared_ptr<GeographicCoordinateSystem> const& target) -> std::shared_ptr<IMathTransform>
+			// CreateFromCoordinateSystems is called once, so selectOperation is called at most once; the inverse datum shift is
+			// the inverse of the returned transformation.
+			auto const datumShiftCoordinateTransformation = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(geographicForDatumShift, geographicOfGeocentricDatum, options);
+			auto const datumShift = datumShiftCoordinateTransformation->GetMathTransform();
+			auto const inverseDatumShift = datumShift->GetInverse();
+			auto const adaptDatumShiftToThreeCoordinates = [dimensionCount](std::shared_ptr<IMathTransform> const& datumShiftTransform) -> std::shared_ptr<IMathTransform>
 			{
-				auto const datumShift = StaticCoordinateTransformationFactory::CreateFromCoordinateSystems(source, target, options)->GetMathTransform();
 				if (3 == dimensionCount)
-					return datumShift;
+					return datumShiftTransform;
 
 				// The datum shift receives latitude and longitude; the third coordinate passes unchanged.
-				return make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{ Affine::TransformXyzToZxy(), make_shared<PassThrough>(1, datumShift), Affine::TransformZxyToXyz() });
+				return make_shared<ConcatenatedTransform>(vector<shared_ptr<IMathTransform>>{ Affine::TransformXyzToZxy(), make_shared<PassThrough>(1, datumShiftTransform), Affine::TransformZxyToXyz() });
 			};
 			auto const conversion = CreateGeographicToGeocentricConversion(geographicOfGeocentricDatum, geocentric);
 
-			vector<shared_ptr<IMathTransform>> geographicToGeocentricTransforms{ createDatumShift(geographicForDatumShift, geographicOfGeocentricDatum), conversion };
-			vector<shared_ptr<IMathTransform>> geocentricToGeographicTransforms{ conversion->GetInverse(), createDatumShift(geographicOfGeocentricDatum, geographicForDatumShift) };
+			vector<shared_ptr<IMathTransform>> geographicToGeocentricTransforms{ adaptDatumShiftToThreeCoordinates(datumShift), conversion };
+			vector<shared_ptr<IMathTransform>> geocentricToGeographicTransforms{ conversion->GetInverse(), adaptDatumShiftToThreeCoordinates(inverseDatumShift) };
 			auto const sourceIsGeographic = nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS);
 			auto const directTransformation = make_shared<ConcatenatedTransform>(sourceIsGeographic ? geographicToGeocentricTransforms : geocentricToGeographicTransforms);
 			auto const inverseTransformation = make_shared<ConcatenatedTransform>(sourceIsGeographic ? geocentricToGeographicTransforms : geographicToGeocentricTransforms);

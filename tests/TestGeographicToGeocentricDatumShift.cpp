@@ -124,3 +124,19 @@ TEST(GeographicToGeocentricDatumShift, Ed50TwoDimensionalToWgs84GeocentricKeepsE
 	ExpectPointCoordinatesWithinTolerances(kWgs84GeocentricPointOfEd50PointWithUnchangedHeight, transformation->Transform(kEd50Point), kGeocentricTolerances);
 	ExpectPointCoordinatesWithinTolerances(kEd50Point, transformation->GetInverse()->Transform(kWgs84GeocentricPointOfEd50PointWithUnchangedHeight), kLatitudeLongitudeHeightTolerancesAfterTwoDimensionalDatumShift);
 }
+
+// CreateFromCoordinateSystems calls selectOperation once from European Datum 1950 (ED50; code 4230 of the European
+// Petroleum Survey Group (EPSG) catalogue) to EPSG 4978 and uses the selected operation for the transformation and for its inverse.
+TEST(GeographicToGeocentricDatumShift, Ed50TwoDimensionalToWgs84GeocentricCallsSelectOperationOnce)
+{
+	auto selectOperationCallCount = 0;
+	CoordinateTransformationOptions options;
+	options.selectOperation = [&selectOperationCallCount](std::string const&, std::string const&, std::vector<CoordinateOperation> const&)
+	{
+		++selectOperationCallCount;
+		return kEd50ToWgs84OperationCode;
+	};
+	auto const transformation = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCrs(4230), CreateCrs(4978), options)->GetMathTransform();
+	EXPECT_EQ(1, selectOperationCallCount);
+	ExpectPointCoordinatesWithinTolerances(kEd50Point, transformation->GetInverse()->Transform(kWgs84GeocentricPointOfEd50PointWithUnchangedHeight), kLatitudeLongitudeHeightTolerancesAfterTwoDimensionalDatumShift);
+}
