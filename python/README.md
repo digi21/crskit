@@ -117,6 +117,25 @@ EPSG:5040    5.0 m  Portugal - mainland - onshore
 Each candidate tells you its `code`, `accuracy` in metres, `area_of_use`, `grid_files` and
 `information_source` — enough to choose by geography and not only by the smallest number.
 
+`area_of_use_bounding_box` is the rectangle of the area of use in degrees, or `None` when the
+operation has no extent in the catalogue or the extent lacks any of its four bounds, and
+`contains(latitude_degrees, longitude_degrees)` tells whether a point lies in it, also for the
+rectangles that cross the antimeridian. `crskit.missing_grid_files(operation)` lists the grid files of
+the operation that are not in the data directory, searched as `crskit.transformation` searches them:
+
+```python
+def make_operation_selector_for_point(latitude_degrees, longitude_degrees):
+    def select_operation(source_name, target_name, operations):
+        operations_containing_point_with_installed_grids = [
+            operation for operation in operations
+            if operation.area_of_use_bounding_box
+            and operation.area_of_use_bounding_box.contains(latitude_degrees, longitude_degrees)
+            and not crskit.missing_grid_files(operation)]
+        return min(operations_containing_point_with_installed_grids,
+                   key=lambda operation: operation.accuracy or float("inf"))
+    return select_operation
+```
+
 ## Heights above sea level
 
 A GNSS receiver gives an *ellipsoidal* height, which is not the altitude anyone means. Turning it

@@ -85,6 +85,38 @@ class UnknownCrsPolicy:
     @property
     def value(self) -> int: ...
 
+class GeographicBoundingBox:
+    """Rectangle of an extent of the European Petroleum Survey Group (EPSG) catalogue, in degrees.
+
+    When west_bound_longitude_degrees is greater than east_bound_longitude_degrees, the rectangle crosses the
+    antimeridian and covers the longitudes from west_bound_longitude_degrees to 180 and from -180 to
+    east_bound_longitude_degrees.
+    """
+
+    __hash__: ClassVar[None]
+
+    @property
+    def south_bound_latitude_degrees(self) -> float: ...
+    @property
+    def north_bound_latitude_degrees(self) -> float: ...
+    @property
+    def west_bound_longitude_degrees(self) -> float: ...
+    @property
+    def east_bound_longitude_degrees(self) -> float: ...
+    @property
+    def crosses_antimeridian(self) -> bool:
+        """Whether west_bound_longitude_degrees is greater than east_bound_longitude_degrees."""
+
+    def contains(self, latitude_degrees: SupportsFloat | SupportsIndex, longitude_degrees: SupportsFloat | SupportsIndex) -> bool:
+        """Whether the point, in degrees, is inside the rectangle or on its boundary.
+
+        contains() converts longitude_degrees to the equivalent longitude in the interval [-180, 180]
+        degrees, both ends included, before the comparison, so -190 and 170 are the same longitude.
+        """
+
+    def __eq__(self, other: object) -> bool: ...
+    def __repr__(self) -> str: ...
+
 class CoordinateOperation:
     """An EPSG coordinate operation: one of the ways to get from one system to another."""
 
@@ -103,6 +135,11 @@ class CoordinateOperation:
     @property
     def grid_files(self) -> list[str]:
         """The grid file(s) the operation needs, empty when it needs none."""
+
+    @property
+    def area_of_use_bounding_box(self) -> GeographicBoundingBox | None:
+        """The rectangle of the extent named by area_of_use, or None when the operation has no extent
+        in the catalogue or the extent lacks any of its four bounds."""
 
     @property
     def scope(self) -> str | None: ...
@@ -188,6 +225,21 @@ def is_initialized() -> bool:
 
 def epsg_version() -> str:
     """The EPSG Geodetic Parameter Dataset version of the active database (e.g. '12.057')."""
+
+def is_grid_file_installed(grid_file: str) -> bool:
+    """Whether the grid file, named as in CoordinateOperation.grid_files, is in the data directory.
+
+    The file is searched as grid_file or, if grid_file ends in '.gz', as the name without '.gz',
+    which the reader of the Earth Gravitational Model 2008 (EGM2008) opens. The format of the file
+    is not checked: a compressed '.gz' file counts as installed.
+    """
+
+def missing_grid_files(operation: CoordinateOperation) -> list[str]:
+    """The names in operation.grid_files for which is_grid_file_installed() returns False.
+
+    Empty when every grid file is installed. For the method Norway Offshore Interpolation (EPSG 9620),
+    grid_files holds names of coordinate operations instead of file names, so the result is empty.
+    """
 
 def crs_from_epsg(code: SupportsInt | SupportsIndex) -> Crs:
     """The coordinate reference system with this EPSG code."""

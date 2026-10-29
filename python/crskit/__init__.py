@@ -31,6 +31,7 @@ from ._crskit import (
     Crs,
     CrsError,
     DimensionMismatchError,
+    GeographicBoundingBox,
     GridFileNotFoundError,
     MultipleTransformationsFoundError,
     Transformation,
@@ -43,7 +44,9 @@ from ._crskit import (
     crs_from_epsg,
     crs_from_wkt,
     epsg_version,
+    is_grid_file_installed,
     is_initialized,
+    missing_grid_files,
     transformation,
 )
 from ._crskit import init as _init
@@ -86,6 +89,7 @@ __all__ = [
     "Crs",
     "CrsError",
     "DimensionMismatchError",
+    "GeographicBoundingBox",
     "GridFileNotFoundError",
     "MultipleTransformationsFoundError",
     "Transformation",
@@ -99,6 +103,8 @@ __all__ = [
     "crs_from_wkt",
     "epsg_version",
     "init",
+    "is_grid_file_installed",
     "is_initialized",
+    "missing_grid_files",
     "transformation",
 ]

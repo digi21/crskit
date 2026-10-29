@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <pybind11/numpy.h>
+#include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
@@ -27,6 +28,7 @@ using CrsKit::CoordinateSystems::CoordinateSystem;
 using CrsKit::CoordinateTransformations::CoordinateOperation;
 using CrsKit::CoordinateTransformations::ICoordinateTransformation;
 using CrsKit::CoordinateTransformations::IMathTransform;
+using CrsKit::Positioning::GeographicBoundingBox;
 
 namespace
 {
@@ -259,6 +261,29 @@ PYBIND11_MODULE(_crskit, m)
 	// ---------------------------------------------------------------------------------------
 	// Choosing between candidate coordinate operations
 	// ---------------------------------------------------------------------------------------
+	py::class_<GeographicBoundingBox>(m, "GeographicBoundingBox",
+		"Rectangle of an extent of the European Petroleum Survey Group (EPSG) catalogue, in degrees. When\n"
+		"west_bound_longitude_degrees is greater than east_bound_longitude_degrees, the rectangle crosses\n"
+		"the antimeridian and covers the longitudes from west_bound_longitude_degrees to 180 and from -180\n"
+		"to east_bound_longitude_degrees.")
+		.def_property_readonly("south_bound_latitude_degrees", [](GeographicBoundingBox const& self) { return self.SouthBoundLatitudeDegrees; })
+		.def_property_readonly("north_bound_latitude_degrees", [](GeographicBoundingBox const& self) { return self.NorthBoundLatitudeDegrees; })
+		.def_property_readonly("west_bound_longitude_degrees", [](GeographicBoundingBox const& self) { return self.WestBoundLongitudeDegrees; })
+		.def_property_readonly("east_bound_longitude_degrees", [](GeographicBoundingBox const& self) { return self.EastBoundLongitudeDegrees; })
+		.def_property_readonly("crosses_antimeridian", &GeographicBoundingBox::CrossesAntimeridian,
+			"Whether west_bound_longitude_degrees is greater than east_bound_longitude_degrees.")
+		.def("contains", &GeographicBoundingBox::Contains, py::arg("latitude_degrees"), py::arg("longitude_degrees"),
+			"Whether the point, in degrees, is inside the rectangle or on its boundary. contains() converts\n"
+			"longitude_degrees to the equivalent longitude in the interval [-180, 180] degrees, both ends\n"
+			"included, before the comparison, so -190 and 170 are the same longitude.")
+		.def(py::self == py::self)
+		.def("__repr__",
+			[](GeographicBoundingBox const& self)
+			{
+				return std::format("<GeographicBoundingBox S {} N {} W {} E {}>",
+					self.SouthBoundLatitudeDegrees, self.NorthBoundLatitudeDegrees, self.WestBoundLongitudeDegrees, self.EastBoundLongitudeDegrees);
+			});
+
 	py::class_<CoordinateOperation>(m, "CoordinateOperation",
 		"An EPSG coordinate operation: one of the ways to get from one system to another. When several\n"
 		"apply, transformation() hands them to the select_operation callback so the caller can choose.")
@@ -274,6 +299,13 @@ PYBIND11_MODULE(_crskit, m)
 			"The geographic extent the operation is valid in: choose by geography, not only by accuracy.")
 		.def_property_readonly("grid_files", [](CoordinateOperation const& self) { return self.GridFiles; },
 			"The grid file(s) the operation needs, empty when it needs none.")
+		.def_property_readonly("area_of_use_bounding_box",
+			[](CoordinateOperation const& self) -> py::object
+			{
+				return self.AreaOfUseBoundingBox ? py::cast(*self.AreaOfUseBoundingBox) : py::none();
+			},
+			"The rectangle of the extent named by area_of_use, or None when the operation has no extent in\n"
+			"the catalogue or the extent lacks any of its four bounds.")
 		.def_property_readonly("scope",
 			[](CoordinateOperation const& self) -> py::object
 			{
@@ -338,6 +370,29 @@ PYBIND11_MODULE(_crskit, m)
 			return CrsKit::GetEpsgVersion();
 		},
 		"The EPSG Geodetic Parameter Dataset version of the active database (e.g. '12.057').");
+
+	m.def("is_grid_file_installed",
+		[](std::string const& grid_file)
+		{
+			RequireInitialized();
+			return CrsKit::IsGridFileInstalled(grid_file);
+		},
+		py::arg("grid_file"),
+		"Whether the grid file, named as in CoordinateOperation.grid_files, is in the data directory as\n"
+		"grid_file or, if grid_file ends in '.gz', as the name without '.gz', which the reader of the Earth\n"
+		"Gravitational Model 2008 (EGM2008) opens. The format of the file is not checked: a compressed\n"
+		"'.gz' file counts as installed.");
+
+	m.def("missing_grid_files",
+		[](CoordinateOperation const& operation)
+		{
+			RequireInitialized();
+			return CrsKit::GetMissingGridFiles(operation);
+		},
+		py::arg("operation"),
+		"The names in operation.grid_files for which is_grid_file_installed() returns False; empty when\n"
+		"every grid file is installed. For the method Norway Offshore Interpolation (EPSG 9620),\n"
+		"grid_files holds names of coordinate operations instead of file names, so the result is empty.");
 
 	m.def("crs_from_epsg",
 		[](int code)

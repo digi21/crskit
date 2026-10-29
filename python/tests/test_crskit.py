@@ -5,6 +5,7 @@ the crskit-epsg package when it is installed. Without either, the suite skips it
 """
 
 import os
+import struct
 from pathlib import Path
 
 import pytest
@@ -168,6 +169,90 @@ def test_an_ambiguous_pair_without_select_operation_raises_multiple_transformati
     with pytest.raises(crskit.MultipleTransformationsFoundError) as exception_info:
         crskit.transformation(crskit.crs_from_epsg(4230), crskit.crs_from_epsg(4258))
     assert isinstance(exception_info.value, crskit.TransformationNotFoundError)
+
+
+def _candidate_operations(source_code, target_code, chosen_code):
+    """The candidate operations that transformation() passes to select_operation, which returns chosen_code."""
+    candidates = []
+
+    def select_operation_by_code(source_name, target_name, operations):
+        candidates.extend(operations)
+        return chosen_code
+
+    try:
+        crskit.transformation(crskit.crs_from_epsg(source_code), crskit.crs_from_epsg(target_code), select_operation=select_operation_by_code)
+    except crskit.GridFileNotFoundError:
+        pass
+    return {operation.code: operation for operation in candidates}
+
+
+def test_area_of_use_bounding_boxes_of_operations_1311_and_1633():
+    # Among the 37 datum shifts from European Datum 1950 (ED50, EPSG:4230) to World Geodetic System 1984 (WGS 84,
+    # EPSG:4326), the area of use of EPSG 1311 (Europe - common offshore) does not contain Madrid and the area of use of
+    # EPSG 1633 (Spain - mainland except northwest) does.
+    operations = _candidate_operations(4230, 4326, 1633)
+
+    operation_1311_bounding_box = operations[1311].area_of_use_bounding_box
+    assert operation_1311_bounding_box.south_bound_latitude_degrees == 47.42
+    assert operation_1311_bounding_box.north_bound_latitude_degrees == 63.89
+    assert operation_1311_bounding_box.west_bound_longitude_degrees == -16.1
+    assert operation_1311_bounding_box.east_bound_longitude_degrees == 10.86
+    assert not operation_1311_bounding_box.contains(40.41, -3.71)
+
+    operation_1633_bounding_box = operations[1633].area_of_use_bounding_box
+    assert operation_1633_bounding_box.contains(40.41, -3.71)
+    assert not operation_1633_bounding_box.crosses_antimeridian
+
+
+def test_bounding_box_crossing_the_antimeridian_contains_points_on_both_sides_inside_its_bounds():
+    # EPSG 1254 (Pulkovo 1942 to WGS 84 (1)), one of the 13 operations from EPSG:4284 to EPSG:4326, Russia - onshore:
+    # from longitude 19.58 degrees eastward to -168.97 degrees, across the antimeridian.
+    operation_1254_bounding_box = _candidate_operations(4284, 4326, 1254)[1254].area_of_use_bounding_box
+
+    assert operation_1254_bounding_box.west_bound_longitude_degrees == 19.58
+    assert operation_1254_bounding_box.east_bound_longitude_degrees == -168.97
+    assert operation_1254_bounding_box.crosses_antimeridian
+    assert operation_1254_bounding_box.contains(66.0, 170.0)
+    assert operation_1254_bounding_box.contains(66.0, 180.0)
+    assert operation_1254_bounding_box.contains(66.0, -172.0)
+    assert not operation_1254_bounding_box.contains(66.0, -160.0)
+    assert not operation_1254_bounding_box.contains(66.0, 0.0)
+
+
+def _write_synthetic_egm2008_grid(grid_file_path, undulation):
+    # 101 rows of 200 little-endian floats, each row between two 4-byte FORTRAN record markers: 81608 bytes.
+    grid_file_path.write_bytes(struct.pack("<202f", 0.0, *([undulation] * 200), 0.0) * 101)
+
+
+def test_grid_files_are_found_with_the_search_of_the_transformation(tmp_path):
+    # EPSG 3859 (WGS 84 to EGM2008 height (2)) needs the 1 arc-minute EGM2008 grid, which the test writes to an empty
+    # data directory.
+    grid_file_name = "Und_min1x1_egm2008_isw=82_WGS84_TideFree"
+    crskit.init(EPSG_DATABASE, tmp_path)
+    try:
+        geoid_height_operation = _candidate_operations(4979, 3855, 3859)[3859]
+        assert geoid_height_operation.grid_files == [grid_file_name]
+        assert not crskit.is_grid_file_installed(grid_file_name)
+        assert crskit.missing_grid_files(geoid_height_operation) == [grid_file_name]
+
+        _write_synthetic_egm2008_grid(tmp_path / grid_file_name, 30.0)
+        assert crskit.is_grid_file_installed(grid_file_name)
+        assert crskit.is_grid_file_installed(grid_file_name + ".gz")
+        assert crskit.missing_grid_files(geoid_height_operation) == []
+
+        transformation = crskit.transformation(
+            crskit.crs_from_epsg(4979), crskit.crs_from_epsg(3855), select_operation=lambda source_name, target_name, operations: 3859
+        )
+        assert transformation.transform([0.0, 0.0, 100.0])[2] == pytest.approx(70.0, abs=1e-3)
+    finally:
+        crskit.init(EPSG_DATABASE)
+
+
+def test_missing_grid_files_is_empty_for_norway_offshore_interpolation():
+    # EPSG 1450 uses the method Norway Offshore Interpolation (EPSG 9620): its grid_files are names of operations.
+    norway_offshore_operation = _candidate_operations(4230, 4326, 1633)[1450]
+    assert norway_offshore_operation.grid_files
+    assert crskit.missing_grid_files(norway_offshore_operation) == []
 
 
 class TestNumPy:

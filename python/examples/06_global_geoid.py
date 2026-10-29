@@ -10,8 +10,6 @@ untouched and only the height changes, from ellipsoidal to orthometric.
 Needs an EGM2008 grid; see the README for where to get it, and point CRSKIT_GRIDS at the folder.
 """
 
-from pathlib import Path
-
 from _setup import initialise
 
 import crskit
@@ -32,22 +30,15 @@ def the_grid_i_have(source_name, target_name, operations):
     """Prefer the grid that is already in the data directory; fall back to the most accurate."""
     global chosen
 
-    grids = grids_on_disk()
     for operation in sorted(operations, key=lambda o: o.accuracy or float("inf")):
-        have = all(grid in grids for grid in operation.grid_files)
+        have = not crskit.missing_grid_files(operation)
         print(f"  EPSG:{operation.code}  {operation.accuracy} m  {operation.grid_files[0]}"
               f"{'   <- on disk' if have else ''}")
         if have and chosen is None:
             chosen = operation
 
-    return chosen or min(operations, key=lambda o: o.accuracy or float("inf"))
-
-
-def grids_on_disk() -> set[str]:
-    import os
-
-    folder = os.environ.get("CRSKIT_GRIDS")
-    return {path.name for path in Path(folder).iterdir()} if folder else set()
+    chosen = chosen or min(operations, key=lambda o: o.accuracy or float("inf"))
+    return chosen
 
 
 try:
