@@ -634,9 +634,9 @@ namespace CrsKit::CoordinateTransformations
 		}
 
 		// Returns true when the corresponding semi-axes of the ellipsoids of the two geographic coordinate reference systems
-		// differ by at most 1e-6 metres and the longitudes of their prime meridians from Greenwich differ by less than 1e-12
-		// radians.
-		auto HaveSameEllipsoidAndPrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
+		// differ by at most maximumSemiAxisDifferenceInMetres and the longitudes of their prime meridians from Greenwich differ
+		// by less than 1e-12 radians.
+		auto HaveSameEllipsoidAndPrimeMeridian(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem, double maximumSemiAxisDifferenceInMetres) -> bool
 		{
 			// An ellipsoid can be defined in a linear unit other than the metre.
 			auto const calculateSemiAxesInMetres = [](Ellipsoid const& ellipsoid)
@@ -646,7 +646,7 @@ namespace CrsKit::CoordinateTransformations
 			};
 			auto const [firstSemiMajorAxis, firstSemiMinorAxis] = calculateSemiAxesInMetres(firstGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
 			auto const [secondSemiMajorAxis, secondSemiMinorAxis] = calculateSemiAxesInMetres(secondGeographicCoordinateSystem.GetHorizontalDatum()->GetEllipsoid());
-			if (fabs(firstSemiMajorAxis - secondSemiMajorAxis) > 1e-6 || fabs(firstSemiMinorAxis - secondSemiMinorAxis) > 1e-6)
+			if (fabs(firstSemiMajorAxis - secondSemiMajorAxis) > maximumSemiAxisDifferenceInMetres || fabs(firstSemiMinorAxis - secondSemiMinorAxis) > maximumSemiAxisDifferenceInMetres)
 				return false;
 
 			auto const calculateLongitudeFromGreenwichInRadians = [](PrimeMeridian const& primeMeridian)
@@ -658,11 +658,12 @@ namespace CrsKit::CoordinateTransformations
 		}
 
 		// Two geographic coordinate reference systems (CRSs) share a geodetic frame when AreSameDatum returns true for their
-		// datums and HaveSameEllipsoidAndPrimeMeridian returns true. The axes and angular units of the two CRSs may differ.
+		// datums and HaveSameEllipsoidAndPrimeMeridian returns true with a maximum semi-axis difference of 1e-6 metres. The
+		// axes and angular units of the two CRSs may differ.
 		auto ShareGeodeticFrame(GeographicCoordinateSystem const& firstGeographicCoordinateSystem, GeographicCoordinateSystem const& secondGeographicCoordinateSystem) -> bool
 		{
 			return AreSameDatum(firstGeographicCoordinateSystem.GetHorizontalDatum(), secondGeographicCoordinateSystem.GetHorizontalDatum())
-				&& HaveSameEllipsoidAndPrimeMeridian(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem);
+				&& HaveSameEllipsoidAndPrimeMeridian(firstGeographicCoordinateSystem, secondGeographicCoordinateSystem, 1e-6);
 		}
 
 		// Builds the datum shift between two geographic systems from their TOWGS84 (Bursa-Wolf)
@@ -802,7 +803,8 @@ namespace CrsKit::CoordinateTransformations
 		// returns one with the same angular unit; otherwise the datum shift transforms latitude and longitude and returns the
 		// third coordinate, the ellipsoidal height, unchanged. When CreateFromCoordinateSystems throws
 		// TransformationNotFoundException for the datum shift, the function returns nullptr if HaveSameEllipsoidAndPrimeMeridian
-		// returns true for geographic and the geographic CRS of the geocentric datum, and propagates the exception otherwise.
+		// returns true for geographic and the geographic CRS of the geocentric datum with a maximum semi-axis difference of
+		// 4e-4 metres, and propagates the exception otherwise.
 		auto CreateTransformBetweenGeographicAndGeocentricSystemsOfDifferentDatums(std::shared_ptr<CoordinateSystem> const& sourceCS, std::shared_ptr<CoordinateSystem> const& targetCS, std::shared_ptr<GeographicCoordinateSystem> const& geographic, std::shared_ptr<GeocentricCoordinateSystem> const& geocentric, CoordinateTransformationOptions const& options) -> std::shared_ptr<ICoordinateTransformation>
 		{
 			auto geographicForDatumShift = geographic;
@@ -822,7 +824,11 @@ namespace CrsKit::CoordinateTransformations
 			}
 			catch (TransformationNotFoundException const&)
 			{
-				if (!HaveSameEllipsoidAndPrimeMeridian(*geographic, *geographicOfGeocentricDatum))
+				// The maximum accepted difference between corresponding ellipsoid semi-axes is 0.4 millimetres. The semi-minor axes
+				// of the Geodetic Reference System 1980 (GRS 1980) and World Geodetic System 1984 (WGS 84) ellipsoids differ by
+				// 0.105 millimetres. For identical latitude, longitude and ellipsoidal height, the Euclidean distance between the
+				// geocentric coordinates computed with the GRS 1980 and WGS 84 ellipsoids is at most 0.121 millimetres.
+				if (!HaveSameEllipsoidAndPrimeMeridian(*geographic, *geographicOfGeocentricDatum, 4e-4))
 					throw;
 				return nullptr;
 			}

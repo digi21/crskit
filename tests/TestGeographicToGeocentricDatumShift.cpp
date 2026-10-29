@@ -174,6 +174,30 @@ TEST(GeographicToGeocentricDatumShift, Ed50WithoutTowgs84ToGeocentricWithDatumNa
 	ExpectPointCoordinatesWithinTolerances(kEd50GeocentricPointOfEd50Point, Transform(ed50, ed50Geocentric, kEd50Point), kGeocentricTolerances);
 }
 
+// The catalogue has no operation between International Terrestrial Reference Frame 2014 (ITRF2014; European Petroleum
+// Survey Group (EPSG) code 7912) and World Geodetic System 1984 (WGS 84; EPSG 4979). The semi-minor axes of the Geodetic
+// Reference System 1980 (GRS 1980) ellipsoid of ITRF2014 and of the WGS 84 ellipsoid differ by 0.105 millimetres, so the
+// transformation to WGS 84 geocentric (EPSG 4978) converts with the GRS 1980 ellipsoid. The test checks that the inverse
+// returns kEd50Point within kLatitudeLongitudeHeightTolerances.
+TEST(GeographicToGeocentricDatumShift, Itrf2014ToWgs84GeocentricConvertsWithGrs1980Ellipsoid)
+{
+	auto const transformation = GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(CreateCrs(7912), CreateCrs(4978))->GetMathTransform();
+	auto const geocentricPoint = transformation->Transform(kEd50Point);
+	ExpectPointCoordinatesWithinTolerances({ 4886078.813845, -256068.540036, 4078049.850855 }, geocentricPoint, kGeocentricTolerances);
+	ExpectPointCoordinatesWithinTolerances(kEd50Point, transformation->GetInverse()->Transform(geocentricPoint), kLatitudeLongitudeHeightTolerances);
+}
+
+// CreateFromCoordinateSystems throws TransformationNotFoundException when asked to create a transformation from a
+// geographic 3D coordinate reference system without authority code, without TOWGS84 parameters for the transformation to
+// World Geodetic System 1984 (WGS 84) and with a semi-major axis 1 millimetre longer than the WGS 84 semi-major axis, to
+// WGS 84 geocentric (European Petroleum Survey Group (EPSG) code 4978).
+TEST(GeographicToGeocentricDatumShift, Geographic3DCrsWithEllipsoidSemiMajorAxisOneMillimetreLongerThanWgs84ToWgs84GeocentricThrowsTransformationNotFoundException)
+{
+	auto const geographic = GetCoordinateSystemFactory()->CreateFromWkt(
+		R"WKT(GEOGCS["Test 3D",DATUM["Test datum",SPHEROID["Test ellipsoid",6378137.001,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AXIS["Ellipsoidal height",UP]])WKT");
+	EXPECT_THROW(static_cast<void>(GetCoordinateTransformationFactory()->CreateFromCoordinateSystems(geographic, CreateCrs(4978))), TransformationNotFoundException);
+}
+
 // The catalogue has no operation between Nouvelle Triangulation Française (NTF) with the Paris prime meridian (European
 // Petroleum Survey Group (EPSG) code 4807) and World Geodetic System 1984 (WGS 84; EPSG 4326), and the Clarke 1880 (Institut
 // géographique national, IGN) ellipsoid of NTF differs from the WGS 84 ellipsoid, so CreateFromCoordinateSystems throws
