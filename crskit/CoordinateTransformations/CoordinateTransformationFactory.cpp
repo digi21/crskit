@@ -1555,11 +1555,23 @@ namespace CrsKit::CoordinateTransformations
 		auto const horizontalSourceLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalSource);
 		auto const horizontalTargetLocal = nullptr != dynamic_pointer_cast<LocalCoordinateSystem>(horizontalTarget);
 		if (horizontalSourceLocal != horizontalTargetLocal)
-			static_cast<void>(ResolveUnknownCrs(horizontalSource, horizontalTarget, options));
-
-		if (horizontalSourceLocal || horizontalTargetLocal)
 		{
-			// Unknown/local horizontal -> placed as identity (do nothing).
+			// The transformation returned by ResolveUnknownCrs transforms all three coordinates when it receives three coordinates;
+			// otherwise it transforms the first two coordinates and the third coordinate passes unchanged.
+			auto const horizontalTransformation = ResolveUnknownCrs(horizontalSource, horizontalTarget, options);
+			if (3 == horizontalTransformation->GetSourceDimension())
+				transformations.push_back(horizontalTransformation);
+			else
+			{
+				transformations.push_back(Affine::TransformXyzToZxy());
+				transformations.push_back(make_shared<PassThrough>(1, horizontalTransformation));
+				transformations.push_back(Affine::TransformZxyToXyz());
+			}
+		}
+		else if (horizontalSourceLocal)
+		{
+			// Both horizontal systems are local: the transformation returns the three coordinates unchanged.
+			transformations.push_back(Affine::AffineMainDiagonalTransform(1.0, 3));
 		}
 		else if (nullptr != dynamic_pointer_cast<GeographicCoordinateSystem>(sourceCS))
 		{
