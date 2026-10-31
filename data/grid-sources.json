@@ -22,5 +22,16 @@
       "EGM08_REDNAP.txt": "https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP.txt",
       "EGM08_REDNAP_Canarias.txt": "https://digi21.blob.core.windows.net/geodetic-grids/EGM08_REDNAP_Canarias.txt"
     }
+  },
+  {
+    "match": "r2009.gsb",
+    "name": "ED50 to ETRS89 NTv2 grids (IGN)",
+    "url": "https://centrodedescargas.cnig.es/CentroDescargas/redes-geodesicas",
+    "attribution": "© Instituto Geográfico Nacional de España, CC BY 4.0",
+    "fileBase": "https://digi21.blob.core.windows.net/geodetic-grids/",
+    "files": {
+      "PENR2009.gsb": "https://digi21.blob.core.windows.net/geodetic-grids/PENR2009.gsb",
+      "BALR2009.gsb": "https://digi21.blob.core.windows.net/geodetic-grids/BALR2009.gsb"
+    }
   }
 ]
