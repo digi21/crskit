@@ -21,7 +21,7 @@ namespace CrsKit
 		for (auto const& candidateGridFileName : CoordinateTransformations::Algorithms::GetGridFileSearchNames(gridFileName))
 		{
 			std::error_code gridFileStatusError;
-			if (std::filesystem::is_regular_file(std::filesystem::path(dataDirectory + candidateGridFileName), gridFileStatusError))
+			if (std::filesystem::is_regular_file(CreatePathFromUtf8(dataDirectory + candidateGridFileName), gridFileStatusError))
 				return true;
 		}
 		return false;

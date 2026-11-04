@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <algorithm>
+#include <filesystem>
 #include <cstdio>
 #include <cstdlib>
 #include <cctype>
@@ -31,6 +32,21 @@ namespace CrsKit
 
 [[nodiscard]] inline int parse_int(const char* s) noexcept { return static_cast<int>(std::strtol(s, nullptr, 10)); }
 [[nodiscard]] inline double parse_double(const char* s) noexcept { return std::strtod(s, nullptr); }
+
+// Internal helpers (not part of the public API). Every file path crskit receives or returns as a
+// std::string is UTF-8. std::filesystem::path(std::string) decodes with the ANSI code page on
+// Windows, so paths are built from std::u8string and converted back with u8string().
+// On Linux both conversions copy the bytes unchanged.
+[[nodiscard]] inline std::filesystem::path CreatePathFromUtf8(std::string const& utf8Path)
+{
+	return std::filesystem::path{ std::u8string{ reinterpret_cast<char8_t const*>(utf8Path.data()), utf8Path.size() } };
+}
+
+[[nodiscard]] inline std::string ConvertPathToUtf8String(std::filesystem::path const& path)
+{
+	auto const utf8Path = path.u8string();
+	return std::string{ reinterpret_cast<char const*>(utf8Path.data()), utf8Path.size() };
+}
 
 // string_format (snprintf) removed: use std::format directly (C++20/<format>).
 

@@ -201,7 +201,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 			auto fromContent(std::string const& dataDir, std::string const& fileName) const -> std::unique_ptr<IGridInterpolation> override
 			{
 				std::error_code ec;
-				fs::path const path{ dataDir + fileName };
+				auto const path = CreatePathFromUtf8(dataDir + fileName);
 				if (fs::exists(path, ec) && looksLikeRednap(path))
 					return std::make_unique<ge::GridEGM2008Rednap>(fileName.c_str());
 				return nullptr;
@@ -222,7 +222,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 				for (auto const& name : egm2008CandidateNames(fileName))
 				{
 					std::error_code ec;
-					fs::path const path{ dataDir + name };
+					auto const path = CreatePathFromUtf8(dataDir + name);
 					if (!fs::exists(path, ec)) continue;
 					auto const size = fs::file_size(path, ec);
 					if (ec) continue;
@@ -245,7 +245,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		{
 			auto fromContent(std::string const& dataDir, std::string const& fileName) const -> std::unique_ptr<IGridInterpolation> override
 			{
-				fs::path const path{ dataDir + fileName };
+				auto const path = CreatePathFromUtf8(dataDir + fileName);
 				if (ge::GridGtx::looksLikeGtx(path))
 					return std::make_unique<ge::GridGtx>(fileName.c_str());
 				return nullptr;
@@ -262,7 +262,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		{
 			auto fromContent(std::string const& dataDir, std::string const& fileName) const -> std::unique_ptr<IGridInterpolation> override
 			{
-				fs::path const path{ dataDir + fileName };
+				auto const path = CreatePathFromUtf8(dataDir + fileName);
 				std::error_code ec;
 				if (fs::exists(path, ec) && ge::GridGtg::looksLikeGtg(path))
 					return std::make_unique<ge::GridGtg>(fileName.c_str());
@@ -280,7 +280,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 		{
 			auto fromContent(std::string const& dataDir, std::string const& fileName) const -> std::unique_ptr<IGridInterpolation> override
 			{
-				fs::path const path{ dataDir + fileName };
+				auto const path = CreatePathFromUtf8(dataDir + fileName);
 				std::error_code ec;
 				if (fs::exists(path, ec) && ge::GridAusGeoid::looksLikeNtv2(path))
 					return std::make_unique<ge::GridAusGeoid>(fileName.c_str());
@@ -372,7 +372,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 #pragma region IMathTransform members
 	auto Geographic3DToGravityRelatedHeightEGM2008::GetWkt() const -> std::string
 	{
-		auto const file = std::filesystem::path(_grid->GetFilePath()).filename().string();
+		auto const file = ConvertPathToUtf8String(CreatePathFromUtf8(_grid->GetFilePath()).filename());
 		if (_inverse)
 			return std::format("INVERSE_MT[PARAM_MT[\"{}\", PARAMETER[\"geoid_model_file\",{}]]]", _methodName, file);
 
@@ -415,7 +415,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 	auto Geographic3DToGravityRelatedHeightEGM2008::GetInverse() -> std::shared_ptr<IMathTransform>
 	{
 		return std::shared_ptr<IMathTransform>(new Geographic3DToGravityRelatedHeightEGM2008(
-			_methodName, std::filesystem::path(_grid->GetFilePath()).filename().string(), !_inverse));
+			_methodName, ConvertPathToUtf8String(CreatePathFromUtf8(_grid->GetFilePath()).filename()), !_inverse));
 	}
 #pragma endregion
 }

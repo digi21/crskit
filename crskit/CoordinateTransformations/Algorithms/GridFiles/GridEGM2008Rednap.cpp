@@ -12,7 +12,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 	GridEGM2008Rednap::GridEGM2008Rednap(const char* file)
 	{
 		_filePath = GetDefaultContext()->dataDirectory + file;
-		if (!std::filesystem::exists(std::filesystem::path(_filePath)))
+		if (!std::filesystem::exists(CreatePathFromUtf8(_filePath)))
 			throw CrsKit::GridFileNotFoundException{ file, _filePath };
 		Load(_filePath.c_str());
 	}
@@ -21,7 +21,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 #pragma region GridInterpolation members
 	auto GridEGM2008Rednap::Load(const char* gridFilePath) -> bool
 	{
-		std::ifstream is{std::filesystem::path(gridFilePath)};
+		std::ifstream is{CreatePathFromUtf8(gridFilePath)};
 
 		if (!is.is_open())
 			return false;

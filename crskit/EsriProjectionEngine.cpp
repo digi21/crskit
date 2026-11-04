@@ -34,7 +34,7 @@ namespace
 		if (loaded.load(std::memory_order_relaxed))
 			return true;
 
-		std::ifstream file{ std::filesystem::path(CrsKit::GetDefaultContext()->dataDirectory + fileName) };
+		std::ifstream file{ CrsKit::CreatePathFromUtf8(CrsKit::GetDefaultContext()->dataDirectory + fileName) };
 		if (!file.is_open())
 			return false;
 

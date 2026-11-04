@@ -342,15 +342,15 @@ PYBIND11_MODULE(_crskit, m)
 		[](std::filesystem::path const& epsg_database, std::optional<std::filesystem::path> const& data_directory)
 		{
 			if (!std::filesystem::exists(epsg_database))
-				throw CrsKit::OpenGisException{ std::format("EPSG database not found: '{}'.", epsg_database.string()) };
+				throw CrsKit::OpenGisException{ std::format("EPSG database not found: '{}'.", CrsKit::ConvertPathToUtf8String(epsg_database)) };
 
-			if (!CrsKit::Initialize(std::make_shared<CrsKit::Epsg::SQliteProvider>(epsg_database.string())))
-				throw CrsKit::OpenGisException{ std::format("could not initialise crskit with the EPSG database '{}'.", epsg_database.string()) };
+			if (!CrsKit::Initialize(std::make_shared<CrsKit::Epsg::SQliteProvider>(CrsKit::ConvertPathToUtf8String(epsg_database))))
+				throw CrsKit::OpenGisException{ std::format("could not initialise crskit with the EPSG database '{}'.", CrsKit::ConvertPathToUtf8String(epsg_database)) };
 
 			// Where the grid files (geoids, NTv2, NADCON) are looked up. Defaults to the folder holding
 			// the EPSG database, which is where they usually live.
 			auto const directory = data_directory.value_or(epsg_database.parent_path());
-			CrsKit::GetDefaultContext()->dataDirectory = (directory / "").string();
+			CrsKit::GetDefaultContext()->dataDirectory = CrsKit::ConvertPathToUtf8String(directory / "");
 		},
 		py::arg("epsg_database"), py::arg("data_directory") = py::none(),
 		"Initialises the library against an EPSG SQLite database. Must be called before anything else,\n"

@@ -18,7 +18,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 	{
 		auto const filePath = GetDefaultContext()->dataDirectory + fileName;
 
-		_file.open(std::filesystem::path(filePath), std::ios::binary);
+		_file.open(CreatePathFromUtf8(filePath), std::ios::binary);
 		if (!_file.is_open())
 			throw CrsKit::GridFileNotFoundException{ fileName, filePath };
 	}

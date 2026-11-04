@@ -61,14 +61,14 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 	GridGtx::GridGtx(const char* file)
 	{
 		_filePath = GetDefaultContext()->dataDirectory + file;
-		if (!std::filesystem::exists(std::filesystem::path(_filePath)))
+		if (!std::filesystem::exists(CreatePathFromUtf8(_filePath)))
 			throw CrsKit::GridFileNotFoundException{ file, _filePath };
 		Load(_filePath.c_str());
 	}
 
 	auto GridGtx::Load(const char* gridFilePath) -> bool
 	{
-		std::ifstream is{ std::filesystem::path(gridFilePath), std::ios::binary };
+		std::ifstream is{ CreatePathFromUtf8(gridFilePath), std::ios::binary };
 		if (!is.is_open())
 			return false;
 

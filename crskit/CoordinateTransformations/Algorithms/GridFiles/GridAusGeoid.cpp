@@ -42,7 +42,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 	GridAusGeoid::GridAusGeoid(const char* file)
 	{
 		_filePath = GetDefaultContext()->dataDirectory + file;
-		if (!std::filesystem::exists(std::filesystem::path(_filePath)))
+		if (!std::filesystem::exists(CreatePathFromUtf8(_filePath)))
 			throw CrsKit::GridFileNotFoundException{ file, _filePath };
 		if (!Load(_filePath.c_str()))
 			throw UnsupportedFormatException(std::format("Unsupported or malformed NTv2 geoid grid: {}", file));
@@ -50,7 +50,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms::GravityRelatedHeightEGM
 
 	auto GridAusGeoid::Load(const char* gridFilePath) -> bool
 	{
-		std::ifstream is{ std::filesystem::path(gridFilePath), std::ios::binary | std::ios::ate };
+		std::ifstream is{ CreatePathFromUtf8(gridFilePath), std::ios::binary | std::ios::ate };
 		if (!is.is_open()) return false;
 		std::vector<unsigned char> data(static_cast<std::size_t>(is.tellg()));
 		is.seekg(0);

@@ -188,6 +188,7 @@ namespace CrsKit::Epsg
 		std::shared_ptr<sqlite3> _db;
 
 	public:
+		// connectionString: path of the SQLite database file, encoded in UTF-8.
 		// busyTimeoutMilliseconds: how long a query waits for a lock held by another connection before it throws
 		// "database is locked". 0 throws at once.
 		explicit SQliteProvider(std::string const& connectionString, int busyTimeoutMilliseconds = 5000)

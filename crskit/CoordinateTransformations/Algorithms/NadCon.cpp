@@ -14,7 +14,7 @@ namespace CrsKit::CoordinateTransformations::Algorithms
 	{
 		std::string const realFilePath = GetDefaultContext()->dataDirectory + path;
 
-		std::ifstream is(std::filesystem::path(realFilePath), std::ios::binary);
+		std::ifstream is(CreatePathFromUtf8(realFilePath), std::ios::binary);
 		if (!is.is_open())
 			throw CrsKit::GridFileNotFoundException{ path, realFilePath };
 

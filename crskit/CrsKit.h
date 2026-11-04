@@ -159,6 +159,7 @@ namespace CrsKit
 	// The EPSG Geodetic Parameter Dataset version of the active database (e.g. "12.057"), "" if unknown.
 	_modeCrsKit std::string GetEpsgVersion();
 
+	// CrsContext::dataDirectory and gridFileName are encoded in UTF-8.
 	// True when a regular file exists in CrsContext::dataDirectory of the default context with the name gridFileName, as
 	// in CoordinateOperation::GridFiles, or, if gridFileName ends in ".gz", with the name without ".gz", which the reader
 	// of the Earth Gravitational Model 2008 (EGM2008) opens. Does not check the format of the file and does not

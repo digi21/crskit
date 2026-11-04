@@ -59,8 +59,8 @@ namespace CrsKit
 		WktVersion wktVersion{ WktVersion::Wkt1 };
 		// How CreateFromWkt resolves a WKT carrying an EPSG AUTHORITY/ID or a known ESRI name (see enum).
 		WktParsePolicy parsePolicy{ WktParsePolicy::TextWins };
-		// Search path prepended to grid file names (NadCon/NTv2/EGM) and ESRI data files. Read deep in the
-		// grid loaders, so it stays ambient rather than threaded through every transform constructor.
+		// Directory path encoded in UTF-8 and ending in a path separator. Grid loaders (NadCon/NTv2/EGM) and ESRI
+		// data readers prepend this directory path to file names.
 		std::string dataDirectory{};
 		// Emit a horizontal-only WKT for a compound CRS whose vertical component is local/unknown.
 		bool createHorizontalWktIfVerticalLocal{};

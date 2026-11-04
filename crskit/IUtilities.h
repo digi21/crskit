@@ -48,6 +48,10 @@ namespace CrsKit
 		virtual auto ExtractHorizontalVertical(std::shared_ptr<CoordinateSystems::CoordinateSystem> const& scr) const -> std::pair<std::shared_ptr<CoordinateSystems::CoordinateSystem>, std::shared_ptr<CoordinateSystems::CoordinateSystem>> = 0;
 		virtual auto ExtractHorizontalVertical(std::string const& wkt) const -> std::pair<std::string, std::string> = 0;
 		virtual auto ExtractUtmParametersFromWkt(std::string const& coordinateSystemWkt, double& semiMinorAxis, double& semiMajorAxis, double& latitudeOfNaturalOrigin, double& longitudeOfNaturalOrigin, double& scaleFactorAtNaturalOrigin, double& falseEasting, double& falseNorthing) const -> bool = 0;
+		// filePath is encoded in UTF-8. LoadPrjFileForFileOrThrow and LoadPrjFileForFileOrLocalSystem replace the
+		// extension of filePath with ".prj" and read the resulting file. CreatePrjFileForFileOrThrow replaces the
+		// extension of filePath with ".prj" and writes wkt to the resulting file. LoadPrjFileForFileOrThrow and
+		// CreatePrjFileForFileOrThrow include the UTF-8 .prj file path in their exception messages.
 		virtual auto LoadPrjFileForFileOrThrow(std::string const& filePath) const -> std::string = 0;
 		virtual auto LoadPrjFileForFileOrLocalSystem(std::string const& filePath) const -> std::string = 0;
 		virtual auto CreatePrjFileForFileOrThrow(std::string const& filePath, std::string const& wkt) const -> void = 0;

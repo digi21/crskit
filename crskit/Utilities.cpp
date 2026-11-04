@@ -327,22 +327,22 @@ namespace CrsKit
 
 	std::string Utilities::LoadPrjFileForFileOrThrow(std::string const& filePath) const
 	{
-		auto const prjFileName = std::filesystem::path(filePath).replace_extension(".prj").string();
+		auto const prjFilePath = CreatePathFromUtf8(filePath).replace_extension(".prj");
 
-		if (std::ifstream isPrj{std::filesystem::path(prjFileName)}; isPrj.is_open()) {
+		if (std::ifstream isPrj{prjFilePath}; isPrj.is_open()) {
 			std::string wkt;
 			std::getline(isPrj, wkt);
 			return wkt;
 		}
 
-		throw runtime_error(std::format("Unable to open the file: {}", prjFileName.c_str()).c_str());
+		throw runtime_error(std::format("Unable to open the file: {}", ConvertPathToUtf8String(prjFilePath)).c_str());
 	}
 
 	std::string Utilities::LoadPrjFileForFileOrLocalSystem(std::string const& filePath) const
 	{
-		auto const prjFileName = std::filesystem::path(filePath).replace_extension(".prj").string();
+		auto const prjFilePath = CreatePathFromUtf8(filePath).replace_extension(".prj");
 
-		if (std::ifstream isPrj{std::filesystem::path(prjFileName)}; isPrj.is_open()) {
+		if (std::ifstream isPrj{prjFilePath}; isPrj.is_open()) {
 			std::string wkt;
 			std::getline(isPrj, wkt);
 			return wkt;
@@ -353,13 +353,13 @@ namespace CrsKit
 
 	void Utilities::CreatePrjFileForFileOrThrow(std::string const& filePath, std::string const& wkt) const
 	{
-		std::filesystem::path prjFilePath = std::filesystem::path(filePath).replace_extension(".prj");
+		auto const prjFilePath = CreatePathFromUtf8(filePath).replace_extension(".prj");
 
 		// Create the .prj file
 		// If it cannot be created, we throw an exception
-		std::ofstream os{std::filesystem::path(prjFilePath)};
+		std::ofstream os{prjFilePath};
 		if (!os.is_open())
-			throw runtime_error(std::format("Unable to open the file: {}", prjFilePath.string()).c_str());
+			throw runtime_error(std::format("Unable to open the file: {}", ConvertPathToUtf8String(prjFilePath)).c_str());
 
 		os << wkt;
 		os.close();
